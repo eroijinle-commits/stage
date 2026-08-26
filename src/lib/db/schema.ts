@@ -1,19 +1,4 @@
 import { pgTable, serial, text, numeric, integer, boolean } from "drizzle-orm/pg-core";
-import { customType } from "drizzle-orm/pg-core";
-
-// Custom type for JSON stored as text in PostgreSQL
-const jsonText = <T = unknown>(name: string) =>
-    customType<{ data: T; driverData: string }>({
-        dataType() {
-            return "text";
-        },
-        toDriver(value: T): string {
-            return JSON.stringify(value);
-        },
-        fromDriver(value: string): T {
-            return JSON.parse(value) as T;
-        },
-    })(name);
 
 // ─── Bets ───
 
@@ -56,7 +41,7 @@ export const savedFilters = pgTable("saved_filters", {
     name: text("name").notNull(),
     sport: text("sport"),
     group: text("group"),
-    tournamentSlugs: jsonText<string[]>("tournament_slugs").notNull().default([]),
+    tournamentSlugs: text("tournament_slugs").notNull().default("[]"),
     dateFrom: integer("date_from"),
     dateTo: integer("date_to"),
     marketTemplate: text("market_template"),
@@ -88,6 +73,6 @@ export const settings = pgTable("settings", {
 
 export const appState = pgTable("app_state", {
     key: text("key").primaryKey(),
-    value: jsonText<unknown>("value").notNull(),
+    value: text("value").notNull(),
     updatedAt: integer("updated_at").notNull(),
 });
