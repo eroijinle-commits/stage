@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --color-background: #0a0d0f;
+  --color-foreground: #e8eaed;
+  --color-card: #111418;
+  --color-card-foreground: #e8eaed;
+  --color-card-hover: #161b22;
+  --color-primary: #10b981;
+  --color-primary-foreground: #022c22;
+  --color-secondary: #161b22;
+  --color-secondary-foreground: #9ca3af;
+  --color-muted: #1e2530;
+  --color-muted-foreground: #6b7280;
+  --color-accent: #10b981;
+  --color-accent-foreground: #022c22;
+  --color-border: #1e2530;
+  --color-ring: #10b981;
+  --color-brand-500: #10b981;
+  --color-brand-400: #34d399;
+  --color-brand-600: #059669;
+  --color-odds-up: #22c55e;
+  --color-odds-down: #ef4444;
+  --color-odds-stable: #3b82f6;
+  --color-bet-won: #22c55e;
+  --color-bet-lost: #ef4444;
+  --color-bet-pending: #f59e0b;
+  --color-bet-cancelled: #6b7280;
+  --color-bet-cashout: #8b5cf6;
+  --color-status-active: #3b82f6;
+  --color-status-suspended: #f59e0b;
+  --color-status-locked: #6b7280;
+  --radius: 0.375rem;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1e2530 transparent;
+}
+
+*::-webkit-scrollbar { width: 4px; height: 4px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: #1e2530; border-radius: 2px; }
+*::-webkit-scrollbar-thumb:hover { background: #374151; }
+
+body {
+  background-color: #0a0d0f;
+  color: #e8eaed;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

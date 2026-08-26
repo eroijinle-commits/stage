@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: stage
+    env: node
+    plan: free
+    buildCommand: pnpm install && pnpm build
+    startCommand: pnpm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        value: https://stage.phantom.name.ng
+      - key: NODE_ENV
+        value: production

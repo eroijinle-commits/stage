@@ -1,0 +1,103 @@
+/**
+ * Settings hook — bridges the Zustand settings store with the Neon DB repository.
+ * On mount, loads settings from DB and hydrates the store.
+ * On update, writes to both store and DB.
+ * @module hooks/useSettings
+ */
+
+import { useState, useEffect, useCallback } from "react";
+import { useSettingsStore } from "@/store/useSettingsStore";
+import { SettingsState } from "@/lib/contracts/state.contract";
+import { getSetting, setSetting } from "@/lib/db/repositories/settings.repository";
+
+const SETTINGS_KEYS: Array<keyof SettingsState> = [
+    "apiToken",
+    "currency",
+    "oddsFormat",
+    "defaultPresetId",
+    "notifications",
+    "theme",
+];
+
+function parseSettingValue<T>(value: string | null, fallback: T): T {
+    if (value === null) return fallback;
+    try {
+        return JSON.parse(value) as T;
+    } catch {
+        return value as unknown as T;
+    }
+}
+
+export function useSettings() {
+    const store = useSettingsStore();
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Hydrate Zustand store from DB on mount
+    const loadSettings = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            const raw: Record<string, unknown> = {};
+
+            for (const key of SETTINGS_KEYS) {
+                const value = await getSetting(key);
+                if (value !== null) {
+                    raw[key] = parseSettingValue(value, store[key as keyof typeof store]);
+                }
+            }
+
+            // Apply loaded values to Zustand store
+            if (raw.apiToken !== undefined) store.setApiToken(raw.apiToken as string | null);
+            if (raw.currency !== undefined) store.setCurrency(raw.currency as string);
+            if (raw.oddsFormat !== undefined) store.setOddsFormat(raw.oddsFormat as SettingsState["oddsFormat"]);
+            if (raw.defaultPresetId !== undefined) store.setDefaultPresetId(raw.defaultPresetId as number | null);
+            if (raw.notifications !== undefined) store.setNotifications(raw.notifications as Partial<typeof store.notifications>);
+            if (raw.theme !== undefined) store.setTheme(raw.theme as SettingsState["theme"]);
+        } catch {
+            // On error, keep Zustand defaults
+        } finally {
+            setIsLoading(false);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        loadSettings();
+    }, [loadSettings]);
+
+    const updateSettings = useCallback(
+        async (partial: Partial<SettingsState>) => {
+            // Update Zustand store immediately
+            if (partial.apiToken !== undefined) store.setApiToken(partial.apiToken);
+            if (partial.currency !== undefined) store.setCurrency(partial.currency);
+            if (partial.oddsFormat !== undefined) store.setOddsFormat(partial.oddsFormat);
+            if (partial.defaultPresetId !== undefined) store.setDefaultPresetId(partial.defaultPresetId);
+            if (partial.notifications !== undefined) store.setNotifications(partial.notifications);
+            if (partial.theme !== undefined) store.setTheme(partial.theme);
+
+            // Persist to DB (non-blocking, best-effort)
+            for (const [key, value] of Object.entries(partial)) {
+                try {
+                    await setSetting(key, JSON.stringify(value));
+                } catch {
+                    // Non-critical: settings save failure is silent
+                }
+            }
+        },
+        [store],
+    );
+
+    const settings: SettingsState = {
+        apiToken: store.apiToken,
+        currency: store.currency,
+        oddsFormat: store.oddsFormat,
+        defaultPresetId: store.defaultPresetId,
+        notifications: store.notifications,
+        theme: store.theme,
+    };
+
+    return {
+        settings,
+        updateSettings,
+        isLoading,
+    };
+}
