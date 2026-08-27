@@ -11,6 +11,6 @@ services:
       - key: TOKEN_ENCRYPTION_KEY
         sync: false
       - key: CORS_ORIGIN
-        value: https://stage.phantom.name.ng
+        value: https://stage.phantom.name.ng,https://stage-1zd2.onrender.com
       - key: NODE_ENV
         value: production

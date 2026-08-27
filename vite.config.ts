@@ -10,6 +10,10 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src'),
     },
   },
+  build: {
+    // Remove crossorigin attribute from asset tags to avoid CORS issues on same-origin deployments
+    modulePreload: { polyfill: false },
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,

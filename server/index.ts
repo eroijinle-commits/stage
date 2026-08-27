@@ -12,6 +12,12 @@ const PORT = process.env.PORT ?? 3001;
 const rawOrigin = process.env.CORS_ORIGIN || "http://localhost:5173";
 const allowedOrigins = rawOrigin.split(",").map((o: string) => o.trim());
 
+// In production, also allow the Render URL if CORS_ORIGIN is set
+const renderUrl = process.env.RENDER_EXTERNAL_URL;
+if (renderUrl && !allowedOrigins.includes(renderUrl)) {
+    allowedOrigins.push(renderUrl);
+}
+
 app.use(cors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
         if (!origin || allowedOrigins.includes(origin)) {
