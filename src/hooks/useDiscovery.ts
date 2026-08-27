@@ -100,11 +100,15 @@ function mapFixtureToDiscovery(
   betTypeLine: string | null,
 ): DiscoveryFixture {
   const data = fixture.data;
-  const isMatch = data.__typename === "SportFixtureDataMatch";
-  const competitors = isMatch
+  const isMatch = data?.__typename === "SportFixtureDataMatch";
+  const competitors = isMatch && "competitors" in data
     ? data.competitors.map((c) => ({ name: c.name, iconPath: c.iconPath }))
     : [];
-  const startTime = isMatch ? data.startTime : data.__typename === "SportFixtureDataOutright" ? data.startTime : "";
+  const startTime = isMatch && "startTime" in data
+    ? data.startTime
+    : data?.__typename === "SportFixtureDataOutright" && "startTime" in data
+      ? data.startTime
+      : "";
 
   const isLive = fixture.status === "in_progress" || fixture.status === "live";
   const eventStatus = fixture.eventStatus;
@@ -119,8 +123,8 @@ function mapFixtureToDiscovery(
     homeScore: eventStatus?.homeScore,
     awayScore: eventStatus?.awayScore,
     tournament: {
-      name: fixture.tournament.name,
-      category: { name: fixture.tournament.category.name },
+      name: fixture.tournament?.name ?? "Unknown",
+      category: { name: fixture.tournament?.category?.name ?? "Unknown" },
     },
     competitors,
     betTypeInfo: betType ? computeBetTypeInfo(fixture, betType, betTypeLine) : undefined,
@@ -378,7 +382,7 @@ export function useDiscovery() {
 
   // ─── Fixture detail loading ─────────────────────────────────────────────
 
-  const loadFixtureDetails = useCallback(async (fixtureSlug: string) => {
+  const loadFixtureDetails = useCallback(async (fixtureId: string) => {
     detailsAbortRef.current?.abort();
     const controller = new AbortController();
     detailsAbortRef.current = controller;
@@ -387,7 +391,7 @@ export function useDiscovery() {
     setDetailsError(null);
 
     try {
-      const data = await getFixtureDetailsQuery(fixtureSlug, ["main", "goals", "corners", "cards"]);
+      const data = await getFixtureDetailsQuery(fixtureId, ["main", "goals", "corners", "cards"]);
       if (!controller.signal.aborted) {
         setFixtureDetails(data);
       }

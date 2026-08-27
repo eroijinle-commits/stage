@@ -1,29 +1,60 @@
 /**
  * Typed GraphQL queries for the Stake.com API.
- * Each query includes full TypeScript interfaces for its response.
+ * Updated for the current Stake GraphQL schema (2025+).
  * @module lib/stake-api/queries
  */
 
 import { executeQuery } from "./client";
 import type {
-    StakeFixture,
-    StakeGroupWithMarkets,
-    StakeSportGroup,
+  StakeFixture,
+  StakeGroupWithMarkets,
+  StakeSportGroup,
 } from "@/lib/contracts/api.contract";
 import type { BetHistoryEntry } from "./types";
+
+// ─── Sport ID Cache ────────────────────────────────────────────────────────
+
+const sportIdCache = new Map<string, string>();
+
+/**
+ * Fetch the list of sports and cache slug → id mappings.
+ */
+async function ensureSportIdCache(): Promise<void> {
+  if (sportIdCache.size > 0) return;
+
+  const query = `
+    query SportList {
+      sportList {
+        id
+        name
+        slug
+      }
+    }
+  `;
+
+  const data = await executeQuery<{ sportList: Array<{ id: string; name: string; slug: string }> }>({
+    query,
+    operationName: "SportList",
+    operationType: "query",
+  });
+
+  for (const sport of data.sportList) {
+    sportIdCache.set(sport.slug, sport.id);
+  }
+}
 
 // ─── a) getBalance ──────────────────────────────────────────────────────────
 
 export interface BalanceData {
-    currency: string;
-    amount: number;
+  currency: string;
+  amount: number;
 }
 
 /**
  * Fetch user balances by currency.
  */
 export async function getBalanceQuery(available = true, vault = false): Promise<BalanceData[]> {
-    const query = `
+  const query = `
     query StakeBalances($available: Boolean, $vault: Boolean) {
       user {
         balances(available: $available, vault: $vault) {
@@ -36,103 +67,88 @@ export async function getBalanceQuery(available = true, vault = false): Promise<
     }
   `;
 
-    const data = await executeQuery<{
-        user: {
-            balances: Array<{
-                currency: string;
-                available: string;
-                vault: string;
-                activeBonus: string;
-            }>;
-        };
-    }>({
-        query,
-        variables: { available, vault },
-        operationName: "StakeBalances",
-        operationType: "query",
-    });
+  const data = await executeQuery<{
+    user: {
+      balances: Array<{
+        currency: string;
+        available: string;
+        vault: string;
+        activeBonus: string;
+      }>;
+    };
+  }>({
+    query,
+    variables: { available, vault },
+    operationName: "StakeBalances",
+    operationType: "query",
+  });
 
-    return data.user.balances.map((b) => ({
-        currency: b.currency,
-        amount: parseFloat(b.available) || 0,
-    }));
+  return data.user.balances.map((b) => ({
+    currency: b.currency,
+    amount: parseFloat(b.available) || 0,
+  }));
 }
 
 // ─── b) getSportIndex ───────────────────────────────────────────────────────
 
 export interface SportIndexData {
-    sport: {
+  sport: {
+    id: string;
+    name: string;
+    slug: string;
+    categories: Array<{
+      id: string;
+      name: string;
+      slug: string;
+      sport: { id: string; name: string; slug: string };
+      tournaments: Array<{
         id: string;
         name: string;
         slug: string;
-        categories: Array<{
-            id: string;
-            name: string;
-            slug: string;
-            sport: { id: string; name: string; slug: string };
-            tournaments: Array<{
-                id: string;
-                name: string;
-                slug: string;
-                category: { id: string; name: string; slug: string; sport: { id: string; name: string; slug: string } };
-                fixtures: StakeFixture[];
-            }>;
-        }>;
-    };
+        category: { id: string; name: string; slug: string; sport: { id: string; name: string; slug: string } };
+        fixtures: StakeFixture[];
+      }>;
+    }>;
+  };
 }
 
 /**
  * Fetch the sport index — the primary discovery query.
- * Returns tournaments, fixtures, categories, and market previews.
+ * Uses the current Stake API: sport(sportId) → categoryList → tournamentList → fixtureList
  */
 export async function getSportIndex(
-    sport: string,
-    group: string,
-    type = "popular",
-    marketLimit = 1,
+  sport: string,
+  _group: string,
+  _type = "popular",
+  _marketLimit = 1,
 ): Promise<SportIndexData> {
-    const query = `
-    query SportIndex($sport: String!, $group: String!, $type: String!, $marketLimit: Int!) {
-      sportIndex(sport: $sport, group: $group, type: $type, marketLimit: $marketLimit) {
+  await ensureSportIdCache();
+
+  const sportId = sportIdCache.get(sport);
+  if (!sportId) {
+    throw new Error(`Unknown sport slug: ${sport}`);
+  }
+
+  const query = `
+    query SportDiscovery($sportId: String!) {
+      sport(sportId: $sportId) {
         id
         name
         slug
-        categories {
+        categoryList {
           id
           name
           slug
-          sport {
+          tournamentList {
             id
             name
             slug
-          }
-          tournaments {
-            id
-            name
-            slug
-            category {
-              id
-              name
-              slug
-              sport {
-                id
-                name
-                slug
-              }
-            }
-            fixtures {
+            fixtureList {
               id
               name
               slug
               status
-              provider
-              stakeFixtureId
-              extId
               marketCount
-              liveWidgetUrl
-              widgetUrl
-              streamExists
-              customBetAvailable
               data {
                 ... on SportFixtureDataMatch {
                   __typename
@@ -161,6 +177,199 @@ export async function getSportIndex(
                   isOutright
                 }
               }
+              eventStatus {
+                ... on SportFixtureEventStatusData {
+                  matchStatus
+                  homeScore
+                  awayScore
+                  homeGameScore
+                  awayGameScore
+                  clock {
+                    matchTime
+                    remainingTime
+                    stopped
+                  }
+                  periodScores {
+                    homeScore
+                    awayScore
+                    matchStatus
+                  }
+                  statistic {
+                    corners { home away }
+                    yellowCards { home away }
+                    redCards { home away }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const data = await executeQuery<{
+    sport: {
+      id: string;
+      name: string;
+      slug: string;
+      categoryList: Array<{
+        id: string;
+        name: string;
+        slug: string;
+        tournamentList: Array<{
+          id: string;
+          name: string;
+          slug: string;
+          fixtureList: StakeFixture[];
+        }>;
+      }>;
+    };
+  }>({
+    query,
+    variables: { sportId },
+    operationName: "SportDiscovery",
+    operationType: "query",
+  });
+
+  // Transform to match the expected SportIndexData structure
+  const sportRef = { id: data.sport.id, name: data.sport.name, slug: data.sport.slug };
+
+  const categories = data.sport.categoryList.map((cat) => ({
+    id: cat.id,
+    name: cat.name,
+    slug: cat.slug,
+    sport: sportRef,
+    tournaments: cat.tournamentList.map((t) => ({
+      id: t.id,
+      name: t.name,
+      slug: t.slug,
+      category: { id: cat.id, name: cat.name, slug: cat.slug, sport: sportRef },
+      fixtures: t.fixtureList,
+    })),
+  }));
+
+  return { sport: { ...sportRef, categories } };
+}
+
+// ─── c) getFixtureDetails ───────────────────────────────────────────────────
+
+export interface FixtureDetailsData {
+  fixture: StakeFixture;
+  marketGroups: StakeGroupWithMarkets[];
+}
+
+/**
+ * Fetch full fixture details with markets and outcomes.
+ * Uses the sport(sportId) → categoryList → tournamentList → fixtureList → markets query.
+ * Requires authentication.
+ */
+export async function getFixtureDetailsQuery(
+  fixtureId: string,
+  _groups: string[],
+): Promise<FixtureDetailsData> {
+  // We need to find the fixture by ID across all sports
+  // First, get the sport list to find which sport this fixture belongs to
+  await ensureSportIdCache();
+
+  // Try each sport until we find the fixture
+  for (const [slug, sportId] of sportIdCache) {
+    try {
+      const result = await queryFixtureFromSport(sportId, fixtureId);
+      if (result) return result;
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error(`Fixture not found: ${fixtureId}`);
+}
+
+async function queryFixtureFromSport(
+  sportId: string,
+  fixtureId: string,
+): Promise<FixtureDetailsData | null> {
+  const query = `
+    query FixtureDetails($sportId: String!) {
+      sport(sportId: $sportId) {
+        categoryList {
+          tournamentList {
+            fixtureList {
+              id
+              name
+              slug
+              status
+              marketCount
+              data {
+                ... on SportFixtureDataMatch {
+                  __typename
+                  startTime
+                  isOutright
+                  competitors {
+                    name
+                    defaultName
+                    extId
+                    countryCode
+                    abbreviation
+                    iconPath
+                    country
+                  }
+                  teams {
+                    extId
+                    name
+                    qualifier
+                  }
+                }
+                ... on SportFixtureDataOutright {
+                  __typename
+                  name
+                  startTime
+                  endTime
+                  isOutright
+                }
+              }
+              eventStatus {
+                ... on SportFixtureEventStatusData {
+                  matchStatus
+                  homeScore
+                  awayScore
+                  homeGameScore
+                  awayGameScore
+                  clock {
+                    matchTime
+                    remainingTime
+                    stopped
+                  }
+                  periodScores {
+                    homeScore
+                    awayScore
+                    matchStatus
+                  }
+                  statistic {
+                    corners { home away }
+                    yellowCards { home away }
+                    redCards { home away }
+                  }
+                }
+              }
+              markets {
+                id
+                name
+                status
+                extId
+                specifiers
+                customBetAvailable
+                provider
+                templateExtId
+                outcomes {
+                  id
+                  active
+                  odds
+                  name
+                  customBetAvailable
+                  extId
+                }
+              }
               tournament {
                 id
                 name
@@ -169,16 +378,11 @@ export async function getSportIndex(
                   id
                   name
                   slug
-                }
-              }
-              eventStatus {
-                matchStatus
-                homeScore
-                awayScore
-                clock {
-                  matchTime
-                  remainingTime
-                  stopped
+                  sport {
+                    id
+                    name
+                    slug
+                  }
                 }
               }
             }
@@ -188,267 +392,85 @@ export async function getSportIndex(
     }
   `;
 
-    const data = await executeQuery<{ sportIndex: SportIndexData["sport"] }>({
-        query,
-        variables: { sport, group, type, marketLimit },
-        operationName: "SportIndex",
-        operationType: "query",
-    });
+  const data = await executeQuery<{
+    sport: {
+      categoryList: Array<{
+        tournamentList: Array<{
+          fixtureList: Array<StakeFixture & { markets: any[]; tournament: any }>;
+        }>;
+      }>;
+    };
+  }>({
+    query,
+    variables: { sportId },
+    operationName: "FixtureDetails",
+    operationType: "query",
+  });
 
-    return { sport: data.sportIndex };
-}
+  // Find the fixture with matching ID
+  for (const cat of data.sport.categoryList) {
+    for (const t of cat.tournamentList) {
+      for (const f of t.fixtureList) {
+        if (f.id === fixtureId) {
+          // Transform markets into marketGroups structure
+          const marketGroups: StakeGroupWithMarkets[] = [{
+            name: "Main",
+            translation: "Main Markets",
+            rank: 0,
+            templates: [{
+              id: "main",
+              extId: "main",
+              rank: 0,
+              name: "Main",
+              markets: f.markets || [],
+            }],
+          }];
 
-// ─── c) getFixtureDetails ───────────────────────────────────────────────────
-
-export interface FixtureDetailsData {
-    fixture: StakeFixture;
-    marketGroups: StakeGroupWithMarkets[];
-}
-
-/**
- * Fetch full fixture details with all market groups, templates, markets, and outcomes.
- */
-export async function getFixtureDetailsQuery(
-    fixtureSlug: string,
-    groups: string[],
-): Promise<FixtureDetailsData> {
-    const query = `
-    query FixturePage_SlugFixture($slug: String!, $groups: [String!]!) {
-      fixturePage(slug: $slug) {
-        fixture {
-          id
-          name
-          slug
-          status
-          provider
-          stakeFixtureId
-          extId
-          marketCount
-          liveWidgetUrl
-          widgetUrl
-          streamExists
-          customBetAvailable
-          data {
-            ... on SportFixtureDataMatch {
-              __typename
-              startTime
-              isOutright
-              competitors {
-                name
-                defaultName
-                extId
-                countryCode
-                abbreviation
-                iconPath
-                country
-              }
-              teams {
-                extId
-                name
-                qualifier
-              }
-            }
-            ... on SportFixtureDataOutright {
-              __typename
-              name
-              startTime
-              endTime
-              isOutright
-            }
-          }
-          tournament {
-            id
-            name
-            slug
-            category {
-              id
-              name
-              slug
-              sport {
-                id
-                name
-                slug
-              }
-            }
-          }
-          eventStatus {
-            matchStatus
-            homeScore
-            awayScore
-            homeGameScore
-            awayGameScore
-            clock {
-              matchTime
-              remainingTime
-              stopped
-            }
-            periodScores {
-              homeScore
-              awayScore
-              matchStatus
-            }
-            statistic {
-              corners { home away }
-              yellowCards { home away }
-              redCards { home away }
-            }
-          }
-        }
-        marketGroups(groups: $groups) {
-          name
-          translation
-          rank
-          templates {
-            id
-            extId
-            rank
-            name
-            markets {
-              id
-              name
-              status
-              extId
-              specifiers
-              customBetAvailable
-              provider
-              templateExtId
-              outcomes {
-                id
-                active
-                odds
-                name
-                customBetAvailable
-                extId
-              }
-            }
-          }
+          return {
+            fixture: f,
+            marketGroups,
+          };
         }
       }
     }
-  `;
+  }
 
-    const data = await executeQuery<{ fixturePage: FixtureDetailsData }>({
-        query,
-        variables: { slug: fixtureSlug, groups },
-        operationName: "FixturePage_SlugFixture",
-        operationType: "query",
-    });
-
-    return data.fixturePage;
+  return null;
 }
 
-// ─── d) getFixtureGroups ────────────────────────────────────────────────────
-
-export interface FixtureGroupsData {
-    groups: StakeSportGroup[];
-}
-
-/**
- * Fetch available market groups for a fixture.
- */
-export async function getFixtureGroupsQuery(fixtureSlug: string): Promise<FixtureGroupsData> {
-    const query = `
-    query FixtureIndexGroups($slug: String!) {
-      fixtureIndex(slug: $slug) {
-        groups {
-          name
-          translation
-          rank
-        }
-      }
-    }
-  `;
-
-    const data = await executeQuery<{ fixtureIndex: { groups: StakeSportGroup[] } }>({
-        query,
-        variables: { slug: fixtureSlug },
-        operationName: "FixtureIndexGroups",
-        operationType: "query",
-    });
-
-    return { groups: data.fixtureIndex.groups };
-}
-
-// ─── e) getBetHistory ───────────────────────────────────────────────────────
+// ─── d) getBetHistory ───────────────────────────────────────────────────────
 
 export interface BetHistoryData {
-    bets: BetHistoryEntry[];
-    totalCount: number;
+  bets: BetHistoryEntry[];
+  totalCount: number;
 }
 
 /**
- * Fetch paginated bet history with full details.
+ * Fetch paginated bet history.
+ * NOTE: The Stake GraphQL API no longer exposes a public bet history query.
+ * This returns empty data until a valid endpoint is discovered.
  */
 export async function getBetHistoryQuery(
-    limit: number,
-    offset: number,
-    status?: string[],
+  _limit: number,
+  _offset: number,
+  _status?: string[],
 ): Promise<BetHistoryData> {
-    const query = `
-    query SportSportList($limit: Int!, $offset: Int!, $status: [String!]) {
-      sportList(limit: $limit, offset: $offset, status: $status) {
-        bets {
-          id
-          amount
-          currency
-          status
-          betType
-          payoutMultiplier
-          potentialMultiplier
-          totalOdds
-          stakePerLeg
-          createdAt
-          settledAt
-          outcomes {
-            id
-            name
-            odds
-            market { name }
-            fixture { name slug }
-            result
-            status
-          }
-        }
-        totalCount
-      }
-    }
-  `;
-
-    const data = await executeQuery<{ sportList: BetHistoryData }>({
-        query,
-        variables: { limit, offset, status: status ?? [] },
-        operationName: "SportSportList",
-        operationType: "query",
-    });
-
-    return data.sportList;
+  // Bet history is not available via the current public Stake GraphQL API
+  return { bets: [], totalCount: 0 };
 }
 
-// ─── f) getActiveBetCount ───────────────────────────────────────────────────
+// ─── e) getActiveBetCount ───────────────────────────────────────────────────
 
 export interface ActiveBetCountData {
-    count: number;
-    byType: Record<string, number>;
+  count: number;
+  byType: Record<string, number>;
 }
 
 /**
  * Fetch counts of active bets by type.
+ * NOTE: The Stake GraphQL API no longer exposes a public activeBets query.
+ * This returns zero counts until a valid endpoint is discovered.
  */
 export async function getActiveBetCountQuery(): Promise<ActiveBetCountData> {
-    const query = `
-    query ActiveBetCount_User {
-      activeBets {
-        count
-        byType
-      }
-    }
-  `;
-
-    const data = await executeQuery<{ activeBets: ActiveBetCountData }>({
-        query,
-        operationName: "ActiveBetCount_User",
-        operationType: "query",
-    });
-
-    return data.activeBets;
+  return { count: 0, byType: {} };
 }

@@ -49,15 +49,15 @@ export default function MarketBrowser({ open, onClose, fixture }: MarketBrowserP
     }, []);
 
     useEffect(() => {
-        if (open && fixture?.slug) {
-            fetchDetails(fixture.slug);
+        if (open && fixture?.id) {
+            fetchDetails(fixture.id);
         }
         return () => {
             setDetails(null);
             setError(null);
             setExpandedGroups(new Set());
         };
-    }, [open, fixture?.slug, fetchDetails]);
+    }, [open, fixture?.id, fetchDetails]);
 
     // Keyboard: Escape to close
     useEffect(() => {

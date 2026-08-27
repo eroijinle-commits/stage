@@ -1,5 +1,6 @@
 /**
  * Typed GraphQL mutations for the Stake.com API.
+ * Updated for the current Stake GraphQL schema (2025+).
  * @module lib/stake-api/mutations
  */
 
@@ -7,32 +8,36 @@ import { executeQuery } from "./client";
 import type { PlaceBetParams, PlaceResult } from "./types";
 
 /**
- * Place a bet (single or multi-leg parlay).
+ * Place a sports bet (single or multi-leg parlay).
+ * Uses the sportBet mutation with the current Stake API.
  *
  * @param params.outcomeIds - Array of outcome IDs to bet on
- * @param params.amounts - Stake amount per outcome
+ * @param params.amounts - Stake amount per outcome (first amount used as total)
  * @param params.currency - Currency code (e.g. "NGN")
- * @param params.odds - Odds per outcome
+ * @param params.odds - Odds per outcome (used for odds change detection)
  * @param params.betType - "sports" for single bets, "multi" for parlay
  * @returns The placed bet details
  */
 export async function placeBetMutation(params: PlaceBetParams): Promise<PlaceResult> {
-    const { outcomeIds, amounts, currency, odds, betType } = params;
+  const { outcomeIds, amounts, currency, odds: _odds, betType } = params;
 
-    const query = `
-    mutation BetSlipFooter_SportBet(
+  // sportBet uses a single amount (total stake) and lowercase enum values
+  const totalAmount = amounts.reduce((sum, a) => sum + a, 0);
+
+  const query = `
+    mutation SportBetSlip(
       $outcomeIds: [String!]!,
-      $amounts: [Float!]!,
-      $currency: String!,
-      $odds: [Float!]!,
-      $betType: String!
+      $amount: Float!,
+      $currency: CurrencyEnum!,
+      $betType: SportBetTypeEnum!,
+      $oddsChange: SportOddsChangeEnum!
     ) {
-      placeBet(
+      sportBet(
         outcomeIds: $outcomeIds,
-        amounts: $amounts,
+        amount: $amount,
         currency: $currency,
-        odds: $odds,
-        betType: $betType
+        betType: $betType,
+        oddsChange: $oddsChange
       ) {
         id
         amount
@@ -52,12 +57,18 @@ export async function placeBetMutation(params: PlaceBetParams): Promise<PlaceRes
     }
   `;
 
-    const data = await executeQuery<{ placeBet: PlaceResult }>({
-        query,
-        variables: { outcomeIds, amounts, currency, odds, betType },
-        operationName: "BetSlipFooter_SportBet",
-        operationType: "mutation",
-    });
+  const data = await executeQuery<{ sportBet: PlaceResult }>({
+    query,
+    variables: {
+      outcomeIds,
+      amount: totalAmount,
+      currency: currency.toLowerCase(),
+      betType: betType === "multi" ? "multi" : "sports",
+      oddsChange: "higher",
+    },
+    operationName: "SportBetSlip",
+    operationType: "mutation",
+  });
 
-    return data.placeBet;
+  return data.sportBet;
 }
