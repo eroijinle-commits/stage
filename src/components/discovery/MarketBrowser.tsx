@@ -18,10 +18,9 @@ interface MarketBrowserProps {
     open: boolean;
     onClose: () => void;
     fixture: DiscoveryFixture | null;
-    sportSlug?: string;
 }
 
-export default function MarketBrowser({ open, onClose, fixture, sportSlug }: MarketBrowserProps) {
+export default function MarketBrowser({ open, onClose, fixture }: MarketBrowserProps) {
     const [details, setDetails] = useState<FixtureDetailsData | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -31,11 +30,12 @@ export default function MarketBrowser({ open, onClose, fixture, sportSlug }: Mar
     const slipIds = useMemo(() => new Set(selectionIds ? selectionIds.split(",") : []), [selectionIds]);
     const addToast = useUIStore((s) => s.addToast);
 
-    const fetchDetails = useCallback(async (id: string) => {
+    const fetchDetails = useCallback(async (slug: string) => {
         setIsLoading(true);
         setError(null);
         try {
-            const data = await getFixtureDetailsQuery(id, ["main", "goals", "corners", "cards"], sportSlug);
+            // No groups passed — auto-discovers all available groups from the API
+            const data = await getFixtureDetailsQuery(slug);
             setDetails(data);
             // Auto-expand first group
             if (data.marketGroups.length > 0) {
@@ -47,18 +47,18 @@ export default function MarketBrowser({ open, onClose, fixture, sportSlug }: Mar
         } finally {
             setIsLoading(false);
         }
-    }, [sportSlug]);
+    }, []);
 
     useEffect(() => {
-        if (open && fixture?.id) {
-            fetchDetails(fixture.id);
+        if (open && fixture?.slug) {
+            fetchDetails(fixture.slug);
         }
         return () => {
             setDetails(null);
             setError(null);
             setExpandedGroups(new Set());
         };
-    }, [open, fixture?.id, fetchDetails]);
+    }, [open, fixture?.slug, fetchDetails]);
 
     // Keyboard: Escape to close
     useEffect(() => {

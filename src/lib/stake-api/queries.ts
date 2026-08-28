@@ -8,6 +8,7 @@ import { executeQuery } from "./client";
 import type {
   StakeFixture,
   StakeGroupWithMarkets,
+  StakeMarket,
   StakeSportGroup,
 } from "@/lib/contracts/api.contract";
 import type { BetHistoryEntry } from "./types";
@@ -263,20 +264,62 @@ export async function getSportIndex(
 export interface FixtureDetailsData {
   fixture: StakeFixture;
   marketGroups: StakeGroupWithMarkets[];
+  /** All available group names for this fixture (from the API's `groups` field). */
+  groups?: Array<{ name: string; translation: string }>;
 }
 
 /**
- * Fetch a single fixture by ID with markets using a direct query.
- * Much faster than scanning the full sport tree.
+ * Fetch full fixture details with markets and outcomes.
+ * Uses the Stake slugFixture query: slugFixture(fixture: $slug) → groups → templates → markets.
+ *
+ * Auto-discovers the correct group names from the API instead of guessing:
+ * 1. First call with hint groups (or ["main"]) to get the full list of available group names
+ * 2. Second call with those actual group names to get complete market data
+ *
+ * @param fixtureSlug - The fixture slug (e.g. "46818357-bournemouth-everton")
+ * @param groups - Optional hint groups; if omitted or empty, uses ["main"] for discovery
  */
-async function getFixtureByIdDirect(fixtureId: string): Promise<FixtureDetailsData | null> {
+export async function getFixtureDetailsQuery(
+  fixtureSlug: string,
+  groups?: string[],
+): Promise<FixtureDetailsData> {
+  const hintGroups = groups && groups.length > 0 ? groups : ["main"];
+
+  // Phase 1: Discover available group names from the API itself.
+  // The query always returns `groups { name translation }` — all available groups —
+  // regardless of which groups we filter with.
+  const discovery = await queryFixtureBySlug(fixtureSlug, hintGroups);
+  const availableGroups: string[] = discovery.groups?.map((g: { name: string; translation: string }) => g.name) ?? [];
+
+  // If we discovered more groups than we asked for, re-fetch with all of them
+  // to get complete market data.
+  if (availableGroups.length > hintGroups.length) {
+    const full = await queryFixtureBySlug(fixtureSlug, availableGroups);
+    return full;
+  }
+
+  return discovery;
+}
+
+/**
+ * Query fixture details by slug using the Stake slugFixture GraphQL query.
+ * This is the same query the Stake.com website uses to load fixture market pages.
+ */
+async function queryFixtureBySlug(
+  fixtureSlug: string,
+  groups: string[],
+): Promise<FixtureDetailsData> {
   const query = `
-    query FixtureById($fixtureId: String!) {
-      fixture(fixtureId: $fixtureId) {
+    query FixturePage_SlugFixture($fixture: String!, $groups: [String!]!) {
+      slugFixture(fixture: $fixture) {
         id
         name
         slug
         status
+        customBetAvailable
+        liveWidgetUrl
+        widgetUrl
+        streamExists
         marketCount
         data {
           ... on SportFixtureDataMatch {
@@ -330,24 +373,6 @@ async function getFixtureByIdDirect(fixtureId: string): Promise<FixtureDetailsDa
             }
           }
         }
-        markets {
-          id
-          name
-          status
-          extId
-          specifiers
-          customBetAvailable
-          provider
-          templateExtId
-          outcomes {
-            id
-            active
-            odds
-            name
-            customBetAvailable
-            extId
-          }
-        }
         tournament {
           id
           name
@@ -363,231 +388,124 @@ async function getFixtureByIdDirect(fixtureId: string): Promise<FixtureDetailsDa
             }
           }
         }
-      }
-    }
-  `;
-
-  try {
-    const data = await executeQuery<{
-      fixture: StakeFixture & { markets: any[]; tournament: any };
-    }>({
-      query,
-      variables: { fixtureId },
-      operationName: "FixtureById",
-      operationType: "query",
-    });
-
-    if (!data.fixture) return null;
-
-    const f = data.fixture;
-    const marketGroups: StakeGroupWithMarkets[] = [{
-      name: "Main",
-      translation: "Main Markets",
-      rank: 0,
-      templates: [{
-        id: "main",
-        extId: "main",
-        rank: 0,
-        name: "Main",
-        markets: f.markets || [],
-      }],
-    }];
-
-    return { fixture: f, marketGroups };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Fetch full fixture details with markets and outcomes.
- * Tries direct query first, falls back to sport tree scan.
- */
-export async function getFixtureDetailsQuery(
-  fixtureId: string,
-  _groups: string[],
-  sportSlug?: string,
-): Promise<FixtureDetailsData> {
-  await ensureSportIdCache();
-
-  // Fast path: direct query by fixture ID
-  const direct = await getFixtureByIdDirect(fixtureId);
-  if (direct) return direct;
-
-  // If sport slug is known, query only that sport
-  if (sportSlug) {
-    const sportId = sportIdCache.get(sportSlug);
-    if (sportId) {
-      const result = await queryFixtureFromSport(sportId, fixtureId);
-      if (result) return result;
-    }
-  }
-
-  // Fallback: try each sport until we find the fixture
-  for (const [slug, sid] of sportIdCache) {
-    if (sportSlug && slug === sportSlug) continue;
-    try {
-      const result = await queryFixtureFromSport(sid, fixtureId);
-      if (result) return result;
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error(`Fixture not found: ${fixtureId}`);
-}
-
-async function queryFixtureFromSport(
-  sportId: string,
-  fixtureId: string,
-): Promise<FixtureDetailsData | null> {
-  const query = `
-    query FixtureDetails($sportId: String!) {
-      sport(sportId: $sportId) {
-        categoryList {
-          tournamentList {
-            fixtureList {
+        group: groups(groups: $groups) {
+          name
+          translation
+          rank
+          templates(includeEmpty: false) {
+            id
+            extId
+            rank
+            name
+            markets {
               id
               name
-              slug
               status
-              marketCount
-              data {
-                ... on SportFixtureDataMatch {
-                  __typename
-                  startTime
-                  isOutright
-                  competitors {
-                    name
-                    defaultName
-                    extId
-                    countryCode
-                    abbreviation
-                    iconPath
-                    country
-                  }
-                  teams {
-                    extId
-                    name
-                    qualifier
-                  }
-                }
-                ... on SportFixtureDataOutright {
-                  __typename
-                  name
-                  startTime
-                  endTime
-                  isOutright
-                }
-              }
-              eventStatus {
-                ... on SportFixtureEventStatusData {
-                  matchStatus
-                  homeScore
-                  awayScore
-                  homeGameScore
-                  awayGameScore
-                  clock {
-                    matchTime
-                    remainingTime
-                    stopped
-                  }
-                  periodScores {
-                    homeScore
-                    awayScore
-                    matchStatus
-                  }
-                  statistic {
-                    corners { home away }
-                    yellowCards { home away }
-                    redCards { home away }
-                  }
-                }
-              }
-              markets {
+              extId
+              specifiers
+              customBetAvailable
+              provider
+              templateExtId
+              outcomes {
                 id
+                active
+                odds
                 name
-                status
-                extId
-                specifiers
                 customBetAvailable
-                provider
-                templateExtId
-                outcomes {
-                  id
-                  active
-                  odds
-                  name
-                  customBetAvailable
-                  extId
-                }
-              }
-              tournament {
-                id
-                name
-                slug
-                category {
-                  id
-                  name
-                  slug
-                  sport {
-                    id
-                    name
-                    slug
-                  }
-                }
+                extId
               }
             }
           }
+        }
+        groups {
+          name
+          translation
         }
       }
     }
   `;
 
   const data = await executeQuery<{
-    sport: {
-      categoryList: Array<{
-        tournamentList: Array<{
-          fixtureList: Array<StakeFixture & { markets: any[]; tournament: any }>;
+    slugFixture: StakeFixture & {
+      group: Array<{
+        name: string;
+        translation: string;
+        rank: number;
+        templates: Array<{
+          id: string;
+          extId: string;
+          rank: number;
+          name: string;
+          markets: Array<{
+            id: string;
+            name: string;
+            status: string;
+            extId: string;
+            specifiers?: string;
+            customBetAvailable?: boolean;
+            provider: string;
+            templateExtId?: string;
+            outcomes: Array<{
+              id: string;
+              active: boolean;
+              odds: number;
+              name: string;
+              customBetAvailable?: boolean;
+              extId?: string;
+            }>;
+          }>;
         }>;
       }>;
+      groups: Array<{ name: string; translation: string }>;
     };
   }>({
     query,
-    variables: { sportId },
-    operationName: "FixtureDetails",
+    variables: { fixture: fixtureSlug, groups },
+    operationName: "FixturePage_SlugFixture",
     operationType: "query",
   });
 
-  // Find the fixture with matching ID
-  for (const cat of data.sport.categoryList) {
-    for (const t of cat.tournamentList) {
-      for (const f of t.fixtureList) {
-        if (f.id === fixtureId) {
-          // Transform markets into marketGroups structure
-          const marketGroups: StakeGroupWithMarkets[] = [{
-            name: "Main",
-            translation: "Main Markets",
-            rank: 0,
-            templates: [{
-              id: "main",
-              extId: "main",
-              rank: 0,
-              name: "Main",
-              markets: f.markets || [],
-            }],
-          }];
-
-          return {
-            fixture: f,
-            marketGroups,
-          };
-        }
-      }
-    }
+  const fixture = data.slugFixture;
+  if (!fixture) {
+    throw new Error(`Fixture not found: ${fixtureSlug}`);
   }
 
-  return null;
+  // Transform the group → templates → markets structure into StakeGroupWithMarkets[]
+  const marketGroups: StakeGroupWithMarkets[] = (fixture.group || []).map((g) => ({
+    name: g.name,
+    translation: g.translation,
+    rank: g.rank,
+    templates: (g.templates || []).map((t) => ({
+      id: t.id,
+      extId: t.extId,
+      rank: t.rank,
+      name: t.name,
+      markets: (t.markets || []).map((m): StakeMarket => ({
+        id: m.id,
+        name: m.name,
+        status: m.status as StakeMarket["status"],
+        extId: m.extId,
+        specifiers: m.specifiers,
+        customBetAvailable: m.customBetAvailable,
+        provider: m.provider,
+        templateExtId: m.templateExtId,
+        outcomes: (m.outcomes || []).map((o) => ({
+          __typename: "SportMarketOutcome" as const,
+          id: o.id,
+          active: o.active,
+          odds: o.odds,
+          name: o.name,
+          customBetAvailable: o.customBetAvailable,
+          extId: o.extId,
+        })),
+      })),
+    })),
+  }));
+
+  // fixture.groups contains ALL available group names for this fixture
+  const availableGroups = (fixture as StakeFixture & { groups?: Array<{ name: string; translation: string }> }).groups;
+
+  return { fixture, marketGroups, groups: availableGroups };
 }
 
 // ─── d) getBetHistory ───────────────────────────────────────────────────────
