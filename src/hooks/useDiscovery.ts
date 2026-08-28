@@ -12,7 +12,7 @@ import { getBetTypeById, getGroupForBetType, getLinesForBetType, getPopularBetTy
 import { getSportIndex, getFixtureDetailsQuery, type SportIndexData, type FixtureDetailsData } from "@/lib/stake-api/queries";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { classifyError, getUserFriendlyMessage } from "@/lib/stake-api/errors";
-import type { StakeFixture, StakeMarketOutcome } from "@/lib/contracts/api.contract";
+import type { StakeFixture, StakeMarket, StakeMarketOutcome } from "@/lib/contracts/api.contract";
 import { PAGE_SIZE } from "@/components/discovery/types";
 
 // ─── Default Filters ────────────────────────────────────────────────────────
@@ -98,6 +98,7 @@ function mapFixtureToDiscovery(
   fixture: StakeFixture,
   betType: string | null,
   betTypeLine: string | null,
+  cachedMarkets?: StakeMarket[],
 ): DiscoveryFixture {
   const data = fixture.data;
   const isMatch = data?.__typename === "SportFixtureDataMatch";
@@ -113,11 +114,17 @@ function mapFixtureToDiscovery(
   const isLive = fixture.status === "in_progress" || fixture.status === "live";
   const eventStatus = fixture.eventStatus;
 
+  // Use cached markets (from fixture details) or fixture's own markets if available
+  const markets = cachedMarkets ?? fixture.markets ?? [];
+
   // Build previewMarkets from actual API market data
-  const previewMarkets = (fixture.markets ?? []).slice(0, 6).map((m) => ({
+  const previewMarkets = markets.slice(0, 6).map((m) => ({
     name: m.name,
     outcomes: m.outcomes.map((o) => ({ name: o.name, odds: o.odds, active: o.active })),
   }));
+
+  // Build a fixture-like object with markets for bet type matching
+  const fixtureWithMarkets = { ...fixture, markets };
 
   return {
     id: fixture.id,
@@ -134,7 +141,7 @@ function mapFixtureToDiscovery(
     },
     competitors,
     previewMarkets,
-    betTypeInfo: betType ? computeBetTypeInfo(fixture, betType, betTypeLine) : undefined,
+    betTypeInfo: betType ? computeBetTypeInfo(fixtureWithMarkets, betType, betTypeLine) : undefined,
   };
 }
 
@@ -254,8 +261,11 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
   const [fixtureDetails, setFixtureDetails] = useState<FixtureDetailsData | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
+  // Cache of markets fetched via fixture details, keyed by fixture ID
+  const [marketsCache, setMarketsCache] = useState<Map<string, StakeMarket[]>>(new Map());
   const abortRef = useRef<AbortController | null>(null);
   const detailsAbortRef = useRef<AbortController | null>(null);
+  const detailFetchAbortRef = useRef<AbortController | null>(null);
   const apiToken = useSettingsStore((s) => s.apiToken);
 
   // Sync sport from parent (SideNav) when it changes
@@ -372,9 +382,9 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
 
   const fixtures = useMemo(() => {
     return rawFixtures.map((f) =>
-      mapFixtureToDiscovery(f, filters.betType, filters.betTypeLine),
+      mapFixtureToDiscovery(f, filters.betType, filters.betTypeLine, marketsCache.get(f.id)),
     );
-  }, [rawFixtures, filters.betType, filters.betTypeLine]);
+  }, [rawFixtures, filters.betType, filters.betTypeLine, marketsCache]);
 
   // ─── Client-side date + search + tournament filtering ───────────────────
 
@@ -424,6 +434,54 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
     const start = (safePage - 1) * PAGE_SIZE;
     return filteredFixtures.slice(start, start + PAGE_SIZE);
   }, [filteredFixtures, safePage]);
+
+  // ─── Background: fetch fixture details for visible page ────────────────
+  // The discovery query can't include markets (geo-restricted), so we fetch
+  // fixture details in the background to populate bet type data.
+  useEffect(() => {
+    if (rawFixtures.length === 0 || !apiToken) return;
+
+    // Get fixture IDs on the current page that we haven't fetched yet
+    const start = (safePage - 1) * PAGE_SIZE;
+    const visibleIds = filteredFixtures.slice(start, start + PAGE_SIZE)
+      .map((f) => f.id)
+      .filter((id) => !marketsCache.has(id));
+
+    if (visibleIds.length === 0) return;
+
+    detailFetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    detailFetchAbortRef.current = controller;
+
+    let cancelled = false;
+
+    (async () => {
+      // Fetch details sequentially to avoid rate limiting
+      for (const fixtureId of visibleIds) {
+        if (cancelled || controller.signal.aborted) break;
+        try {
+          const details = await getFixtureDetailsQuery(fixtureId, []);
+          if (cancelled || controller.signal.aborted) break;
+          // Extract markets from the details response
+          const markets = details.fixture?.markets ?? [];
+          if (markets.length > 0) {
+            setMarketsCache((prev) => {
+              const next = new Map(prev);
+              next.set(fixtureId, markets);
+              return next;
+            });
+          }
+        } catch {
+          // Silently skip — fixture details may fail for some fixtures
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [filteredFixtures, safePage, rawFixtures.length, apiToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Line odds preview (for BetTypeLineSelector) ────────────────────────
 

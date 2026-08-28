@@ -207,24 +207,6 @@ export async function getSportIndex(
                   }
                 }
               }
-              markets {
-                id
-                name
-                status
-                extId
-                specifiers
-                customBetAvailable
-                provider
-                templateExtId
-                outcomes {
-                  id
-                  active
-                  odds
-                  name
-                  customBetAvailable
-                  extId
-                }
-              }
             }
           }
         }

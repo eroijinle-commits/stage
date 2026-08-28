@@ -114,6 +114,18 @@ export async function executeQuery<T>(options: ExecuteQueryOptions): Promise<T> 
                 // Check for GraphQL errors
                 if (graphql.errors && graphql.errors.length > 0) {
                     const firstErr = graphql.errors[0];
+
+                    // Partial data: some sub-fields (e.g. markets) may be geo-restricted
+                    // but the rest of the query data is still valid — return it
+                    if (graphql.data) {
+                        console.warn(
+                            "[stake-api] Partial GraphQL error (returning available data):",
+                            firstErr.message,
+                            firstErr.path,
+                        );
+                        return graphql.data;
+                    }
+
                     lastError = new Error(firstErr.message);
                     // Don't retry on GraphQL errors — they're deterministic
                     break;
