@@ -29,29 +29,38 @@ export async function getBalance(available = true, vault = false): Promise<Balan
     query StakeBalances {
       user {
         balances {
-          currency
-          available
-          vault
-          activeBonus
+          available {
+            amount
+            currency
+          }
+          vault {
+            amount
+            currency
+          }
         }
       }
     }
   `;
 
-    const data = await executeQuery<{ user: { balances: BalanceResponse["balances"] } }>({
+    const data = await executeQuery<{
+        user: {
+            balances: Array<{
+                available: { amount: number; currency: string };
+                vault: { amount: number; currency: string };
+            }>;
+        };
+    }>({
         query,
         operationName: "StakeBalances",
         operationType: "query",
     });
 
-    let balances = data.user.balances;
-
-    if (available) {
-        balances = balances.map((b) => ({
-            ...b,
-            vault: vault ? b.vault : "0",
-        }));
-    }
+    const balances = data.user.balances.map((b) => ({
+        currency: b.available.currency,
+        available: String(b.available.amount),
+        vault: vault ? String(b.vault.amount) : "0",
+        activeBonus: "0",
+    }));
 
     return { balances };
 }

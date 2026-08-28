@@ -55,13 +55,17 @@ export interface BalanceData {
  */
 export async function getBalanceQuery(available = true, vault = false): Promise<BalanceData[]> {
   const query = `
-    query StakeBalances($available: Boolean, $vault: Boolean) {
+    query StakeBalances {
       user {
-        balances(available: $available, vault: $vault) {
-          currency
-          available
-          vault
-          activeBonus
+        balances {
+          available {
+            amount
+            currency
+          }
+          vault {
+            amount
+            currency
+          }
         }
       }
     }
@@ -70,23 +74,25 @@ export async function getBalanceQuery(available = true, vault = false): Promise<
   const data = await executeQuery<{
     user: {
       balances: Array<{
-        currency: string;
-        available: string;
-        vault: string;
-        activeBonus: string;
+        available: { amount: number; currency: string };
+        vault: { amount: number; currency: string };
       }>;
     };
   }>({
     query,
-    variables: { available, vault },
     operationName: "StakeBalances",
     operationType: "query",
   });
 
-  return data.user.balances.map((b) => ({
-    currency: b.currency,
-    amount: parseFloat(b.available) || 0,
-  }));
+  return data.user.balances
+    .filter((b) => {
+      if (available) return b.available.amount > 0;
+      return true;
+    })
+    .map((b) => ({
+      currency: b.available.currency,
+      amount: b.available.amount || 0,
+    }));
 }
 
 // ─── b) getSportIndex ───────────────────────────────────────────────────────

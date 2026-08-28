@@ -164,7 +164,7 @@ export async function testConnectionQuery(): Promise<boolean> {
                 "x-operation-type": "query",
             },
             body: JSON.stringify({
-                query: `query StakeBalances { user { balances { currency available vault } } }`,
+                query: `query StakeBalances { user { balances { available { amount currency } vault { amount currency } } } }`,
             }),
         });
 
