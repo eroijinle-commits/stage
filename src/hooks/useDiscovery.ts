@@ -340,6 +340,7 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
 
       setRawFixtures(allFixtures);
       setTournaments(allTournaments);
+      setMarketsCache(new Map()); // Clear market cache when sport/group changes
     } catch (err) {
       if (controller.signal.aborted) return;
       const errType = classifyError(err);
@@ -460,7 +461,7 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
       for (const fixtureId of visibleIds) {
         if (cancelled || controller.signal.aborted) break;
         try {
-          const details = await getFixtureDetailsQuery(fixtureId, []);
+          const details = await getFixtureDetailsQuery(fixtureId, [], filters.sport);
           if (cancelled || controller.signal.aborted) break;
           // Extract markets from the details response
           const markets = details.fixture?.markets ?? [];
@@ -481,7 +482,7 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
       cancelled = true;
       controller.abort();
     };
-  }, [filteredFixtures, safePage, rawFixtures.length, apiToken]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filteredFixtures, safePage, rawFixtures.length, apiToken, filters.sport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Line odds preview (for BetTypeLineSelector) ────────────────────────
 

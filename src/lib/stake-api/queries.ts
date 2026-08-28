@@ -273,15 +273,24 @@ export interface FixtureDetailsData {
 export async function getFixtureDetailsQuery(
   fixtureId: string,
   _groups: string[],
+  sportSlug?: string,
 ): Promise<FixtureDetailsData> {
-  // We need to find the fixture by ID across all sports
-  // First, get the sport list to find which sport this fixture belongs to
   await ensureSportIdCache();
 
-  // Try each sport until we find the fixture
-  for (const [slug, sportId] of sportIdCache) {
-    try {
+  // If sport slug is known, query only that sport (much faster)
+  if (sportSlug) {
+    const sportId = sportIdCache.get(sportSlug);
+    if (sportId) {
       const result = await queryFixtureFromSport(sportId, fixtureId);
+      if (result) return result;
+    }
+  }
+
+  // Fallback: try each sport until we find the fixture
+  for (const [slug, sid] of sportIdCache) {
+    if (sportSlug && slug === sportSlug) continue; // already tried above
+    try {
+      const result = await queryFixtureFromSport(sid, fixtureId);
       if (result) return result;
     } catch {
       continue;
