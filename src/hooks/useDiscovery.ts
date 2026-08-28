@@ -8,7 +8,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { DiscoveryFilters, DiscoveryFixture, BetTypeInfo } from "@/lib/contracts/ui.contract";
-import { getBetTypeById, getGroupForBetType, getLinesForBetType, getPopularBetTypes, BET_TYPES } from "@/lib/utils/bet-type-mapper";
+import { getBetTypeById, getGroupForBetType, getLinesForBetType, getPopularBetTypes, extractLine, BET_TYPES } from "@/lib/utils/bet-type-mapper";
 import { getSportIndex, getFixtureDetailsQuery, type SportIndexData, type FixtureDetailsData } from "@/lib/stake-api/queries";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { classifyError, getUserFriendlyMessage } from "@/lib/stake-api/errors";
@@ -113,6 +113,12 @@ function mapFixtureToDiscovery(
   const isLive = fixture.status === "in_progress" || fixture.status === "live";
   const eventStatus = fixture.eventStatus;
 
+  // Build previewMarkets from actual API market data
+  const previewMarkets = (fixture.markets ?? []).slice(0, 6).map((m) => ({
+    name: m.name,
+    outcomes: m.outcomes.map((o) => ({ name: o.name, odds: o.odds, active: o.active })),
+  }));
+
   return {
     id: fixture.id,
     name: fixture.name,
@@ -127,6 +133,7 @@ function mapFixtureToDiscovery(
       category: { name: fixture.tournament?.category?.name ?? "Unknown" },
     },
     competitors,
+    previewMarkets,
     betTypeInfo: betType ? computeBetTypeInfo(fixture, betType, betTypeLine) : undefined,
   };
 }
@@ -150,12 +157,42 @@ function computeBetTypeInfo(
   return { betTypeName: betType.name, line: betTypeLine, available: false };
 }
 
+/**
+ * Search through a fixture's markets for ones whose name matches any of the
+ * bet-type templates. For line-based bet types, also checks the line value
+ * extracted from the market name matches the requested line.
+ */
 function findMatchingOutcomes(
-  _fixture: StakeFixture,
-  _templates: string[],
-  _line: string | null,
+  fixture: StakeFixture,
+  templates: string[],
+  line: string | null,
 ): StakeMarketOutcome[] {
-  return [];
+  const markets = fixture.markets ?? [];
+  if (markets.length === 0) return [];
+
+  const matchingOutcomes: StakeMarketOutcome[] = [];
+
+  for (const market of markets) {
+    if (market.status !== "active") continue;
+
+    const marketName = market.name.toLowerCase();
+
+    // Check if any template matches this market name
+    const templateMatch = templates.some(
+      (t) => marketName.includes(t.toLowerCase()),
+    );
+    if (!templateMatch) continue;
+
+    // For line-based bet types, verify the line value matches
+    if (line) {
+      const marketLine = extractLine(market.name);
+      if (marketLine && marketLine !== line) continue;
+    }
+
+    matchingOutcomes.push(...market.outcomes);
+  }
+
+  return matchingOutcomes;
 }
 
 function buildBetTypeInfoFromOutcomes(
