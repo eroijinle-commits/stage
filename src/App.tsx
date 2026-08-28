@@ -18,7 +18,7 @@ const PAGES: Record<Page, React.ComponentType> = {
 
 export default function App() {
   const [activePage, setActivePage] = useState<Page>("discovery");
-  const [activeSport, setActiveSport] = useState("football");
+  const [activeSport, setActiveSport] = useState("soccer");
   const ActivePage = PAGES[activePage];
 
   return (

@@ -23,7 +23,18 @@ interface SearchFilterBarProps {
   tournaments: Array<{ name: string; slug: string; category: { name: string } }>;
 }
 
-const SPORT_OPTIONS = ["football", "basketball", "tennis", "cricket", "rugby"];
+const SPORT_OPTIONS = [
+  { slug: "soccer", label: "Soccer" },
+  { slug: "tennis", label: "Tennis" },
+  { slug: "cricket", label: "Cricket" },
+  { slug: "american-football", label: "American Football" },
+  { slug: "baseball", label: "Baseball" },
+  { slug: "politics-entertainment", label: "Specials" },
+  { slug: "formula-1", label: "Formula 1" },
+  { slug: "dota-2", label: "Dota 2" },
+  { slug: "counter-strike", label: "CS2" },
+  { slug: "league-of-legends", label: "League of Legends" },
+];
 
 export default function SearchFilterBar({ filters, onChange, activeBetType, lineOddsPreview, tournaments }: SearchFilterBarProps) {
   const { filters: savedFilters, createFilter, deleteFilter } = useSavedFilters();
@@ -140,9 +151,9 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
           <select
             value={filters.sport}
             onChange={(e) => onChange({ sport: e.target.value })}
-            className="bg-secondary border border-border rounded px-2.5 py-1.5 text-sm font-mono text-foreground focus:outline-none focus:border-ring capitalize"
+            className="bg-secondary border border-border rounded px-2.5 py-1.5 text-sm font-mono text-foreground focus:outline-none focus:border-ring"
           >
-            {SPORT_OPTIONS.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+            {SPORT_OPTIONS.map((s) => <option key={s.slug} value={s.slug}>{s.label}</option>)}
           </select>
         </div>
 
