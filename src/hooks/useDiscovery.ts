@@ -204,8 +204,11 @@ function buildBetTypeInfoFromOutcomes(
 
 // ─── Main Hook ──────────────────────────────────────────────────────────────
 
-export function useDiscovery() {
-  const [filters, setFiltersState] = useState<DiscoveryFilters>(DEFAULT_FILTERS);
+export function useDiscovery(initialSport?: string) {
+  const [filters, setFiltersState] = useState<DiscoveryFilters>({
+    ...DEFAULT_FILTERS,
+    ...(initialSport ? { sport: initialSport } : {}),
+  });
   const [rawFixtures, setRawFixtures] = useState<StakeFixture[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -217,6 +220,16 @@ export function useDiscovery() {
   const abortRef = useRef<AbortController | null>(null);
   const detailsAbortRef = useRef<AbortController | null>(null);
   const apiToken = useSettingsStore((s) => s.apiToken);
+
+  // Sync sport from parent (SideNav) when it changes
+  useEffect(() => {
+    if (initialSport) {
+      setFiltersState((prev) => {
+        if (prev.sport === initialSport) return prev;
+        return { ...prev, sport: initialSport };
+      });
+    }
+  }, [initialSport]);
 
   // ─── Fetch fixtures from API ────────────────────────────────────────────
 

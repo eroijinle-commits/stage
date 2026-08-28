@@ -29,7 +29,11 @@ export default function App() {
           <SideNav activeSport={activeSport} onSportChange={setActiveSport} />
         )}
         <main className="flex-1 overflow-hidden">
-          <ActivePage />
+          {activePage === "discovery" ? (
+            <DiscoveryPage activeSport={activeSport} />
+          ) : (
+            <ActivePage />
+          )}
         </main>
       </div>
       <BetSlipDrawer />
