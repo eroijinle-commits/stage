@@ -18,7 +18,13 @@ import { useSlipStore } from "@/store/useSlipStore";
 import { useUIStore } from "@/store/useUIStore";
 import { Radio, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 
-export default function DiscoveryPage({ activeSport }: { activeSport?: string }) {
+export default function DiscoveryPage({
+  activeSport,
+  selectedTournamentSlugs = [],
+}: {
+  activeSport?: string;
+  selectedTournamentSlugs?: string[];
+}) {
   const {
     filters,
     setFilters,
@@ -33,7 +39,7 @@ export default function DiscoveryPage({ activeSport }: { activeSport?: string })
     totalPages,
     setPage,
     refetch,
-  } = useDiscovery(activeSport);
+  } = useDiscovery(activeSport, selectedTournamentSlugs);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [marketBrowserOpen, setMarketBrowserOpen] = useState(false);

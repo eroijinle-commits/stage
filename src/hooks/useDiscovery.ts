@@ -204,7 +204,7 @@ function buildBetTypeInfoFromOutcomes(
 
 // ─── Main Hook ──────────────────────────────────────────────────────────────
 
-export function useDiscovery(initialSport?: string) {
+export function useDiscovery(initialSport?: string, externalTournamentSlugs?: string[]) {
   const [filters, setFiltersState] = useState<DiscoveryFilters>({
     ...DEFAULT_FILTERS,
     ...(initialSport ? { sport: initialSport } : {}),
@@ -230,6 +230,18 @@ export function useDiscovery(initialSport?: string) {
       });
     }
   }, [initialSport]);
+
+  // Sync tournament slugs from parent (SideNav) when they change
+  useEffect(() => {
+    if (externalTournamentSlugs) {
+      setFiltersState((prev) => {
+        const sorted = [...externalTournamentSlugs].sort().join(",");
+        const prevSorted = [...prev.tournamentSlugs].sort().join(",");
+        if (sorted === prevSorted) return prev;
+        return { ...prev, tournamentSlugs: externalTournamentSlugs };
+      });
+    }
+  }, [externalTournamentSlugs]);
 
   // ─── Fetch fixtures from API ────────────────────────────────────────────
 
