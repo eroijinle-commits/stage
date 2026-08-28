@@ -428,11 +428,16 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
       );
     }
 
+    // Bet type filter: only show fixtures that have the selected bet type available
+    if (filters.betType) {
+      list = list.filter((f) => f.betTypeInfo?.available === true);
+    }
+
     // Sort by startTime ascending
     list.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
     return list;
-  }, [fixtures, filters.dateFrom, filters.dateTo, filters.searchQuery, filters.tournamentSlugs]);
+  }, [fixtures, filters.dateFrom, filters.dateTo, filters.searchQuery, filters.tournamentSlugs, filters.betType]);
 
   // ─── Pagination ─────────────────────────────────────────────────────────
 
@@ -449,13 +454,12 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
   useEffect(() => {
     if (rawFixtures.length === 0 || !apiToken) return;
 
-    // Get fixture IDs on the current page that we haven't fetched yet
+    // Get fixtures on the current page that we haven't fetched yet
     const start = (safePage - 1) * PAGE_SIZE;
-    const visibleIds = filteredFixtures.slice(start, start + PAGE_SIZE)
-      .map((f) => f.id)
-      .filter((id) => !marketsCache.has(id));
+    const unfetched = filteredFixtures.slice(start, start + PAGE_SIZE)
+      .filter((f) => !marketsCache.has(f.id));
 
-    if (visibleIds.length === 0) return;
+    if (unfetched.length === 0) return;
 
     detailFetchAbortRef.current?.abort();
     const controller = new AbortController();
@@ -465,17 +469,20 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
 
     (async () => {
       // Fetch details sequentially to avoid rate limiting
-      for (const fixtureId of visibleIds) {
+      for (const fixture of unfetched) {
         if (cancelled || controller.signal.aborted) break;
         try {
-          const details = await getFixtureDetailsQuery(fixtureId, [], filters.sport);
+          // Auto-discovers all available groups from the API
+          const details = await getFixtureDetailsQuery(fixture.slug);
           if (cancelled || controller.signal.aborted) break;
-          // Extract markets from the details response
-          const markets = details.fixture?.markets ?? [];
+          // Extract markets from marketGroups → templates → markets
+          const markets = details.marketGroups.flatMap((g) =>
+            g.templates.flatMap((t) => t.markets),
+          );
           if (markets.length > 0) {
             setMarketsCache((prev) => {
               const next = new Map(prev);
-              next.set(fixtureId, markets);
+              next.set(fixture.id, markets);
               return next;
             });
           }
@@ -489,7 +496,7 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
       cancelled = true;
       controller.abort();
     };
-  }, [filteredFixtures, safePage, rawFixtures.length, apiToken, filters.sport]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filteredFixtures, safePage, rawFixtures.length, apiToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Line odds preview (for BetTypeLineSelector) ────────────────────────
 
@@ -519,7 +526,7 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
     setDetailsError(null);
 
     try {
-      const data = await getFixtureDetailsQuery(fixtureId, ["main", "goals", "corners", "cards"]);
+      const data = await getFixtureDetailsQuery(fixtureId);
       if (!controller.signal.aborted) {
         setFixtureDetails(data);
       }
