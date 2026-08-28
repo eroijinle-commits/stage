@@ -18,7 +18,7 @@ import { PAGE_SIZE } from "@/components/discovery/types";
 // ─── Default Filters ────────────────────────────────────────────────────────
 
 const DEFAULT_FILTERS: DiscoveryFilters = {
-  sport: "football",
+  sport: "soccer",
   betType: "corners-over-under",
   betTypeLine: "9.5",
   group: "corners",

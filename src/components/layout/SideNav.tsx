@@ -3,11 +3,11 @@ import { cn } from "@/lib/utils/cn";
 import { Trophy, Globe, Tv, Dumbbell, ChevronRight } from "lucide-react";
 
 const SPORTS = [
-  { id: "football", label: "Football", icon: Trophy, count: 124 },
-  { id: "basketball", label: "Basketball", icon: Globe, count: 48 },
-  { id: "tennis", label: "Tennis", icon: Tv, count: 32 },
-  { id: "cricket", label: "Cricket", icon: Dumbbell, count: 18 },
-  { id: "rugby", label: "Rugby", icon: Globe, count: 12 },
+  { id: "soccer", label: "Soccer", icon: Trophy },
+  { id: "tennis", label: "Tennis", icon: Tv },
+  { id: "cricket", label: "Cricket", icon: Dumbbell },
+  { id: "american-football", label: "American Football", icon: Globe },
+  { id: "baseball", label: "Baseball", icon: Globe },
 ];
 
 const TOURNAMENTS = [
@@ -44,7 +44,6 @@ export default function SideNav({ activeSport, onSportChange }: SideNavProps) {
                 <Icon size={12} />
                 <span>{s.label}</span>
               </div>
-              <span className="text-[10px] tabular-nums">{s.count}</span>
             </button>
           );
         })}

@@ -14,7 +14,6 @@ export {
     getBalanceQuery,
     getSportIndex,
     getFixtureDetailsQuery,
-    getFixtureGroupsQuery,
     getBetHistoryQuery,
     getActiveBetCountQuery,
 } from "./queries";
@@ -47,7 +46,6 @@ export {
 export type {
     SportIndexData,
     FixtureDetailsData,
-    FixtureGroupsData,
     BetHistoryData,
     ActiveBetCountData,
 } from "./queries";

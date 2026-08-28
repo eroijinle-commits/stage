@@ -108,7 +108,7 @@ app.get("/api/app-state/:key", async (req, res) => {
 
 app.put("/api/app-state/:key", async (req, res) => {
     const db = getServerDb();
-    const { value } = req.body as { value: unknown };
+    const { value } = req.body as { value: string };
     await db
         .insert(schema.appState)
         .values({ key: req.params.key, value, updatedAt: Math.floor(Date.now() / 1000) })
