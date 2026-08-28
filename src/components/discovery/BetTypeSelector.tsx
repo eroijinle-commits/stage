@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { BetTypeConfig } from "@/lib/contracts/ui.contract";
-import { BET_TYPES, getPopularBetTypes, getBetTypesByCategory, CATEGORY_ORDER, CATEGORY_LABELS } from "@/lib/utils/bet-type-mapper";
+import { BET_TYPES, getPopularBetTypes, getBetTypesByCategory, CATEGORY_ORDER, CATEGORY_LABELS, getBetTypesForSport } from "@/lib/utils/bet-type-mapper";
 import { cn } from "@/lib/utils/cn";
 import { ChevronDown, X, Flame, Trophy, Goal, Flag, Square, User, Target } from "lucide-react";
 
@@ -27,16 +27,18 @@ interface BetTypeSelectorProps {
   value: string | null;
   onChange: (id: string | null) => void;
   label?: string;
+  sport?: string;
 }
 
-export default function BetTypeSelector({ value, onChange, label = "Bet Type" }: BetTypeSelectorProps) {
+export default function BetTypeSelector({ value, onChange, label = "Bet Type", sport }: BetTypeSelectorProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const selected = value ? BET_TYPES.find((b) => b.id === value) : null;
-  const popular = getPopularBetTypes();
+  const allForSport = sport ? getBetTypesForSport(sport) : BET_TYPES;
+  const selected = value ? allForSport.find((b) => b.id === value) : null;
+  const popular = allForSport.filter((b) => b.popular);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
@@ -49,7 +51,7 @@ export default function BetTypeSelector({ value, onChange, label = "Bet Type" }:
   }, [open]);
 
   const filtered = search
-    ? BET_TYPES.filter((b) => b.name.toLowerCase().includes(search.toLowerCase()) || b.description.toLowerCase().includes(search.toLowerCase()))
+    ? allForSport.filter((b) => b.name.toLowerCase().includes(search.toLowerCase()) || b.description.toLowerCase().includes(search.toLowerCase()))
     : null;
 
   const handleSelect = (bt: BetTypeConfig | null) => {
@@ -123,8 +125,8 @@ export default function BetTypeSelector({ value, onChange, label = "Bet Type" }:
                   </div>
                   {popular.map((bt) => <BetTypeItem key={bt.id} bt={bt} selected={value === bt.id} onSelect={handleSelect} />)}
 
-                  {CATEGORY_ORDER.filter((cat) => getBetTypesByCategory(cat).some((b) => !b.popular)).map((cat) => {
-                    const items = getBetTypesByCategory(cat).filter((b) => !b.popular);
+                  {CATEGORY_ORDER.filter((cat) => allForSport.filter((b) => b.category === cat && !b.popular).length > 0).map((cat) => {
+                    const items = allForSport.filter((b) => b.category === cat && !b.popular);
                     if (!items.length) return null;
                     return (
                       <div key={cat}>

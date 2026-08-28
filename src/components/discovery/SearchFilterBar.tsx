@@ -160,6 +160,7 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
         <BetTypeSelector
           value={filters.betType}
           onChange={(id) => onChange({ betType: id })}
+          sport={filters.sport}
         />
 
         <div className="flex-1 min-w-[200px]">

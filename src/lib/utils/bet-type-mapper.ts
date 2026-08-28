@@ -10,6 +10,7 @@ export const BET_TYPES: BetTypeConfig[] = [
     templates: ["1x2", "winner", "match_winner", "moneyline", "3way"],
     hasLines: false,
     popular: true,
+    sports: ["soccer", "tennis", "cricket", "american-football", "baseball"],
   },
   {
     id: "over-under-goals",
@@ -21,6 +22,7 @@ export const BET_TYPES: BetTypeConfig[] = [
     lines: ["0.5", "1.5", "2.5", "3.5", "4.5", "5.5"],
     hasLines: true,
     popular: true,
+    sports: ["soccer"],
   },
   {
     id: "asian-handicap",
@@ -32,6 +34,7 @@ export const BET_TYPES: BetTypeConfig[] = [
     lines: ["0.0", "0.25", "0.5", "0.75", "1.0", "1.25", "1.5", "1.75", "2.0"],
     hasLines: true,
     popular: true,
+    sports: ["soccer", "tennis", "cricket"],
   },
   {
     id: "btts",
@@ -42,6 +45,7 @@ export const BET_TYPES: BetTypeConfig[] = [
     templates: ["Both Teams to Score", "btts", "both_teams_score"],
     hasLines: false,
     popular: true,
+    sports: ["soccer"],
   },
   {
     id: "correct-score",
@@ -52,6 +56,7 @@ export const BET_TYPES: BetTypeConfig[] = [
     templates: ["Correct Score", "correct_score", "cs"],
     hasLines: false,
     popular: false,
+    sports: ["soccer"],
   },
   {
     id: "ht-ft",
@@ -62,6 +67,7 @@ export const BET_TYPES: BetTypeConfig[] = [
     templates: ["Halftime/Fulltime", "ht_ft", "half_time_full_time"],
     hasLines: false,
     popular: false,
+    sports: ["soccer"],
   },
   {
     id: "first-goalscorer",
@@ -72,6 +78,7 @@ export const BET_TYPES: BetTypeConfig[] = [
     templates: ["First Goalscorer", "first_scorer", "fg"],
     hasLines: false,
     popular: false,
+    sports: ["soccer"],
   },
   {
     id: "anytime-goalscorer",
@@ -82,6 +89,7 @@ export const BET_TYPES: BetTypeConfig[] = [
     templates: ["Anytime Goalscorer", "anytime_scorer", "ags"],
     hasLines: false,
     popular: false,
+    sports: ["soccer"],
   },
   {
     id: "corners-over-under",
@@ -93,6 +101,7 @@ export const BET_TYPES: BetTypeConfig[] = [
     lines: ["8.5", "9.5", "10.5", "11.5", "12.5", "13.5"],
     hasLines: true,
     popular: true,
+    sports: ["soccer"],
   },
   {
     id: "corner-handicap",
@@ -104,6 +113,7 @@ export const BET_TYPES: BetTypeConfig[] = [
     lines: ["0.0", "0.5", "1.0", "1.5", "2.0", "2.5", "3.0"],
     hasLines: true,
     popular: false,
+    sports: ["soccer"],
   },
   {
     id: "cards-over-under",
@@ -115,6 +125,7 @@ export const BET_TYPES: BetTypeConfig[] = [
     lines: ["3.5", "4.5", "5.5", "6.5", "7.5"],
     hasLines: true,
     popular: false,
+    sports: ["soccer"],
   },
   {
     id: "clean-sheet",
@@ -125,6 +136,7 @@ export const BET_TYPES: BetTypeConfig[] = [
     templates: ["Clean Sheet", "clean_sheet", "to_keep_clean_sheet"],
     hasLines: false,
     popular: false,
+    sports: ["soccer"],
   },
   {
     id: "win-to-nil",
@@ -135,6 +147,7 @@ export const BET_TYPES: BetTypeConfig[] = [
     templates: ["Win to Nil", "win_to_nil", "win_without_conceding"],
     hasLines: false,
     popular: false,
+    sports: ["soccer"],
   },
   {
     id: "double-chance",
@@ -145,6 +158,7 @@ export const BET_TYPES: BetTypeConfig[] = [
     templates: ["Double Chance", "double_chance", "dc"],
     hasLines: false,
     popular: false,
+    sports: ["soccer"],
   },
   {
     id: "draw-no-bet",
@@ -155,8 +169,13 @@ export const BET_TYPES: BetTypeConfig[] = [
     templates: ["Draw No Bet", "draw_no_bet", "dnb"],
     hasLines: false,
     popular: false,
+    sports: ["soccer", "tennis", "cricket"],
   },
 ];
+
+export function getBetTypesForSport(sport: string): BetTypeConfig[] {
+  return BET_TYPES.filter((bt) => !bt.sports || bt.sports.includes(sport));
+}
 
 export function getBetTypeById(id: string): BetTypeConfig | undefined {
   return BET_TYPES.find((bt) => bt.id === id);

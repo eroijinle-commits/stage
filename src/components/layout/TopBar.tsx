@@ -1,5 +1,6 @@
 import { useSlipStore } from "@/store/useSlipStore";
 import { useUIStore } from "@/store/useUIStore";
+import { useBalance } from "@/hooks/useBalance";
 import { cn } from "@/lib/utils/cn";
 import { PanelLeft, ShoppingCart, Zap } from "lucide-react";
 
@@ -16,6 +17,7 @@ export default function TopBar({ activePage, onNavigate }: TopBarProps) {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const toggleSlip = useUIStore((s) => s.toggleSlip);
   const selectionCount = useSlipStore((s) => s.selections.length);
+  const { balance } = useBalance();
 
   return (
     <header className="h-11 flex items-center justify-between px-3 border-b border-border bg-card shrink-0 z-20">
@@ -44,23 +46,30 @@ export default function TopBar({ activePage, onNavigate }: TopBarProps) {
           ))}
         </nav>
       </div>
-      <button
-        onClick={() => toggleSlip()}
-        className={cn(
-          "flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono transition-colors border",
-          selectionCount > 0
-            ? "border-primary bg-primary/10 text-primary"
-            : "border-border text-muted-foreground hover:text-foreground hover:bg-muted",
-        )}
-      >
-        <ShoppingCart size={13} />
-        <span>Slip</span>
-        {selectionCount > 0 && (
-          <span className="bg-primary text-primary-foreground rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold">
-            {selectionCount}
+      <div className="flex items-center gap-2">
+        {balance && (
+          <span className="text-xs font-mono text-muted-foreground px-2 py-1 rounded border border-border">
+            {balance.currency} {balance.amount.toFixed(2)}
           </span>
         )}
-      </button>
+        <button
+          onClick={() => toggleSlip()}
+          className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono transition-colors border",
+            selectionCount > 0
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-border text-muted-foreground hover:text-foreground hover:bg-muted",
+          )}
+        >
+          <ShoppingCart size={13} />
+          <span>Slip</span>
+          {selectionCount > 0 && (
+            <span className="bg-primary text-primary-foreground rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold">
+              {selectionCount}
+            </span>
+          )}
+        </button>
+      </div>
     </header>
   );
 }

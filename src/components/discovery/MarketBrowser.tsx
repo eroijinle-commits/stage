@@ -18,9 +18,10 @@ interface MarketBrowserProps {
     open: boolean;
     onClose: () => void;
     fixture: DiscoveryFixture | null;
+    sportSlug?: string;
 }
 
-export default function MarketBrowser({ open, onClose, fixture }: MarketBrowserProps) {
+export default function MarketBrowser({ open, onClose, fixture, sportSlug }: MarketBrowserProps) {
     const [details, setDetails] = useState<FixtureDetailsData | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -30,23 +31,23 @@ export default function MarketBrowser({ open, onClose, fixture }: MarketBrowserP
     const slipIds = useMemo(() => new Set(selectionIds ? selectionIds.split(",") : []), [selectionIds]);
     const addToast = useUIStore((s) => s.addToast);
 
-    const fetchDetails = useCallback(async (slug: string) => {
+    const fetchDetails = useCallback(async (id: string) => {
         setIsLoading(true);
         setError(null);
         try {
-            const data = await getFixtureDetailsQuery(slug, ["main", "goals", "corners", "cards"]);
+            const data = await getFixtureDetailsQuery(id, ["main", "goals", "corners", "cards"], sportSlug);
             setDetails(data);
             // Auto-expand first group
             if (data.marketGroups.length > 0) {
                 setExpandedGroups(new Set([data.marketGroups[0].name]));
             }
-        } catch {
-            setError("Failed to load markets");
+        } catch (e) {
+            setError(`Failed to load markets${e instanceof Error ? `: ${e.message}` : ""}`);
             setDetails(null);
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [sportSlug]);
 
     useEffect(() => {
         if (open && fixture?.id) {
@@ -191,7 +192,7 @@ export default function MarketBrowser({ open, onClose, fixture }: MarketBrowserP
             {error && (
                 <div className="text-center py-8">
                     <p className="text-sm font-mono text-bet-lost">{error}</p>
-                    <Button variant="outline" size="sm" onClick={() => fixture?.slug && fetchDetails(fixture.slug)} className="mt-3">
+                    <Button variant="outline" size="sm" onClick={() => fixture?.id && fetchDetails(fixture.id)} className="mt-3">
                         Retry
                     </Button>
                 </div>

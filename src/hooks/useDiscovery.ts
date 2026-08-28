@@ -8,7 +8,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { DiscoveryFilters, DiscoveryFixture, BetTypeInfo } from "@/lib/contracts/ui.contract";
-import { getBetTypeById, getGroupForBetType, getLinesForBetType, getPopularBetTypes, extractLine, BET_TYPES } from "@/lib/utils/bet-type-mapper";
+import { getBetTypeById, getGroupForBetType, getLinesForBetType, getPopularBetTypes, extractLine, BET_TYPES, getBetTypesForSport } from "@/lib/utils/bet-type-mapper";
 import { getSportIndex, getFixtureDetailsQuery, type SportIndexData, type FixtureDetailsData } from "@/lib/stake-api/queries";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { classifyError, getUserFriendlyMessage } from "@/lib/stake-api/errors";
@@ -268,12 +268,19 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
   const detailFetchAbortRef = useRef<AbortController | null>(null);
   const apiToken = useSettingsStore((s) => s.apiToken);
 
-  // Sync sport from parent (SideNav) when it changes
+  // Sync sport from parent (SideNav) when it changes; reset betType if not available for new sport
   useEffect(() => {
     if (initialSport) {
       setFiltersState((prev) => {
         if (prev.sport === initialSport) return prev;
-        return { ...prev, sport: initialSport };
+        const available = getBetTypesForSport(initialSport);
+        const betTypeStillValid = prev.betType && available.some((b) => b.id === prev.betType);
+        return {
+          ...prev,
+          sport: initialSport,
+          betType: betTypeStillValid ? prev.betType : null,
+          betTypeLine: betTypeStillValid ? prev.betTypeLine : null,
+        };
       });
     }
   }, [initialSport]);

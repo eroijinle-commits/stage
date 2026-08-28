@@ -28,6 +28,7 @@ export interface BetTypeConfig {
   lines?: string[];
   hasLines: boolean;
   popular: boolean;
+  sports?: string[]; // e.g. ["soccer"], ["tennis"], or omit for all sports
 }
 
 export interface BetTypeLineConfig {

@@ -249,6 +249,7 @@ export default function DiscoveryPage({
         open={marketBrowserOpen}
         onClose={() => { setMarketBrowserOpen(false); setSelectedFixtureSlug(null); }}
         fixture={selectedFixtureSlug}
+        sportSlug={activeSport}
       />
     </div>
   );

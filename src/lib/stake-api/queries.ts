@@ -266,9 +266,142 @@ export interface FixtureDetailsData {
 }
 
 /**
+ * Fetch a single fixture by ID with markets using a direct query.
+ * Much faster than scanning the full sport tree.
+ */
+async function getFixtureByIdDirect(fixtureId: string): Promise<FixtureDetailsData | null> {
+  const query = `
+    query FixtureById($fixtureId: String!) {
+      fixture(fixtureId: $fixtureId) {
+        id
+        name
+        slug
+        status
+        marketCount
+        data {
+          ... on SportFixtureDataMatch {
+            __typename
+            startTime
+            isOutright
+            competitors {
+              name
+              defaultName
+              extId
+              countryCode
+              abbreviation
+              iconPath
+              country
+            }
+            teams {
+              extId
+              name
+              qualifier
+            }
+          }
+          ... on SportFixtureDataOutright {
+            __typename
+            name
+            startTime
+            endTime
+            isOutright
+          }
+        }
+        eventStatus {
+          ... on SportFixtureEventStatusData {
+            matchStatus
+            homeScore
+            awayScore
+            homeGameScore
+            awayGameScore
+            clock {
+              matchTime
+              remainingTime
+              stopped
+            }
+            periodScores {
+              homeScore
+              awayScore
+              matchStatus
+            }
+            statistic {
+              corners { home away }
+              yellowCards { home away }
+              redCards { home away }
+            }
+          }
+        }
+        markets {
+          id
+          name
+          status
+          extId
+          specifiers
+          customBetAvailable
+          provider
+          templateExtId
+          outcomes {
+            id
+            active
+            odds
+            name
+            customBetAvailable
+            extId
+          }
+        }
+        tournament {
+          id
+          name
+          slug
+          category {
+            id
+            name
+            slug
+            sport {
+              id
+              name
+              slug
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await executeQuery<{
+      fixture: StakeFixture & { markets: any[]; tournament: any };
+    }>({
+      query,
+      variables: { fixtureId },
+      operationName: "FixtureById",
+      operationType: "query",
+    });
+
+    if (!data.fixture) return null;
+
+    const f = data.fixture;
+    const marketGroups: StakeGroupWithMarkets[] = [{
+      name: "Main",
+      translation: "Main Markets",
+      rank: 0,
+      templates: [{
+        id: "main",
+        extId: "main",
+        rank: 0,
+        name: "Main",
+        markets: f.markets || [],
+      }],
+    }];
+
+    return { fixture: f, marketGroups };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetch full fixture details with markets and outcomes.
- * Uses the sport(sportId) → categoryList → tournamentList → fixtureList → markets query.
- * Requires authentication.
+ * Tries direct query first, falls back to sport tree scan.
  */
 export async function getFixtureDetailsQuery(
   fixtureId: string,
@@ -277,7 +410,11 @@ export async function getFixtureDetailsQuery(
 ): Promise<FixtureDetailsData> {
   await ensureSportIdCache();
 
-  // If sport slug is known, query only that sport (much faster)
+  // Fast path: direct query by fixture ID
+  const direct = await getFixtureByIdDirect(fixtureId);
+  if (direct) return direct;
+
+  // If sport slug is known, query only that sport
   if (sportSlug) {
     const sportId = sportIdCache.get(sportSlug);
     if (sportId) {
@@ -288,7 +425,7 @@ export async function getFixtureDetailsQuery(
 
   // Fallback: try each sport until we find the fixture
   for (const [slug, sid] of sportIdCache) {
-    if (sportSlug && slug === sportSlug) continue; // already tried above
+    if (sportSlug && slug === sportSlug) continue;
     try {
       const result = await queryFixtureFromSport(sid, fixtureId);
       if (result) return result;
@@ -461,17 +598,116 @@ export interface BetHistoryData {
 }
 
 /**
- * Fetch paginated bet history.
- * NOTE: The Stake GraphQL API no longer exposes a public bet history query.
- * This returns empty data until a valid endpoint is discovered.
+ * Fetch paginated bet history from the Stake API.
+ * Uses the user's sportBetHistory query. Requires authentication.
+ * Falls back to empty data if the query is unavailable (e.g. API version mismatch).
  */
 export async function getBetHistoryQuery(
-  _limit: number,
-  _offset: number,
-  _status?: string[],
+  limit: number,
+  offset: number,
+  status?: string[],
 ): Promise<BetHistoryData> {
-  // Bet history is not available via the current public Stake GraphQL API
-  return { bets: [], totalCount: 0 };
+  const query = `
+    query StakeBetHistory($limit: Int!, $offset: Int!, $status: [SportBetStatusEnum!]) {
+      user {
+        sportBetHistory(limit: $limit, offset: $offset, status: $status) {
+          id
+          amount
+          currency
+          status
+          betType
+          payoutMultiplier
+          potentialMultiplier
+          totalOdds
+          stakePerLeg
+          createdAt
+          settledAt
+          outcomes {
+            id
+            name
+            odds
+            market {
+              name
+            }
+            fixture {
+              name
+              slug
+            }
+            result
+            status
+          }
+        }
+        sportBetCount(status: $status)
+      }
+    }
+  `;
+
+  try {
+    const data = await executeQuery<{
+      user: {
+        sportBetHistory: Array<{
+          id: string;
+          amount: number;
+          currency: string;
+          status: string;
+          betType: string;
+          payoutMultiplier: number | null;
+          potentialMultiplier: number;
+          totalOdds: number;
+          stakePerLeg: number | null;
+          createdAt: number;
+          settledAt: number | null;
+          outcomes: Array<{
+            id: string;
+            name: string;
+            odds: number;
+            market: { name: string };
+            fixture: { name: string; slug: string };
+            result: string | null;
+            status: string;
+          }>;
+        }>;
+        sportBetCount: number;
+      };
+    }>({
+      query,
+      variables: { limit, offset, status: status ?? null },
+      operationName: "StakeBetHistory",
+      operationType: "query",
+    });
+
+    const bets: BetHistoryEntry[] = (data.user?.sportBetHistory ?? []).map((b) => ({
+      id: b.id,
+      amount: b.amount,
+      currency: b.currency,
+      status: b.status,
+      betType: b.betType,
+      payoutMultiplier: b.payoutMultiplier,
+      potentialMultiplier: b.potentialMultiplier,
+      totalOdds: b.totalOdds,
+      stakePerLeg: b.stakePerLeg,
+      createdAt: b.createdAt,
+      settledAt: b.settledAt,
+      outcomes: b.outcomes.map((o) => ({
+        id: o.id,
+        name: o.name,
+        odds: o.odds,
+        market: { name: o.market.name },
+        fixture: { name: o.fixture.name, slug: o.fixture.slug },
+        result: o.result,
+        status: o.status,
+      })),
+    }));
+
+    return {
+      bets,
+      totalCount: data.user?.sportBetCount ?? bets.length,
+    };
+  } catch {
+    // If the query fails (e.g. API doesn't support this endpoint yet),
+    // return empty — the local DB is the fallback source of truth
+    return { bets: [], totalCount: 0 };
+  }
 }
 
 // ─── e) getActiveBetCount ───────────────────────────────────────────────────
@@ -482,10 +718,44 @@ export interface ActiveBetCountData {
 }
 
 /**
- * Fetch counts of active bets by type.
- * NOTE: The Stake GraphQL API no longer exposes a public activeBets query.
- * This returns zero counts until a valid endpoint is discovered.
+ * Fetch counts of active bets by type from the Stake API.
+ * Falls back to zero counts if the query is unavailable.
  */
 export async function getActiveBetCountQuery(): Promise<ActiveBetCountData> {
-  return { count: 0, byType: {} };
+  const query = `
+    query StakeActiveBetCount {
+      user {
+        activeBetCount
+        activeBetsByType {
+          type
+          count
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await executeQuery<{
+      user: {
+        activeBetCount: number;
+        activeBetsByType: Array<{ type: string; count: number }>;
+      };
+    }>({
+      query,
+      operationName: "StakeActiveBetCount",
+      operationType: "query",
+    });
+
+    const byType: Record<string, number> = {};
+    for (const entry of data.user?.activeBetsByType ?? []) {
+      byType[entry.type] = entry.count;
+    }
+
+    return {
+      count: data.user?.activeBetCount ?? 0,
+      byType,
+    };
+  } catch {
+    return { count: 0, byType: {} };
+  }
 }
