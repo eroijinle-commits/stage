@@ -44,13 +44,11 @@ export async function placeBetMutation(params: PlaceBetParams): Promise<PlaceRes
         id
         amount
         currency
-        odds
         potentialMultiplier
         outcomes {
           id
           odds
-          name
-          marketName
+          market
           fixtureName
         }
         customPrices {

@@ -189,8 +189,7 @@ export interface PlaceBetParams {
 export interface PlacedBetOutcome {
     id: string;
     odds: number;
-    name: string;
-    marketName: string;
+    market: string;
     fixtureName: string;
 }
 
@@ -198,7 +197,6 @@ export interface PlaceResult {
     id: string;
     amount: number;
     currency: string;
-    odds: number;
     potentialMultiplier: number;
     outcomes: PlacedBetOutcome[];
     status: string;
