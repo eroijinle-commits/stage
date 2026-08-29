@@ -56,13 +56,15 @@ export default function BetSlipDrawer() {
   const placed = placeResults.length > 0;
 
   const handleShare = useCallback(() => {
-    const text = shareSlip();
-    if (!text) return;
+    const data = shareSlip();
+    if (!data) return;
+
+    const text = `${data.code}\nStake link: ${data.link}\nStage link: ${data.stageLink}`;
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }).catch(() => {
-      prompt("Copy this link:", text);
+      prompt("Copy this slip:", text);
     });
   }, [shareSlip]);
 
@@ -253,7 +255,7 @@ export default function BetSlipDrawer() {
               <div className="flex items-center justify-between text-sm font-mono font-semibold">
                 <span className="text-muted-foreground">Potential Return</span>
                 <span className="text-primary tabular-nums">
-                  {currency} {Math.round(displayReturn).toLocaleString("en-NG")}
+                  {currency} {displayReturn.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
               {!placed ? (

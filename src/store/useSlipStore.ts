@@ -12,6 +12,12 @@ export interface SavedSlip {
   createdAt: number;
 }
 
+export interface SlipShareData {
+  code: string;
+  link: string;
+  stageLink: string;
+}
+
 interface SlipStore {
   selections: BetSelection[];
   mode: SlipMode;
@@ -34,8 +40,10 @@ interface SlipStore {
   setPlaceResults: (r: SlipStore["placeResults"]) => void;
   setLastError: (e: string | null) => void;
   updateOdds: (id: string, odds: number) => void;
-  // Share: get fixture info for copying
-  shareSlip: () => string;
+  // Share: returns Stake code + link + Stage restore link
+  shareSlip: () => SlipShareData | null;
+  // Restore a slip from a base64-encoded code
+  restoreSlip: (payload: string) => void;
   // Save/load named snapshots
   savedSlips: SavedSlip[];
   saveSlip: (name: string) => void;
@@ -74,10 +82,69 @@ export const useSlipStore = create<SlipStore>()(
           ),
         })),
       shareSlip: () => {
-        const { selections } = get();
-        if (selections.length === 0) return "";
+        const { selections, mode, stakePerLeg } = get();
+        if (selections.length === 0) return null;
+
+        // Extract Stake event ID from the first selection's fixture slug.
         const first = selections[0];
-        return first.stakeUrl ?? "";
+        const eventId = first.fixtureSlug?.split("-")[0] ?? "";
+        const numericCode = /^\d+$/.test(eventId) ? eventId : "";
+
+        // Build Stage restore payload (compact base64 of the full slip)
+        const payload = {
+          v: 1,
+          mode,
+          stakePerLeg,
+          selections: selections.map((s) => ({
+            id: s.id,
+            fixtureSlug: s.fixtureSlug,
+            fixtureName: s.fixtureName,
+            fixtureId: s.fixtureId,
+            tournamentName: s.tournamentName,
+            marketId: s.marketId,
+            marketName: s.marketName,
+            outcomeId: s.outcomeId,
+            outcomeName: s.outcomeName,
+            odds: s.odds,
+            active: s.active,
+            startTime: s.startTime,
+            betType: s.betType,
+            betTypeLine: s.betTypeLine,
+            sport: s.sport,
+            stakeUrl: s.stakeUrl,
+          })),
+        };
+        const base64 = btoa(JSON.stringify(payload));
+        const stageLink = `${typeof window !== "undefined" ? window.location.origin : ""}/?slip=${base64}`;
+
+        return {
+          code: numericCode,
+          link: numericCode
+            ? `https://stake.com/sports/home?iid=sport%3A${numericCode}&source=link_shared&modal=bet`
+            : first.stakeUrl ?? "",
+          stageLink,
+        };
+      },
+      restoreSlip: (encoded: string) => {
+        try {
+          const json = atob(encoded);
+          const payload = JSON.parse(json) as {
+            v: number;
+            mode: SlipMode;
+            stakePerLeg: number;
+            selections: BetSelection[];
+          };
+          if (!payload.selections || payload.selections.length === 0) return;
+          set({
+            selections: payload.selections,
+            mode: payload.mode ?? "singles",
+            stakePerLeg: payload.stakePerLeg ?? 1000,
+            placeResults: [],
+            lastError: null,
+          });
+        } catch {
+          // ignore malformed payloads
+        }
       },
       savedSlips: [],
       saveSlip: (name: string) => {

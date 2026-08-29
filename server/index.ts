@@ -43,6 +43,38 @@ app.use((req, res, next) => {
     res.sendFile(path.join(distPath, "index.html"));
 });
 
+// ─── Proxy Stake GraphQL to avoid CORS in the browser ───
+app.use("/api/graphql", async (req, res) => {
+    const targetUrl = "https://stake.com/_api/graphql";
+    const body = req.body && typeof req.body === "object" ? JSON.stringify(req.body) : undefined;
+
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "x-language": (req.headers["x-language"] as string) ?? "en",
+        "x-operation-name": (req.headers["x-operation-name"] as string) ?? "",
+        "x-operation-type": (req.headers["x-operation-type"] as string) ?? "",
+    };
+
+    if (req.headers["x-access-token"]) {
+        headers["x-access-token"] = req.headers["x-access-token"] as string;
+    }
+
+    try {
+        const upstream = await fetch(targetUrl, {
+            method: "POST",
+            headers,
+            body,
+        });
+
+        const responseBody = await upstream.text();
+        res.status(upstream.status);
+        res.setHeader("Content-Type", upstream.headers.get("content-type") ?? "application/json");
+        res.send(responseBody);
+    } catch (err) {
+        res.status(502).json({ error: "Proxy error", message: err instanceof Error ? err.message : String(err) });
+    }
+});
+
 // ─── Health ───
 
 app.get("/api/health", (_req, res) => {

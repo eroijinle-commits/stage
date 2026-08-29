@@ -10,7 +10,7 @@ import { rateLimited, computeBackoff, sleep } from "./rate-limiter";
 import { classifyError, getUserFriendlyMessage } from "./errors";
 import { StakeApiError, type GraphQLResponse, type ExecuteQueryOptions } from "./types";
 
-const GRAPHQL_ENDPOINT = "https://stake.com/_api/graphql";
+const GRAPHQL_ENDPOINT = "/api/graphql";
 const MAX_RETRIES = 1;
 
 /**
