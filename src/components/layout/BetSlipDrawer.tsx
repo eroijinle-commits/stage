@@ -3,7 +3,7 @@ import { useSettingsStore } from "@/store/useSettingsStore";
 import { useBetSlip } from "@/hooks/useBetSlip";
 import { useSlipStore } from "@/store/useSlipStore";
 import { cn } from "@/lib/utils/cn";
-import { X, Trash2, ExternalLink, Save, FolderOpen, ChevronDown, ChevronUp, Copy } from "lucide-react";
+import { X, Trash2, Share2, Save, FolderOpen, ChevronDown, ChevronUp, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui";
 import SlipItem from "@/components/slip/SlipItem";
 import { useState, useCallback } from "react";
@@ -37,6 +37,7 @@ export default function BetSlipDrawer() {
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [showSavedSlips, setShowSavedSlips] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const totalOdds = selections.reduce((acc, s) => acc * s.odds, 1);
   const totalStake =
@@ -55,9 +56,14 @@ export default function BetSlipDrawer() {
   const placed = placeResults.length > 0;
 
   const handleShare = useCallback(() => {
-    const url = shareSlip();
-    if (!url) return;
-    window.open(url, "_blank", "noopener,noreferrer");
+    const text = shareSlip();
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      prompt("Copy this link:", text);
+    });
   }, [shareSlip]);
 
   const handleSave = useCallback(() => {
@@ -95,9 +101,9 @@ export default function BetSlipDrawer() {
               <>
                 <button
                   onClick={handleShare}
-                  className="text-muted-foreground hover:text-primary transition-colors p-1" title="Open on Stake.com"
+                  className="text-muted-foreground hover:text-primary transition-colors p-1" title="Copy bet slip"
                 >
-                  <ExternalLink size={13} />
+                  {copied ? <Check size={13} className="text-bet-won" /> : <Share2 size={13} />}
                 </button>
                 <button
                   onClick={() => setShowSaveInput((v) => !v)}

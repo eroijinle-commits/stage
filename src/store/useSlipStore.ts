@@ -34,8 +34,8 @@ interface SlipStore {
   setPlaceResults: (r: SlipStore["placeResults"]) => void;
   setLastError: (e: string | null) => void;
   updateOdds: (id: string, odds: number) => void;
-  // Share: open fixture page on Stake.com
-  shareSlip: () => string | null;
+  // Share: get fixture info for copying
+  shareSlip: () => string;
   // Save/load named snapshots
   savedSlips: SavedSlip[];
   saveSlip: (name: string) => void;
@@ -75,9 +75,12 @@ export const useSlipStore = create<SlipStore>()(
         })),
       shareSlip: () => {
         const { selections } = get();
-        const first = selections.find((s) => s.sport && s.fixtureSlug);
-        if (!first) return null;
-        return `https://stake.com/sports/${first.sport}/${first.fixtureSlug}`;
+        if (selections.length === 0) return "";
+        const first = selections[0];
+        const lines = selections.map(
+          (s) => `${s.fixtureName} — ${s.outcomeName} @ ${s.odds}`,
+        );
+        return `${first.fixtureName}\n${lines.join("\n")}`;
       },
       savedSlips: [],
       saveSlip: (name: string) => {
