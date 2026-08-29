@@ -17,6 +17,7 @@ export function useBetSlip() {
     const selections = useSlipStore((s) => s.selections);
     const mode = useSlipStore((s) => s.mode);
     const stakePerLeg = useSlipStore((s) => s.stakePerLeg);
+    const stakeShieldEnabled = useSlipStore((s) => s.stakeShieldEnabled);
     const isPlacing = useSlipStore((s) => s.isPlacing);
     const placeResults = useSlipStore((s) => s.placeResults);
     const lastError = useSlipStore((s) => s.lastError);
@@ -26,6 +27,7 @@ export function useBetSlip() {
     const clearSelections = useSlipStore((s) => s.clearSelections);
     const setMode = useSlipStore((s) => s.setMode);
     const setStakePerLeg = useSlipStore((s) => s.setStakePerLeg);
+    const setStakeShieldEnabled = useSlipStore((s) => s.setStakeShieldEnabled);
     const setPlacing = useSlipStore((s) => s.setPlacing);
     const setPlaceResults = useSlipStore((s) => s.setPlaceResults);
     const setLastError = useSlipStore((s) => s.setLastError);
@@ -67,6 +69,7 @@ export function useBetSlip() {
                 stakePerLeg,
                 currency,
                 balance: balanceAmount,
+                stakeShieldEnabled: mode === "parlay" ? stakeShieldEnabled : false,
             });
 
             setPlaceResults(results);
@@ -97,6 +100,7 @@ export function useBetSlip() {
         selections,
         mode,
         stakePerLeg,
+        stakeShieldEnabled,
         currency,
         balance,
         totalStake,
@@ -110,6 +114,7 @@ export function useBetSlip() {
         selections,
         mode,
         stakePerLeg,
+        stakeShieldEnabled,
         totalStake,
         isPlacing,
         placeResults,
@@ -120,6 +125,7 @@ export function useBetSlip() {
         clearSelections,
         setMode,
         setStakePerLeg,
+        setStakeShieldEnabled,
         placeBets,
     };
 }

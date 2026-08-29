@@ -183,6 +183,7 @@ export interface PlaceBetParams {
     currency: string;
     odds: number[];
     betType: "sports" | "multi";
+    stakeShieldEnabled?: boolean;
 }
 
 export interface PlacedBetOutcome {
@@ -202,6 +203,11 @@ export interface PlaceResult {
     outcomes: PlacedBetOutcome[];
     status: string;
     createdAt: number;
+    customPrices?: Array<{
+        customOdds: number;
+        type: string;
+        stakeShield?: { offerOdds: number; protectionLevel: number };
+    }>;
 }
 
 export interface PlaceBetResponse {

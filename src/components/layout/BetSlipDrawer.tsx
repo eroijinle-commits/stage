@@ -17,12 +17,14 @@ export default function BetSlipDrawer() {
     selections,
     mode,
     stakePerLeg,
+    stakeShieldEnabled,
     isPlacing,
     placeResults,
     potentialReturn,
     lastError,
     setMode,
     setStakePerLeg,
+    setStakeShieldEnabled,
     removeSelection,
     clearSelections,
     placeBets,
@@ -195,7 +197,11 @@ export default function BetSlipDrawer() {
               {(["singles", "parlay"] as const).map((m) => (
                 <button
                   key={m}
-                  onClick={() => setMode(m)}
+                  onClick={() => {
+                    setMode(m);
+                    // Auto-disable shield when switching away from parlay
+                    if (m !== "parlay") setStakeShieldEnabled(false);
+                  }}
                   className={cn(
                     "flex-1 py-1 text-xs font-mono rounded transition-colors capitalize",
                     mode === m
@@ -207,6 +213,34 @@ export default function BetSlipDrawer() {
                 </button>
               ))}
             </div>
+
+            {mode === "parlay" && selections.length >= 3 && (
+              <div className="px-3 py-2 border-b border-border shrink-0">
+                <button
+                  onClick={() => setStakeShieldEnabled(!stakeShieldEnabled)}
+                  className={cn(
+                    "w-full flex items-center justify-between py-1.5 px-2.5 rounded text-xs font-mono transition-colors",
+                    stakeShieldEnabled
+                      ? "bg-primary/10 text-primary border border-primary/30"
+                      : "text-muted-foreground hover:bg-muted border border-transparent",
+                  )}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>🛡️</span>
+                    <span>Stake Shield</span>
+                  </span>
+                  <span className={cn(
+                    "w-7 h-4 rounded-full transition-colors relative",
+                    stakeShieldEnabled ? "bg-primary" : "bg-muted",
+                  )}>
+                    <span className={cn(
+                      "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform",
+                      stakeShieldEnabled ? "translate-x-3.5" : "translate-x-0.5",
+                    )} />
+                  </span>
+                </button>
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {selections.map((s) => {

@@ -18,6 +18,7 @@ export interface BetPlacementParams {
     currency: string;
     balance: number | null;
     oddsChange?: "any" | "better" | "none";
+    stakeShieldEnabled?: boolean;
 }
 
 export interface BetPlacementResult {
@@ -39,7 +40,7 @@ export interface BetPlacementResult {
 export async function executeBetPlacement(
     params: BetPlacementParams,
 ): Promise<BetPlacementResult[]> {
-    const { selections, mode, stakePerLeg, currency, balance } = params;
+    const { selections, mode, stakePerLeg, currency, balance, stakeShieldEnabled } = params;
 
     // Validate
     const totalStake =
@@ -72,6 +73,7 @@ export async function executeBetPlacement(
                 currency,
                 odds,
                 betType: "multi",
+                stakeShieldEnabled,
             });
 
             // Persist to DB
@@ -122,6 +124,7 @@ export async function executeBetPlacement(
                     currency,
                     odds: [sel.odds],
                     betType: "sports",
+                    // Stake Shield is parlay-only; singles never use it
                 });
 
                 // Persist to DB

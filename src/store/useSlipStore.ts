@@ -22,6 +22,7 @@ interface SlipStore {
   selections: BetSelection[];
   mode: SlipMode;
   stakePerLeg: number;
+  stakeShieldEnabled: boolean;
   isPlacing: boolean;
   placeResults: Array<{
     selectionId: string;
@@ -36,6 +37,7 @@ interface SlipStore {
   clearSelections: () => void;
   setMode: (mode: SlipMode) => void;
   setStakePerLeg: (stake: number) => void;
+  setStakeShieldEnabled: (v: boolean) => void;
   setPlacing: (v: boolean) => void;
   setPlaceResults: (r: SlipStore["placeResults"]) => void;
   setLastError: (e: string | null) => void;
@@ -57,6 +59,7 @@ export const useSlipStore = create<SlipStore>()(
       selections: [],
       mode: "singles",
       stakePerLeg: 1000,
+      stakeShieldEnabled: false,
       isPlacing: false,
       placeResults: [],
       lastError: null,
@@ -72,6 +75,7 @@ export const useSlipStore = create<SlipStore>()(
         set({ selections: [], placeResults: [], lastError: null }),
       setMode: (mode) => set({ mode }),
       setStakePerLeg: (stakePerLeg) => set({ stakePerLeg }),
+      setStakeShieldEnabled: (stakeShieldEnabled) => set({ stakeShieldEnabled }),
       setPlacing: (isPlacing) => set({ isPlacing }),
       setPlaceResults: (placeResults) => set({ placeResults }),
       setLastError: (lastError) => set({ lastError }),

@@ -19,7 +19,7 @@ import type { PlaceBetParams, PlaceResult } from "./types";
  * @returns The placed bet details
  */
 export async function placeBetMutation(params: PlaceBetParams): Promise<PlaceResult> {
-  const { outcomeIds, amounts, currency, odds: _odds, betType } = params;
+  const { outcomeIds, amounts, currency, odds: _odds, betType, stakeShieldEnabled } = params;
 
   // sportBet uses a single amount (total stake) and lowercase enum values
   const totalAmount = amounts.reduce((sum, a) => sum + a, 0);
@@ -30,14 +30,16 @@ export async function placeBetMutation(params: PlaceBetParams): Promise<PlaceRes
       $amount: Float!,
       $currency: CurrencyEnum!,
       $betType: SportBetTypeEnum!,
-      $oddsChange: SportOddsChangeEnum!
+      $oddsChange: SportOddsChangeEnum!,
+      $stakeShieldEnabled: Boolean
     ) {
       sportBet(
         outcomeIds: $outcomeIds,
         amount: $amount,
         currency: $currency,
         betType: $betType,
-        oddsChange: $oddsChange
+        oddsChange: $oddsChange,
+        stakeShieldEnabled: $stakeShieldEnabled
       ) {
         id
         amount
@@ -50,6 +52,14 @@ export async function placeBetMutation(params: PlaceBetParams): Promise<PlaceRes
           name
           marketName
           fixtureName
+        }
+        customPrices {
+          customOdds
+          type
+          stakeShield {
+            offerOdds
+            protectionLevel
+          }
         }
         status
         createdAt
@@ -65,6 +75,7 @@ export async function placeBetMutation(params: PlaceBetParams): Promise<PlaceRes
       currency: currency.toLowerCase(),
       betType: betType === "multi" ? "multi" : "sports",
       oddsChange: "higher",
+      stakeShieldEnabled: stakeShieldEnabled ?? false,
     },
     operationName: "SportBetSlip",
     operationType: "mutation",
