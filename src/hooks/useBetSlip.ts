@@ -44,7 +44,6 @@ export function useBetSlip() {
     );
 
     const placeBets = useCallback(async (): Promise<BetPlacementResult[]> => {
-        console.log("[placeBets] called with", { selectionsCount: selections.length, balance, totalStake, mode });
         if (selections.length === 0) {
             setLastError("No selections in the slip.");
             return [];
@@ -53,7 +52,6 @@ export function useBetSlip() {
         const balanceAmount = balance?.amount ?? null;
         const validationErrors = validateSlip(selections, balanceAmount, totalStake);
         if (validationErrors.length > 0) {
-            console.log("[placeBets] validation failed:", validationErrors);
             setLastError(validationErrors.join("; "));
             return [];
         }
@@ -79,11 +77,7 @@ export function useBetSlip() {
             if (failCount > 0 && successCount > 0) {
                 setLastError(`${successCount} bet(s) placed, ${failCount} failed.`);
             } else if (failCount > 0) {
-                const err = results[0]?.error ?? "All bets failed.";
-                console.log("[placeBets] all bets failed:", err);
-                setLastError(err);
-            } else {
-                console.log("[placeBets] all bets placed successfully", results);
+                setLastError(results[0]?.error ?? "All bets failed.");
             }
 
             // Refresh balance after placement
