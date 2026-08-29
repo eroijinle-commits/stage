@@ -47,20 +47,23 @@ export function useBalance(): UseBalanceReturn {
 
         try {
             const response = await getBalance(true, false);
+            // Normalize for case-insensitive comparison (API returns lowercase)
+            const target = currency.toLowerCase();
             // Find the balance matching the user's preferred currency
-            const match = response.balances.find((b) => b.currency === currency);
+            const match = response.balances.find((b) => b.currency.toLowerCase() === target);
             if (match) {
                 setBalance({
                     currency: match.currency,
                     amount: parseFloat(match.available) || 0,
                 });
             } else {
-                // Fallback to first available balance
-                const first = response.balances[0];
-                if (first) {
+                // Fallback: pick the currency with the highest balance
+                const sorted = [...response.balances].sort((a, b) => (parseFloat(b.available) || 0) - (parseFloat(a.available) || 0));
+                const best = sorted[0];
+                if (best && (parseFloat(best.available) || 0) > 0) {
                     setBalance({
-                        currency: first.currency,
-                        amount: parseFloat(first.available) || 0,
+                        currency: best.currency,
+                        amount: parseFloat(best.available) || 0,
                     });
                 } else {
                     setBalance(null);

@@ -14,20 +14,40 @@ import type { SlipMode } from "@/lib/contracts/db.contract";
  * Singles: Σ(stake × odds) for each selection.
  * Parlay: stake × Π(odds) for all selections.
  */
+/**
+ * Get the Stake Shield insurance fee rate based on number of legs.
+ * More legs = higher fee because the shield covers more combinations.
+ * Fee reduces the potential payout (you pay for the insurance).
+ */
+export function getShieldFeeRate(legCount: number): number {
+    if (legCount <= 3) return 0.10;
+    if (legCount <= 4) return 0.15;
+    return 0.20; // 5+ legs
+}
+
 export function calculatePotentialReturn(
     selections: BetSelection[],
     mode: SlipMode,
     stakePerLeg: number,
     perLegStakes?: Record<string, number>,
+    stakeShieldEnabled?: boolean,
 ): number {
     if (selections.length === 0) return 0;
 
     if (mode === "parlay") {
         const combinedOdds = selections.reduce((acc, s) => acc * s.odds, 1);
-        return Math.round(stakePerLeg * combinedOdds * 100) / 100;
+        let return_ = stakePerLeg * combinedOdds;
+
+        // Stake Shield reduces potential payout — you pay an insurance fee
+        if (stakeShieldEnabled && selections.length >= 3) {
+            const feeRate = getShieldFeeRate(selections.length);
+            return_ *= (1 - feeRate);
+        }
+
+        return Math.round(return_ * 100) / 100;
     }
 
-    // Singles
+    // Singles — shield is parlay-only, no adjustment
     return selections.reduce((acc, s) => {
         const stake = perLegStakes?.[s.id] ?? stakePerLeg;
         return acc + stake * s.odds;

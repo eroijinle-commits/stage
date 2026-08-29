@@ -36,8 +36,8 @@ export function useBetSlip() {
     const { balance, refetch: refetchBalance } = useBalance();
 
     const potentialReturn = useMemo(
-        () => calculatePotentialReturn(selections, mode, stakePerLeg),
-        [selections, mode, stakePerLeg],
+        () => calculatePotentialReturn(selections, mode, stakePerLeg, undefined, stakeShieldEnabled),
+        [selections, mode, stakePerLeg, stakeShieldEnabled],
     );
 
     const totalStake = useMemo(

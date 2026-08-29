@@ -3,6 +3,7 @@ import { useSettingsStore } from "@/store/useSettingsStore";
 import { useBetSlip } from "@/hooks/useBetSlip";
 import { useSlipStore } from "@/store/useSlipStore";
 import { cn } from "@/lib/utils/cn";
+import { getShieldFeeRate } from "@/lib/state/slipLogic";
 import { X, Trash2, Share2, Save, FolderOpen, ChevronDown, ChevronUp, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui";
 import SlipItem from "@/components/slip/SlipItem";
@@ -239,6 +240,11 @@ export default function BetSlipDrawer() {
                     )} />
                   </span>
                 </button>
+                {stakeShieldEnabled && (
+                  <div className="mt-1.5 px-2.5 text-[10px] font-mono text-muted-foreground">
+                    <span className="text-primary/70">🛡️</span> Fee: {(getShieldFeeRate(selections.length) * 100).toFixed(0)}% — potential return reduced
+                  </div>
+                )}
               </div>
             )}
 
