@@ -1,6 +1,6 @@
 /**
  * SearchFilterBar — full search/filter bar with sport, bet type, date range,
- * league/tournament multi-select, market group, saved filters, and search.
+ * league/tournament multi-select, saved filters, and search.
  * @module components/discovery/SearchFilterBar
  */
 
@@ -13,7 +13,7 @@ import { Search, X, Calendar, Bookmark, BookmarkPlus, Trash2 } from "lucide-reac
 import { cn } from "@/lib/utils/cn";
 import { useSavedFilters } from "@/hooks/useSavedFilters";
 import { getDateRangeForPreset } from "@/hooks/useDiscovery";
-import { DATE_PRESETS, MARKET_GROUP_OPTIONS, type DatePreset, type MarketGroupFilter } from "./types";
+import { DATE_PRESETS, type DatePreset } from "./types";
 
 interface SearchFilterBarProps {
   filters: DiscoveryFilters;
@@ -184,7 +184,7 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
         </div>
       </div>
 
-      {/* Row 2: Date presets, Market group, Leagues */}
+      {/* Row 2: Date presets, Leagues */}
       <div className="flex items-center gap-2 flex-wrap">
         {/* Date presets */}
         <div className="flex items-center gap-1">
@@ -217,17 +217,6 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
             Custom
           </button>
         </div>
-
-        {/* Market group */}
-        <select
-          value={filters.group}
-          onChange={(e) => onChange({ group: e.target.value as MarketGroupFilter })}
-          className="bg-secondary border border-border rounded px-2 py-1 text-[10px] font-mono text-foreground focus:outline-none focus:border-ring"
-        >
-          {MARKET_GROUP_OPTIONS.map((g) => (
-            <option key={g.id} value={g.id}>{g.label}</option>
-          ))}
-        </select>
 
         {/* Tournament picker */}
         <button

@@ -266,6 +266,7 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
   const abortRef = useRef<AbortController | null>(null);
   const detailsAbortRef = useRef<AbortController | null>(null);
   const detailFetchAbortRef = useRef<AbortController | null>(null);
+  const fetchingRef = useRef<Set<string>>(new Set());
   const apiToken = useSettingsStore((s) => s.apiToken);
 
   // Sync sport from parent (SideNav) when it changes; reset betType if not available for new sport
@@ -451,13 +452,19 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
   // ─── Background: fetch fixture details for visible page ────────────────
   // The discovery query can't include markets (geo-restricted), so we fetch
   // fixture details in the background to populate bet type data.
+  //
+  // IMPORTANT: We iterate over `fixtures` (all fixtures) NOT `filteredFixtures`
+  // because filteredFixtures depends on betTypeInfo.available, which depends on
+  // marketsCache, which depends on this fetch — creating a circular deadlock.
   useEffect(() => {
-    if (rawFixtures.length === 0 || !apiToken) return;
+    if (fixtures.length === 0 || !apiToken) return;
 
-    // Get fixtures on the current page that we haven't fetched yet
+    // Get fixtures on the current page that we haven't fetched or started fetching yet
     const start = (safePage - 1) * PAGE_SIZE;
-    const unfetched = filteredFixtures.slice(start, start + PAGE_SIZE)
-      .filter((f) => !marketsCache.has(f.id));
+    const pageFixtures = fixtures.slice(start, start + PAGE_SIZE);
+    const unfetched = pageFixtures.filter(
+      (f) => !marketsCache.has(f.id) && !fetchingRef.current.has(f.id),
+    );
 
     if (unfetched.length === 0) return;
 
@@ -471,6 +478,8 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
       // Fetch details sequentially to avoid rate limiting
       for (const fixture of unfetched) {
         if (cancelled || controller.signal.aborted) break;
+        // Mark as in-progress so subsequent effect runs don't re-queue it
+        fetchingRef.current.add(fixture.id);
         try {
           // Auto-discovers all available groups from the API
           const details = await getFixtureDetailsQuery(fixture.slug);
@@ -496,7 +505,7 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
       cancelled = true;
       controller.abort();
     };
-  }, [filteredFixtures, safePage, rawFixtures.length, apiToken]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fixtures, safePage, rawFixtures.length, apiToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Line odds preview (for BetTypeLineSelector) ────────────────────────
 
