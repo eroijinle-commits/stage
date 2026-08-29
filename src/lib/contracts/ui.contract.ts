@@ -66,6 +66,7 @@ export interface BetSelection {
   betType: string;
   betTypeLine: string | null;
   sport?: string;
+  stakeUrl?: string;
 }
 
 export interface SlipItemProps { selection: BetSelection; onRemove: () => void; stake?: number; onStakeChange?: (stake: number) => void; mode: SlipMode; result?: { success: boolean; betId?: string; error?: string }; }
@@ -96,11 +97,12 @@ export interface DiscoveryFixture {
   isLive?: boolean;
   homeScore?: number;
   awayScore?: number;
-  tournament: { name: string; category: { name: string } };
+  tournament: { name: string; slug?: string; category: { name: string; slug?: string } };
   competitors: Array<{ name: string; iconPath?: string }>;
   previewMarkets?: Array<{ name: string; outcomes: Array<{ name: string; odds: number; active: boolean }> }>;
   betTypeInfo?: BetTypeInfo;
   sport?: string;
+  stakeUrl?: string;
 }
 
 export interface FixtureRowProps {

@@ -127,6 +127,13 @@ function mapFixtureToDiscovery(
   // Build a fixture-like object with markets for bet type matching
   const fixtureWithMarkets = { ...fixture, markets };
 
+  const sportSlug = fixture.tournament?.category?.sport?.slug;
+  const catSlug = fixture.tournament?.category?.slug;
+  const tourSlug = fixture.tournament?.slug;
+  const stakeUrl = (sportSlug && catSlug && tourSlug && fixture.slug)
+    ? `https://stake.com/sports/${sportSlug}/${catSlug}/${tourSlug}/${fixture.slug}`
+    : undefined;
+
   return {
     id: fixture.id,
     name: fixture.name,
@@ -138,12 +145,17 @@ function mapFixtureToDiscovery(
     awayScore: eventStatus?.awayScore,
     tournament: {
       name: fixture.tournament?.name ?? "Unknown",
-      category: { name: fixture.tournament?.category?.name ?? "Unknown" },
+      slug: fixture.tournament?.slug,
+      category: {
+        name: fixture.tournament?.category?.name ?? "Unknown",
+        slug: fixture.tournament?.category?.slug,
+      },
     },
     competitors,
     previewMarkets,
     betTypeInfo: betType ? computeBetTypeInfo(fixtureWithMarkets, betType, betTypeLine, cachedGroups) : undefined,
-    sport: fixture.tournament?.category?.sport?.slug,
+    sport: sportSlug,
+    stakeUrl,
   };
 }
 

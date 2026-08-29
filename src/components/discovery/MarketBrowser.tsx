@@ -108,6 +108,7 @@ export default function MarketBrowser({ open, onClose, fixture }: MarketBrowserP
             betType: marketName,
             betTypeLine: null,
             sport: fixture.sport,
+            stakeUrl: fixture.stakeUrl,
         });
     };
 

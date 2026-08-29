@@ -16,6 +16,7 @@ function makeSelection(
   startTime: string, betTypeName: string, line: string | null,
   outcome: { id: string; name: string; odds: number; active: boolean },
   sport?: string,
+  stakeUrl?: string,
 ): BetSelection {
   return {
     id: outcome.id, fixtureSlug: slug, fixtureName: name, fixtureId,
@@ -23,7 +24,7 @@ function makeSelection(
     marketName: betTypeName + (line ? ` ${line}` : ""), outcomeId: outcome.id,
     outcomeName: outcome.name, odds: outcome.odds, active: outcome.active,
     startTime, addedAt: Date.now(), betType: betTypeName, betTypeLine: line,
-    sport,
+    sport, stakeUrl,
   };
 }
 
@@ -40,10 +41,10 @@ function BetTypeColumn({ fixture, info, slipIds, onAdd }: {
       <div className="flex items-center gap-1.5">
         <OddsButton odds={info.overOutcome.odds} name={`O ${info.line}`} active={info.overOutcome.active}
           selected={slipIds.has(info.overOutcome.id)}
-          onClick={() => onAdd(makeSelection(fixture.id, fixture.slug, fixture.name, fixture.tournament.name, fixture.startTime, info.betTypeName, info.line, info.overOutcome!, fixture.sport))} />
+          onClick={() => onAdd(makeSelection(fixture.id, fixture.slug, fixture.name, fixture.tournament.name, fixture.startTime, info.betTypeName, info.line, info.overOutcome!, fixture.sport, fixture.stakeUrl))} />
         <OddsButton odds={info.underOutcome.odds} name={`U ${info.line}`} active={info.underOutcome.active}
           selected={slipIds.has(info.underOutcome.id)}
-          onClick={() => onAdd(makeSelection(fixture.id, fixture.slug, fixture.name, fixture.tournament.name, fixture.startTime, info.betTypeName, info.line, info.underOutcome!, fixture.sport))} />
+          onClick={() => onAdd(makeSelection(fixture.id, fixture.slug, fixture.name, fixture.tournament.name, fixture.startTime, info.betTypeName, info.line, info.underOutcome!, fixture.sport, fixture.stakeUrl))} />
       </div>
     );
   }
@@ -54,7 +55,7 @@ function BetTypeColumn({ fixture, info, slipIds, onAdd }: {
         {info.allOutcomes.map((o) => (
           <OddsButton key={o.id} odds={o.odds} name={o.name} active={o.active}
             selected={slipIds.has(o.id)}
-            onClick={() => onAdd(makeSelection(fixture.id, fixture.slug, fixture.name, fixture.tournament.name, fixture.startTime, info.betTypeName, null, o, fixture.sport))} />
+            onClick={() => onAdd(makeSelection(fixture.id, fixture.slug, fixture.name, fixture.tournament.name, fixture.startTime, info.betTypeName, null, o, fixture.sport, fixture.stakeUrl))} />
         ))}
       </div>
     );
@@ -64,7 +65,7 @@ function BetTypeColumn({ fixture, info, slipIds, onAdd }: {
     return (
       <OddsButton odds={info.singleOutcome.odds} name={info.singleOutcome.name}
         active={info.singleOutcome.active} selected={slipIds.has(info.singleOutcome.id)}
-        onClick={() => onAdd(makeSelection(fixture.id, fixture.slug, fixture.name, fixture.tournament.name, fixture.startTime, info.betTypeName, null, info.singleOutcome!, fixture.sport))} />
+        onClick={() => onAdd(makeSelection(fixture.id, fixture.slug, fixture.name, fixture.tournament.name, fixture.startTime, info.betTypeName, null, info.singleOutcome!, fixture.sport, fixture.stakeUrl))} />
     );
   }
 
@@ -88,6 +89,7 @@ function FallbackOdds({ fixture, slipIds, onAdd }: {
                 marketName: market.name, outcomeId: selId, outcomeName: outcome.name,
                 odds: outcome.odds, active: outcome.active, startTime: fixture.startTime,
                 addedAt: Date.now(), betType: market.name, betTypeLine: null, sport: fixture.sport,
+                stakeUrl: fixture.stakeUrl,
               })}
             />
           );

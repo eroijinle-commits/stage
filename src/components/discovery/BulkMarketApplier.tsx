@@ -81,6 +81,7 @@ function buildSelectionFromFixture(
     betType: info.betTypeName,
     betTypeLine: info.line,
     sport: fixture.sport,
+    stakeUrl: fixture.stakeUrl,
   };
 }
 

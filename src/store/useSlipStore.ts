@@ -77,10 +77,7 @@ export const useSlipStore = create<SlipStore>()(
         const { selections } = get();
         if (selections.length === 0) return "";
         const first = selections[0];
-        const lines = selections.map(
-          (s) => `${s.fixtureName} — ${s.outcomeName} @ ${s.odds}`,
-        );
-        return `${first.fixtureName}\n${lines.join("\n")}`;
+        return first.stakeUrl ?? "";
       },
       savedSlips: [],
       saveSlip: (name: string) => {
