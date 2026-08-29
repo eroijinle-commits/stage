@@ -20,6 +20,7 @@ export default function BetSlipDrawer() {
     isPlacing,
     placeResults,
     potentialReturn,
+    lastError,
     setMode,
     setStakePerLeg,
     removeSelection,
@@ -59,7 +60,9 @@ export default function BetSlipDrawer() {
     const data = shareSlip();
     if (!data) return;
 
-    const text = `${data.code}\nStake link: ${data.link}\nStage link: ${data.stageLink}`;
+    const text = data.link
+      ? `${data.code}\nStake fixture: ${data.link}\nRestore in Stage: ${data.stageLink}`
+      : data.stageLink;
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -258,6 +261,11 @@ export default function BetSlipDrawer() {
                   {currency} {displayReturn.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
+              {!placed && lastError && (
+                <div className="text-xs font-mono text-bet-lost bg-bet-lost/10 border border-bet-lost/30 rounded px-2.5 py-1.5">
+                  {lastError}
+                </div>
+              )}
               {!placed ? (
                 <Button
                   variant="primary"

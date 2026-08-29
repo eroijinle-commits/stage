@@ -8,7 +8,7 @@ import { useCallback, useMemo } from "react";
 import { useSlipStore } from "@/store/useSlipStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useBalance } from "./useBalance";
-import { calculatePotentialReturn, calculateTotalStake, canPlaceBet } from "@/lib/state/slipLogic";
+import { calculatePotentialReturn, calculateTotalStake, validateSlip } from "@/lib/state/slipLogic";
 import { executeBetPlacement, type BetPlacementResult } from "@/lib/state/betPlacement";
 import type { BetSelection } from "@/lib/contracts/ui.contract";
 import type { SlipMode } from "@/lib/contracts/db.contract";
@@ -44,14 +44,17 @@ export function useBetSlip() {
     );
 
     const placeBets = useCallback(async (): Promise<BetPlacementResult[]> => {
+        console.log("[placeBets] called with", { selectionsCount: selections.length, balance, totalStake, mode });
         if (selections.length === 0) {
             setLastError("No selections in the slip.");
             return [];
         }
 
         const balanceAmount = balance?.amount ?? null;
-        if (!canPlaceBet(selections, balanceAmount, totalStake)) {
-            setLastError("Cannot place bet — check your balance and selections.");
+        const validationErrors = validateSlip(selections, balanceAmount, totalStake);
+        if (validationErrors.length > 0) {
+            console.log("[placeBets] validation failed:", validationErrors);
+            setLastError(validationErrors.join("; "));
             return [];
         }
 
@@ -76,7 +79,11 @@ export function useBetSlip() {
             if (failCount > 0 && successCount > 0) {
                 setLastError(`${successCount} bet(s) placed, ${failCount} failed.`);
             } else if (failCount > 0) {
-                setLastError(results[0]?.error ?? "All bets failed.");
+                const err = results[0]?.error ?? "All bets failed.";
+                console.log("[placeBets] all bets failed:", err);
+                setLastError(err);
+            } else {
+                console.log("[placeBets] all bets placed successfully", results);
             }
 
             // Refresh balance after placement

@@ -85,10 +85,9 @@ export const useSlipStore = create<SlipStore>()(
         const { selections, mode, stakePerLeg } = get();
         if (selections.length === 0) return null;
 
-        // Extract Stake event ID from the first selection's fixture slug.
         const first = selections[0];
-        const eventId = first.fixtureSlug?.split("-")[0] ?? "";
-        const numericCode = /^\d+$/.test(eventId) ? eventId : "";
+        // Reliable Stake link: the fixture page URL we already computed.
+        const stakeLink = first.stakeUrl ?? "";
 
         // Build Stage restore payload (compact base64 of the full slip)
         const payload = {
@@ -118,10 +117,9 @@ export const useSlipStore = create<SlipStore>()(
         const stageLink = `${typeof window !== "undefined" ? window.location.origin : ""}/?slip=${base64}`;
 
         return {
-          code: numericCode,
-          link: numericCode
-            ? `https://stake.com/sports/home?iid=sport%3A${numericCode}&source=link_shared&modal=bet`
-            : first.stakeUrl ?? "",
+          // Numeric event ID extracted from fixture slug for reference only
+          code: first.fixtureSlug?.split("-")[0] ?? "",
+          link: stakeLink,
           stageLink,
         };
       },
