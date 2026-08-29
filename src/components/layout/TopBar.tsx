@@ -1,8 +1,9 @@
 import { useSlipStore } from "@/store/useSlipStore";
 import { useUIStore } from "@/store/useUIStore";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { useBalance } from "@/hooks/useBalance";
 import { cn } from "@/lib/utils/cn";
-import { PanelLeft, ShoppingCart, Zap } from "lucide-react";
+import { PanelLeft, ShoppingCart, Zap, Wallet, Loader2 } from "lucide-react";
 
 interface TopBarProps { activePage: string; onNavigate: (page: string) => void; }
 
@@ -17,7 +18,43 @@ export default function TopBar({ activePage, onNavigate }: TopBarProps) {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const toggleSlip = useUIStore((s) => s.toggleSlip);
   const selectionCount = useSlipStore((s) => s.selections.length);
-  const { balance } = useBalance();
+  const apiToken = useSettingsStore((s) => s.apiToken);
+  const currency = useSettingsStore((s) => s.currency);
+  const { balance, isLoading, error } = useBalance();
+
+  const renderBalance = () => {
+    if (!apiToken) {
+      return (
+        <button onClick={() => onNavigate("settings")} className="flex items-center gap-1 text-xs font-mono text-muted-foreground/60 px-2 py-1 rounded border border-border/50 hover:border-border hover:text-muted-foreground transition-colors" title="Set API token in Settings">
+          <Wallet size={11} />
+          <span>No token</span>
+        </button>
+      );
+    }
+    if (isLoading) {
+      return (
+        <span className="flex items-center gap-1 text-xs font-mono text-muted-foreground px-2 py-1 rounded border border-border">
+          <Loader2 size={11} className="animate-spin" />
+          <span>Loading…</span>
+        </span>
+      );
+    }
+    if (error) {
+      return (
+        <span className="text-xs font-mono text-bet-lost/70 px-2 py-1 rounded border border-border" title={error}>
+          Error
+        </span>
+      );
+    }
+    if (balance) {
+      return (
+        <span className="text-xs font-mono text-muted-foreground px-2 py-1 rounded border border-border">
+          {balance.currency} {balance.amount.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+        </span>
+      );
+    }
+    return null;
+  };
 
   return (
     <header className="h-11 flex items-center justify-between px-3 border-b border-border bg-card shrink-0 z-20">
@@ -47,11 +84,7 @@ export default function TopBar({ activePage, onNavigate }: TopBarProps) {
         </nav>
       </div>
       <div className="flex items-center gap-2">
-        {balance && (
-          <span className="text-xs font-mono text-muted-foreground px-2 py-1 rounded border border-border">
-            {balance.currency} {balance.amount.toFixed(2)}
-          </span>
-        )}
+        {renderBalance()}
         <button
           onClick={() => toggleSlip()}
           className={cn(

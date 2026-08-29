@@ -3,6 +3,15 @@ import { persist } from "zustand/middleware";
 import { BetSelection } from "@/lib/contracts/ui.contract";
 import { SlipMode } from "@/lib/contracts/db.contract";
 
+export interface SavedSlip {
+  id: string;
+  name: string;
+  selections: BetSelection[];
+  mode: SlipMode;
+  stakePerLeg: number;
+  createdAt: number;
+}
+
 interface SlipStore {
   selections: BetSelection[];
   mode: SlipMode;
@@ -25,11 +34,19 @@ interface SlipStore {
   setPlaceResults: (r: SlipStore["placeResults"]) => void;
   setLastError: (e: string | null) => void;
   updateOdds: (id: string, odds: number) => void;
+  // Share: encode slip as URL query string
+  shareSlip: () => string;
+  // Save/load named snapshots
+  savedSlips: SavedSlip[];
+  saveSlip: (name: string) => void;
+  loadSlip: (id: string) => void;
+  deleteSlip: (id: string) => void;
+  restoreFromUrl: (data: string) => boolean;
 }
 
 export const useSlipStore = create<SlipStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       selections: [],
       mode: "singles",
       stakePerLeg: 1000,
@@ -57,6 +74,58 @@ export const useSlipStore = create<SlipStore>()(
             s.id === id ? { ...s, odds } : s,
           ),
         })),
+      shareSlip: () => {
+        const { selections, mode, stakePerLeg } = get();
+        const payload = { s: selections, m: mode, p: stakePerLeg };
+        try {
+          return btoa(encodeURIComponent(JSON.stringify(payload)));
+        } catch {
+          return "";
+        }
+      },
+      restoreFromUrl: (data: string) => {
+        try {
+          const payload = JSON.parse(decodeURIComponent(atob(data)));
+          if (payload.s && Array.isArray(payload.s)) {
+            set({
+              selections: payload.s,
+              mode: payload.m ?? "singles",
+              stakePerLeg: payload.p ?? 1000,
+            });
+            return true;
+          }
+        } catch { /* invalid data */ }
+        return false;
+      },
+      savedSlips: [],
+      saveSlip: (name: string) => {
+        const { selections, mode, stakePerLeg, savedSlips } = get();
+        if (selections.length === 0) return;
+        const slip: SavedSlip = {
+          id: `slip-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          name,
+          selections: [...selections],
+          mode,
+          stakePerLeg,
+          createdAt: Date.now(),
+        };
+        set({ savedSlips: [...savedSlips, slip] });
+      },
+      loadSlip: (id: string) => {
+        const slip = get().savedSlips.find((s) => s.id === id);
+        if (slip) {
+          set({
+            selections: [...slip.selections],
+            mode: slip.mode,
+            stakePerLeg: slip.stakePerLeg,
+            placeResults: [],
+            lastError: null,
+          });
+        }
+      },
+      deleteSlip: (id: string) => {
+        set((st) => ({ savedSlips: st.savedSlips.filter((s) => s.id !== id) }));
+      },
     }),
     {
       name: "stake-slip-storage",
@@ -64,6 +133,7 @@ export const useSlipStore = create<SlipStore>()(
         selections: state.selections,
         mode: state.mode,
         stakePerLeg: state.stakePerLeg,
+        savedSlips: state.savedSlips,
       }),
     },
   ),

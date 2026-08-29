@@ -1,11 +1,12 @@
 import { useUIStore } from "@/store/useUIStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useBetSlip } from "@/hooks/useBetSlip";
+import { useSlipStore } from "@/store/useSlipStore";
 import { cn } from "@/lib/utils/cn";
-import { X, Trash2 } from "lucide-react";
+import { X, Trash2, Share2, Save, FolderOpen, ChevronDown, ChevronUp, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui";
 import SlipItem from "@/components/slip/SlipItem";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 export default function BetSlipDrawer() {
   const slipOpen = useUIStore((s) => s.slipOpen);
@@ -26,7 +27,17 @@ export default function BetSlipDrawer() {
     placeBets,
   } = useBetSlip();
 
+  const shareSlip = useSlipStore((s) => s.shareSlip);
+  const saveSlip = useSlipStore((s) => s.saveSlip);
+  const loadSlip = useSlipStore((s) => s.loadSlip);
+  const deleteSlip = useSlipStore((s) => s.deleteSlip);
+  const savedSlips = useSlipStore((s) => s.savedSlips);
+
   const [stakes, setStakes] = useState<Record<string, number>>({});
+  const [showSaveInput, setShowSaveInput] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [showSavedSlips, setShowSavedSlips] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const totalOdds = selections.reduce((acc, s) => acc * s.odds, 1);
   const totalStake =
@@ -43,6 +54,26 @@ export default function BetSlipDrawer() {
       : potentialReturn;
 
   const placed = placeResults.length > 0;
+
+  const handleShare = useCallback(() => {
+    const data = shareSlip();
+    if (!data) return;
+    const url = `${window.location.origin}${window.location.pathname}?slip=${data}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      // Fallback: show URL in prompt
+      prompt("Copy this link:", url);
+    });
+  }, [shareSlip]);
+
+  const handleSave = useCallback(() => {
+    if (!saveName.trim()) return;
+    saveSlip(saveName.trim());
+    setSaveName("");
+    setShowSaveInput(false);
+  }, [saveName, saveSlip]);
 
   return (
     <>
@@ -68,6 +99,22 @@ export default function BetSlipDrawer() {
             )}
           </div>
           <div className="flex items-center gap-1">
+            {selections.length > 0 && !placed && (
+              <>
+                <button
+                  onClick={handleShare}
+                  className="text-muted-foreground hover:text-primary transition-colors p-1" title="Share slip link"
+                >
+                  {copied ? <Check size={13} className="text-bet-won" /> : <Share2 size={13} />}
+                </button>
+                <button
+                  onClick={() => setShowSaveInput((v) => !v)}
+                  className="text-muted-foreground hover:text-primary transition-colors p-1" title="Save slip"
+                >
+                  <Save size={13} />
+                </button>
+              </>
+            )}
             {selections.length > 0 && (
               <button
                 onClick={clearSelections}
@@ -84,6 +131,56 @@ export default function BetSlipDrawer() {
             </button>
           </div>
         </div>
+
+        {/* Save input */}
+        {showSaveInput && (
+          <div className="px-3 py-2 border-b border-border shrink-0 flex gap-1.5">
+            <input
+              type="text"
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSave()}
+              placeholder="Slip name…"
+              className="flex-1 bg-secondary border border-border rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-ring"
+              autoFocus
+            />
+            <Button variant="primary" onClick={handleSave} disabled={!saveName.trim()}>
+              Save
+            </Button>
+          </div>
+        )}
+
+        {/* Saved slips */}
+        {savedSlips.length > 0 && (
+          <div className="border-b border-border shrink-0">
+            <button
+              onClick={() => setShowSavedSlips((v) => !v)}
+              className="w-full flex items-center justify-between px-3 py-2 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span className="flex items-center gap-1.5">
+                <FolderOpen size={11} />
+                Saved Slips ({savedSlips.length})
+              </span>
+              {showSavedSlips ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+            {showSavedSlips && (
+              <div className="px-3 pb-2 space-y-1 max-h-40 overflow-y-auto">
+                {savedSlips.map((slip) => (
+                  <div key={slip.id} className="flex items-center justify-between gap-2 py-1 px-2 rounded bg-secondary/50 text-[10px] font-mono">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-foreground truncate block">{slip.name}</span>
+                      <span className="text-muted-foreground">{slip.selections.length} leg{slip.selections.length !== 1 ? "s" : ""} · {slip.mode}</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => { loadSlip(slip.id); setShowSavedSlips(false); }} className="text-primary hover:text-primary/80 transition-colors px-1">Load</button>
+                      <button onClick={() => deleteSlip(slip.id)} className="text-bet-lost/60 hover:text-bet-lost transition-colors px-1">Del</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {selections.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-xs font-mono text-muted-foreground text-center px-6">
