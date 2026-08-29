@@ -34,14 +34,13 @@ interface SlipStore {
   setPlaceResults: (r: SlipStore["placeResults"]) => void;
   setLastError: (e: string | null) => void;
   updateOdds: (id: string, odds: number) => void;
-  // Share: encode slip as URL query string
-  shareSlip: () => string;
+  // Share: open fixture page on Stake.com
+  shareSlip: () => string | null;
   // Save/load named snapshots
   savedSlips: SavedSlip[];
   saveSlip: (name: string) => void;
   loadSlip: (id: string) => void;
   deleteSlip: (id: string) => void;
-  restoreFromUrl: (data: string) => boolean;
 }
 
 export const useSlipStore = create<SlipStore>()(
@@ -75,27 +74,10 @@ export const useSlipStore = create<SlipStore>()(
           ),
         })),
       shareSlip: () => {
-        const { selections, mode, stakePerLeg } = get();
-        const payload = { s: selections, m: mode, p: stakePerLeg };
-        try {
-          return btoa(encodeURIComponent(JSON.stringify(payload)));
-        } catch {
-          return "";
-        }
-      },
-      restoreFromUrl: (data: string) => {
-        try {
-          const payload = JSON.parse(decodeURIComponent(atob(data)));
-          if (payload.s && Array.isArray(payload.s)) {
-            set({
-              selections: payload.s,
-              mode: payload.m ?? "singles",
-              stakePerLeg: payload.p ?? 1000,
-            });
-            return true;
-          }
-        } catch { /* invalid data */ }
-        return false;
+        const { selections } = get();
+        const first = selections.find((s) => s.sport && s.fixtureSlug);
+        if (!first) return null;
+        return `https://stake.com/sports/${first.sport}/${first.fixtureSlug}`;
       },
       savedSlips: [],
       saveSlip: (name: string) => {

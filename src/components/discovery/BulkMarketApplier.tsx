@@ -80,6 +80,7 @@ function buildSelectionFromFixture(
     addedAt: Date.now(),
     betType: info.betTypeName,
     betTypeLine: info.line,
+    sport: fixture.sport,
   };
 }
 

@@ -107,6 +107,7 @@ export default function MarketBrowser({ open, onClose, fixture }: MarketBrowserP
             addedAt: Date.now(),
             betType: marketName,
             betTypeLine: null,
+            sport: fixture.sport,
         });
     };
 

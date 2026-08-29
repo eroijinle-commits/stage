@@ -143,6 +143,7 @@ function mapFixtureToDiscovery(
     competitors,
     previewMarkets,
     betTypeInfo: betType ? computeBetTypeInfo(fixtureWithMarkets, betType, betTypeLine, cachedGroups) : undefined,
+    sport: fixture.tournament?.category?.sport?.slug,
   };
 }
 

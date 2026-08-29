@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import TopBar from "@/components/layout/TopBar";
 import SideNav from "@/components/layout/SideNav";
 import BetSlipDrawer from "@/components/layout/BetSlipDrawer";
@@ -6,7 +6,6 @@ import DiscoveryPage from "@/pages/DiscoveryPage";
 import HistoryPage from "@/pages/HistoryPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import SettingsPage from "@/pages/SettingsPage";
-import { useSlipStore } from "@/store/useSlipStore";
 
 type Page = "discovery" | "history" | "analytics" | "settings";
 
@@ -21,19 +20,7 @@ export default function App() {
   const [activePage, setActivePage] = useState<Page>("discovery");
   const [activeSport, setActiveSport] = useState("soccer");
   const [selectedTournamentSlugs, setSelectedTournamentSlugs] = useState<string[]>([]);
-  const restoreFromUrl = useSlipStore((s) => s.restoreFromUrl);
   const ActivePage = PAGES[activePage];
-
-  // Restore bet slip from URL param (?slip=<base64>) on mount
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const slipData = params.get("slip");
-    if (slipData) {
-      restoreFromUrl(slipData);
-      // Clean the URL without reloading
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-  }, [restoreFromUrl]);
 
   const handleTournamentToggle = (slug: string) => {
     setSelectedTournamentSlugs((prev) =>
