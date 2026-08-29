@@ -94,7 +94,14 @@ export async function executeQuery<T>(options: ExecuteQueryOptions): Promise<T> 
                 // Handle non-OK responses
                 if (!response.ok) {
                     const statusText = response.statusText;
-                    lastError = new Error(`HTTP ${response.status}: ${statusText}`);
+                    // Try to read the response body for better error info
+                    let bodyText = "";
+                    try {
+                        bodyText = await response.text();
+                    } catch { /* ignore */ }
+                    const detail = bodyText ? ` — ${bodyText.slice(0, 500)}` : "";
+                    console.error(`[stake-api] HTTP ${response.status}${detail}`);
+                    lastError = new Error(`HTTP ${response.status}: ${statusText}${detail}`);
                     // Retry on 5xx
                     if (response.status >= 500 && attempt < MAX_RETRIES) continue;
                     break;

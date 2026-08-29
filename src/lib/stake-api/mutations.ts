@@ -72,7 +72,7 @@ export async function placeBetMutation(params: PlaceBetParams): Promise<PlaceRes
     variables: {
       outcomeIds,
       amount: totalAmount,
-      currency: currency.toLowerCase(),
+      currency: currency.toUpperCase(),
       betType: betType === "multi" ? "multi" : "sports",
       oddsChange: "higher",
       stakeShieldEnabled: stakeShieldEnabled ?? false,
