@@ -7,7 +7,9 @@ export const BET_TYPES: BetTypeConfig[] = [
     description: "Home win, Draw, or Away win",
     icon: "Trophy",
     category: "match",
-    templates: ["1x2", "winner", "match_winner", "moneyline", "3way"],
+    // Templates match API group names (group.name / group.translation)
+    // API group: "main" or "result" with translation like "Match Winner"
+    templates: ["main", "result", "1x2", "winner", "moneyline"],
     hasLines: false,
     popular: true,
     sports: ["soccer", "tennis", "cricket", "american-football", "baseball"],
@@ -18,7 +20,8 @@ export const BET_TYPES: BetTypeConfig[] = [
     description: "Total goals over or under a line",
     icon: "Goal",
     category: "goals",
-    templates: ["Asian Total", "total_goals", "over_under", "totals"],
+    // API groups: "goals", "totalGoals", "totalGoalsOddEven"
+    templates: ["goals", "totalGoals", "Asian Total", "totals"],
     lines: ["0.5", "1.5", "2.5", "3.5", "4.5", "5.5"],
     hasLines: true,
     popular: true,
@@ -30,7 +33,8 @@ export const BET_TYPES: BetTypeConfig[] = [
     description: "Team starts with virtual advantage/disadvantage",
     icon: "Scale",
     category: "match",
-    templates: ["Asian Handicap", "handicap", "spread", "ah"],
+    // API groups: "asianHandicap", "handicap", "europeanHandicap"
+    templates: ["asianHandicap", "handicap", "spread"],
     lines: ["0.0", "0.25", "0.5", "0.75", "1.0", "1.25", "1.5", "1.75", "2.0"],
     hasLines: true,
     popular: true,
@@ -42,7 +46,8 @@ export const BET_TYPES: BetTypeConfig[] = [
     description: "Will both teams score?",
     icon: "CheckCircle2",
     category: "goals",
-    templates: ["Both Teams to Score", "btts", "both_teams_score"],
+    // API group: "bothTeamsToScore"
+    templates: ["bothTeamsToScore", "btts"],
     hasLines: false,
     popular: true,
     sports: ["soccer"],
@@ -53,7 +58,8 @@ export const BET_TYPES: BetTypeConfig[] = [
     description: "Exact final score",
     icon: "Target",
     category: "match",
-    templates: ["Correct Score", "correct_score", "cs"],
+    // API group: "correctScore"
+    templates: ["correctScore", "correct_score"],
     hasLines: false,
     popular: false,
     sports: ["soccer"],
@@ -64,7 +70,8 @@ export const BET_TYPES: BetTypeConfig[] = [
     description: "Result at half-time and full-time",
     icon: "Clock",
     category: "match",
-    templates: ["Halftime/Fulltime", "ht_ft", "half_time_full_time"],
+    // API group: "ht_ft"
+    templates: ["ht_ft", "Halftime/Fulltime"],
     hasLines: false,
     popular: false,
     sports: ["soccer"],
@@ -75,7 +82,8 @@ export const BET_TYPES: BetTypeConfig[] = [
     description: "Player to score first goal",
     icon: "User",
     category: "players",
-    templates: ["First Goalscorer", "first_scorer", "fg"],
+    // API groups: "playerGoals", "firstScorer", "firstGoal"
+    templates: ["playerGoals", "firstScorer", "firstGoal"],
     hasLines: false,
     popular: false,
     sports: ["soccer"],
@@ -86,7 +94,8 @@ export const BET_TYPES: BetTypeConfig[] = [
     description: "Player to score anytime",
     icon: "UserCheck",
     category: "players",
-    templates: ["Anytime Goalscorer", "anytime_scorer", "ags"],
+    // API groups: "playerProps", "anytimeScorer", "playerToScore"
+    templates: ["playerProps", "anytimeScorer", "playerToScore"],
     hasLines: false,
     popular: false,
     sports: ["soccer"],
@@ -97,7 +106,8 @@ export const BET_TYPES: BetTypeConfig[] = [
     description: "Total corners over or under a line",
     icon: "Flag",
     category: "corners",
-    templates: ["Corner Total", "corners", "asian_corner", "corner_ou", "total_corners"],
+    // API groups: "corners", "totalCorners", "cornerRace"
+    templates: ["corners", "totalCorners", "cornerRace"],
     lines: ["8.5", "9.5", "10.5", "11.5", "12.5", "13.5"],
     hasLines: true,
     popular: true,
@@ -109,7 +119,8 @@ export const BET_TYPES: BetTypeConfig[] = [
     description: "Corner count with handicap",
     icon: "FlagTriangleRight",
     category: "corners",
-    templates: ["Corner Handicap", "corner_handicap", "corner_spread"],
+    // API group: "cornerHandicap"
+    templates: ["cornerHandicap"],
     lines: ["0.0", "0.5", "1.0", "1.5", "2.0", "2.5", "3.0"],
     hasLines: true,
     popular: false,
@@ -121,7 +132,8 @@ export const BET_TYPES: BetTypeConfig[] = [
     description: "Total cards over or under a line",
     icon: "Square",
     category: "cards",
-    templates: ["Card Total", "cards", "booking_points", "total_cards", "card_ou"],
+    // API groups: "cards", "totalCards", "yellowCard", "redCard"
+    templates: ["cards", "totalCards", "yellowCard", "redCard"],
     lines: ["3.5", "4.5", "5.5", "6.5", "7.5"],
     hasLines: true,
     popular: false,
@@ -133,7 +145,8 @@ export const BET_TYPES: BetTypeConfig[] = [
     description: "Team keeps clean sheet",
     icon: "Shield",
     category: "match",
-    templates: ["Clean Sheet", "clean_sheet", "to_keep_clean_sheet"],
+    // API group: "cleanSheet"
+    templates: ["cleanSheet"],
     hasLines: false,
     popular: false,
     sports: ["soccer"],
@@ -144,7 +157,8 @@ export const BET_TYPES: BetTypeConfig[] = [
     description: "Win without conceding",
     icon: "ShieldCheck",
     category: "match",
-    templates: ["Win to Nil", "win_to_nil", "win_without_conceding"],
+    // API group: "result" (subset of match result)
+    templates: ["win_to_nil"],
     hasLines: false,
     popular: false,
     sports: ["soccer"],
@@ -155,7 +169,8 @@ export const BET_TYPES: BetTypeConfig[] = [
     description: "Two outcomes in one bet",
     icon: "GitFork",
     category: "match",
-    templates: ["Double Chance", "double_chance", "dc"],
+    // API group: "doubleChance"
+    templates: ["doubleChance"],
     hasLines: false,
     popular: false,
     sports: ["soccer"],
@@ -166,7 +181,8 @@ export const BET_TYPES: BetTypeConfig[] = [
     description: "Stake returned if draw",
     icon: "Undo2",
     category: "match",
-    templates: ["Draw No Bet", "draw_no_bet", "dnb"],
+    // API group: "drawNoBet"
+    templates: ["drawNoBet"],
     hasLines: false,
     popular: false,
     sports: ["soccer", "tennis", "cricket"],

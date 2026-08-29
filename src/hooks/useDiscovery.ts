@@ -12,16 +12,16 @@ import { getBetTypeById, getGroupForBetType, getLinesForBetType, getPopularBetTy
 import { getSportIndex, getFixtureDetailsQuery, type SportIndexData, type FixtureDetailsData } from "@/lib/stake-api/queries";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { classifyError, getUserFriendlyMessage } from "@/lib/stake-api/errors";
-import type { StakeFixture, StakeMarket, StakeMarketOutcome } from "@/lib/contracts/api.contract";
+import type { StakeFixture, StakeMarket, StakeMarketOutcome, StakeGroupWithMarkets } from "@/lib/contracts/api.contract";
 import { PAGE_SIZE } from "@/components/discovery/types";
 
 // ─── Default Filters ────────────────────────────────────────────────────────
 
 const DEFAULT_FILTERS: DiscoveryFilters = {
   sport: "soccer",
-  betType: "corners-over-under",
-  betTypeLine: "9.5",
-  group: "corners",
+  betType: "match-winner",
+  betTypeLine: null,
+  group: "main",
   dateFrom: null,
   dateTo: null,
   tournamentSlugs: [],
@@ -99,6 +99,7 @@ function mapFixtureToDiscovery(
   betType: string | null,
   betTypeLine: string | null,
   cachedMarkets?: StakeMarket[],
+  cachedGroups?: StakeGroupWithMarkets[],
 ): DiscoveryFixture {
   const data = fixture.data;
   const isMatch = data?.__typename === "SportFixtureDataMatch";
@@ -141,7 +142,7 @@ function mapFixtureToDiscovery(
     },
     competitors,
     previewMarkets,
-    betTypeInfo: betType ? computeBetTypeInfo(fixtureWithMarkets, betType, betTypeLine) : undefined,
+    betTypeInfo: betType ? computeBetTypeInfo(fixtureWithMarkets, betType, betTypeLine, cachedGroups) : undefined,
   };
 }
 
@@ -151,11 +152,13 @@ function computeBetTypeInfo(
   fixture: StakeFixture,
   betTypeId: string,
   betTypeLine: string | null,
+  cachedGroups?: StakeGroupWithMarkets[],
 ): BetTypeInfo {
   const betType = getBetTypeById(betTypeId);
   if (!betType) return { betTypeName: "", line: betTypeLine, available: false };
 
-  const matchingOutcomes = findMatchingOutcomes(fixture, betType.templates, betTypeLine);
+  // Match against group names (from API hierarchy), not market names
+  const matchingOutcomes = findMatchingOutcomes(fixture, betType.templates, betTypeLine, cachedGroups);
 
   if (matchingOutcomes.length > 0) {
     return buildBetTypeInfoFromOutcomes(betTypeId, betType, betTypeLine, matchingOutcomes);
@@ -173,7 +176,46 @@ function findMatchingOutcomes(
   fixture: StakeFixture,
   templates: string[],
   line: string | null,
+  cachedGroups?: StakeGroupWithMarkets[],
 ): StakeMarketOutcome[] {
+  // Strategy: Match templates against GROUP NAMES from the API hierarchy.
+  // The Stake API organizes markets into groups (e.g., "corners", "cards", "goals").
+  // Templates in bet-type-mapper.ts are group-level identifiers, not market names.
+  // Example: template "corners" matches group "corners" → extract all outcomes from that group.
+
+  if (cachedGroups && cachedGroups.length > 0) {
+    const matchingOutcomes: StakeMarketOutcome[] = [];
+
+    for (const group of cachedGroups) {
+      const groupName = group.name.toLowerCase();
+      const groupTranslation = (group.translation ?? "").toLowerCase();
+
+      // Check if any template matches this group's name or translation
+      const templateMatch = templates.some(
+        (t) => groupName.includes(t.toLowerCase()) || groupTranslation.includes(t.toLowerCase()),
+      );
+      if (!templateMatch) continue;
+
+      // Extract all outcomes from all markets in this group
+      for (const template of group.templates) {
+        for (const market of template.markets) {
+          if (market.status !== "active") continue;
+
+          // For line-based bet types, verify the line value matches
+          if (line) {
+            const marketLine = extractLine(market.name);
+            if (marketLine && marketLine !== line) continue;
+          }
+
+          matchingOutcomes.push(...market.outcomes);
+        }
+      }
+    }
+
+    if (matchingOutcomes.length > 0) return matchingOutcomes;
+  }
+
+  // Fallback: match against flat market names (for fixtures without group data)
   const markets = fixture.markets ?? [];
   if (markets.length === 0) return [];
 
@@ -184,13 +226,11 @@ function findMatchingOutcomes(
 
     const marketName = market.name.toLowerCase();
 
-    // Check if any template matches this market name
     const templateMatch = templates.some(
       (t) => marketName.includes(t.toLowerCase()),
     );
     if (!templateMatch) continue;
 
-    // For line-based bet types, verify the line value matches
     if (line) {
       const marketLine = extractLine(market.name);
       if (marketLine && marketLine !== line) continue;
@@ -261,8 +301,8 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
   const [fixtureDetails, setFixtureDetails] = useState<FixtureDetailsData | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
-  // Cache of markets fetched via fixture details, keyed by fixture ID
-  const [marketsCache, setMarketsCache] = useState<Map<string, StakeMarket[]>>(new Map());
+  // Cache of markets + group hierarchy fetched via fixture details, keyed by fixture ID
+  const [marketsCache, setMarketsCache] = useState<Map<string, { markets: StakeMarket[]; groups: StakeGroupWithMarkets[] }>>(new Map());
   const abortRef = useRef<AbortController | null>(null);
   const detailsAbortRef = useRef<AbortController | null>(null);
   const detailFetchAbortRef = useRef<AbortController | null>(null);
@@ -390,9 +430,16 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
   // ─── Derived fixtures with BetTypeInfo ──────────────────────────────────
 
   const fixtures = useMemo(() => {
-    return rawFixtures.map((f) =>
-      mapFixtureToDiscovery(f, filters.betType, filters.betTypeLine, marketsCache.get(f.id)),
-    );
+    return rawFixtures.map((f) => {
+      const cached = marketsCache.get(f.id);
+      return mapFixtureToDiscovery(
+        f,
+        filters.betType,
+        filters.betTypeLine,
+        cached?.markets,
+        cached?.groups,
+      );
+    });
   }, [rawFixtures, filters.betType, filters.betTypeLine, marketsCache]);
 
   // ─── Client-side date + search + tournament filtering ───────────────────
@@ -429,16 +476,15 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
       );
     }
 
-    // Bet type filter: only show fixtures that have the selected bet type available
-    if (filters.betType) {
-      list = list.filter((f) => f.betTypeInfo?.available === true);
-    }
+    // Bet type filter: show all fixtures; FixtureRow displays "Not Available" for
+    // fixtures that don't have the selected bet type. Only filter when explicitly
+    // requested via a dedicated "has market" toggle (not implemented yet).
 
     // Sort by startTime ascending
     list.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
     return list;
-  }, [fixtures, filters.dateFrom, filters.dateTo, filters.searchQuery, filters.tournamentSlugs, filters.betType]);
+  }, [fixtures, filters.dateFrom, filters.dateTo, filters.searchQuery, filters.tournamentSlugs]);
 
   // ─── Pagination ─────────────────────────────────────────────────────────
 
@@ -484,14 +530,17 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
           // Auto-discovers all available groups from the API
           const details = await getFixtureDetailsQuery(fixture.slug);
           if (cancelled || controller.signal.aborted) break;
+
           // Extract markets from marketGroups → templates → markets
           const markets = details.marketGroups.flatMap((g) =>
             g.templates.flatMap((t) => t.markets),
           );
           if (markets.length > 0) {
+            // Store both flat markets AND raw group hierarchy
+            // Group hierarchy is needed for bet-type template matching
             setMarketsCache((prev) => {
               const next = new Map(prev);
-              next.set(fixture.id, markets);
+              next.set(fixture.id, { markets, groups: details.marketGroups });
               return next;
             });
           }
