@@ -33,6 +33,7 @@ interface SlipStore {
   }>;
   lastError: string | null;
   addSelection: (s: BetSelection) => void;
+  addMultipleSelections: (selections: BetSelection[]) => void;
   removeSelection: (id: string) => void;
   clearSelections: () => void;
   setMode: (mode: SlipMode) => void;
@@ -76,6 +77,14 @@ export const useSlipStore = create<SlipStore>()(
           const exists = st.selections.find((x) => x.id === s.id);
           if (exists) return { selections: st.selections.filter((x) => x.id !== s.id) };
           return { selections: [...st.selections, s] };
+        }),
+      addMultipleSelections: (newSelections) =>
+        set((st) => {
+          if (!newSelections || newSelections.length === 0) return {};
+          const existingIds = new Set(st.selections.map((x) => x.id));
+          const toAdd = newSelections.filter((s) => s && s.id && !existingIds.has(s.id));
+          if (toAdd.length === 0) return {};
+          return { selections: [...st.selections, ...toAdd] };
         }),
       removeSelection: (id) =>
         set((st) => ({ selections: st.selections.filter((x) => x.id !== id) })),
