@@ -1,0 +1,51 @@
+[
+  {
+    "name": "1. SportList",
+    "status": "OK",
+    "httpStatus": 200,
+    "errors": null,
+    "data": "{\"sportList\": [{\"id\": \"5b4b60b9-ed95-41e7-97e3-f33aa172cf12\", \"name\": \"Soccer\", \"slug\": \"soccer\"}, {\"id\": \"124e677c-9ded-4ef9-97d7-d8899f9824cb\", \"name\": \"American Football\", \"slug\": \"american-footbal"
+  },
+  {
+    "name": "2. StakeBalances",
+    "status": "OK (business logic err)",
+    "httpStatus": 200,
+    "errors": "You are not allowed to do that.",
+    "data": "{\"user\": null}"
+  },
+  {
+    "name": "3. SportDiscovery",
+    "status": "OK (business logic err)",
+    "httpStatus": 200,
+    "errors": "This action is not available, please contact support.",
+    "data": null
+  },
+  {
+    "name": "4. FixturePage_SlugFixture",
+    "status": "OK",
+    "httpStatus": 200,
+    "errors": null,
+    "data": "{\"slugFixture\": {\"id\": \"77363b35-2773-4e0e-95f5-3b4f62e2c4e4\", \"name\": \"Leeds United - Brentford\", \"slug\": \"46818366-leeds-united-brentford\", \"status\": \"active\", \"customBetAvailable\": true, \"liveWidge"
+  },
+  {
+    "name": "5. StakeBetHistory",
+    "status": "SCHEMA_ERROR",
+    "httpStatus": 400,
+    "errors": "Cannot query field \"sportBetHistory\" on type \"User\". Did you mean \"sportBetList\", \"chatHistory\", or \"tipHistory\"?; Cannot query field \"sportBetCount\" on type \"User\". Did you mean \"sportBetList\" or \"activeSportBetCount\"?",
+    "data": null
+  },
+  {
+    "name": "6. StakeActiveBetCount",
+    "status": "SCHEMA_ERROR",
+    "httpStatus": 400,
+    "errors": "Cannot query field \"activeBetCount\" on type \"User\". Did you mean \"activeSportBetCount\", \"activeSwishBetCount\", \"activeRacingBetCount\", or \"activeZooBet\"?; Cannot query field \"activeBetsByType\" on type \"User\". Did you mean \"activeBetsBalances\"?",
+    "data": null
+  },
+  {
+    "name": "7. SportBet mutation (probe)",
+    "status": "SCHEMA_ERROR",
+    "httpStatus": 400,
+    "errors": "Field \"market\" of type \"SportMarket!\" must have a selection of subfields. Did you mean \"market { ... }\"?",
+    "data": null
+  }
+]

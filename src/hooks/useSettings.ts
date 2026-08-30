@@ -40,20 +40,26 @@ export function useSettings() {
 
             for (const key of SETTINGS_KEYS) {
                 const value = await getSetting(key);
-                if (value !== null) {
+                if (value !== null && value !== "null" && value !== "") {
                     raw[key] = parseSettingValue(value, store[key as keyof typeof store]);
                 }
             }
 
-            // Apply loaded values to Zustand store
-            if (raw.apiToken !== undefined) store.setApiToken(raw.apiToken as string | null);
+            // Apply loaded values to Zustand store.
+            // For apiToken: only overwrite if the DB has a valid value AND
+            // the store doesn't already have one from localStorage persist.
+            // This prevents the DB (which may be empty on fresh install)
+            // from clobbering the locally-persisted token.
+            if (raw.apiToken !== undefined && raw.apiToken && !store.apiToken) {
+                store.setApiToken(raw.apiToken as string);
+            }
             if (raw.currency !== undefined) store.setCurrency(raw.currency as string);
             if (raw.oddsFormat !== undefined) store.setOddsFormat(raw.oddsFormat as SettingsState["oddsFormat"]);
             if (raw.defaultPresetId !== undefined) store.setDefaultPresetId(raw.defaultPresetId as number | null);
             if (raw.notifications !== undefined) store.setNotifications(raw.notifications as Partial<typeof store.notifications>);
             if (raw.theme !== undefined) store.setTheme(raw.theme as SettingsState["theme"]);
         } catch {
-            // On error, keep Zustand defaults
+            // On error, keep Zustand defaults (from localStorage persist)
         } finally {
             setIsLoading(false);
         }

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import { BetSelection } from "@/lib/contracts/ui.contract";
 import { SlipMode } from "@/lib/contracts/db.contract";
 
@@ -52,6 +52,14 @@ interface SlipStore {
   loadSlip: (id: string) => void;
   deleteSlip: (id: string) => void;
 }
+
+// Tracks whether the store has been rehydrated from localStorage.
+// Components should check this before assuming state is empty.
+let _slipRehydrated = false;
+let _slipResolve: (() => void) | null = null;
+export const slipHydrated = new Promise<void>((resolve) => {
+  _slipResolve = resolve;
+});
 
 export const useSlipStore = create<SlipStore>()(
   persist(
@@ -180,12 +188,19 @@ export const useSlipStore = create<SlipStore>()(
     }),
     {
       name: "stake-slip-storage",
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         selections: state.selections,
         mode: state.mode,
         stakePerLeg: state.stakePerLeg,
         savedSlips: state.savedSlips,
       }),
+      onRehydrateStorage: () => {
+        return (_state, _error) => {
+          _slipRehydrated = true;
+          _slipResolve?.();
+        };
+      },
     },
   ),
 );
