@@ -15,7 +15,7 @@ import type { PlaceBetParams, PlaceResult } from "./types";
  * @param params.amounts - Stake amount per outcome (first amount used as total)
  * @param params.currency - Currency code (e.g. "NGN")
  * @param params.odds - Odds per outcome (used for odds change detection)
- * @param params.betType - "sports" for single bets, "multi" for parlay
+ * @param params.betType - Internal slip mode ("sports" or "multi"); the Stake API only accepts "sports"
  * @returns The placed bet details
  */
 export async function placeBetMutation(params: PlaceBetParams): Promise<PlaceResult> {
@@ -72,8 +72,8 @@ export async function placeBetMutation(params: PlaceBetParams): Promise<PlaceRes
     variables: {
       outcomeIds,
       amount: totalAmount,
-      currency: currency.toUpperCase(),
-      betType: betType === "multi" ? "multi" : "sports",
+      currency: currency.toLowerCase(),
+      betType: "sports",
       oddsChange: "higher",
       stakeShieldEnabled: stakeShieldEnabled ?? false,
     },
