@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
     graphqlSuccess,
     graphqlError,
+    mockSportListResponse,
     mockSportIndexResponse,
     mockFixtureDetailsResponse,
     createMockSelection,
@@ -29,10 +30,17 @@ describe("Discovery Flow Integration", () => {
     });
 
     it("fetches sport index → extracts fixtures → builds selections", async () => {
-        // Mock the API response
+        // Mock the API response — route by query content so ensureSportIdCache
+        // (SportList) and getSportIndex (SportIndex) each get the right data.
         vi.stubGlobal(
             "fetch",
-            vi.fn().mockResolvedValue(graphqlSuccess(mockSportIndexResponse.data)),
+            vi.fn().mockImplementation(async (_url: string, init?: RequestInit) => {
+                const body = init?.body as string | undefined;
+                if (body?.includes("SportList")) {
+                    return graphqlSuccess(mockSportListResponse.data);
+                }
+                return graphqlSuccess(mockSportIndexResponse.data);
+            }),
         );
 
         // 1. Fetch sport index

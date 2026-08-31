@@ -5,7 +5,7 @@
  * @module hooks/useCompute
  */
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import type { DiscoveryFixture, BetSelection } from "@/lib/contracts/ui.contract";
 import type {
     ComputeConfig,
@@ -77,6 +77,8 @@ export interface UseComputeReturn {
     permutationCount: number;
     /** Whether market data has been fetched (rankedGroups is populated) */
     dataLoaded: boolean;
+    /** Max outcomes per group derived from real market data (index = group rank) */
+    actualMaxOutcomes: number[];
     /** Whether generation is allowed (count > 0 and within cap) */
     canGenerate: boolean;
     /** Run the full compute pipeline */
@@ -142,6 +144,58 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
 
         return () => { cancelled = true; };
     }, [fixture]);
+
+    // ─── Derived: actual max outcomes per group from real data ────────────────
+    // Used to compute accurate slider constraints instead of worst-case heuristic.
+    const actualMaxOutcomes = useMemo(
+        () =>
+            rankedGroups.map((g) =>
+                g.markets.length > 0
+                    ? Math.max(...g.markets.map((m) => m.outcomeCount))
+                    : 1,
+            ),
+        [rankedGroups],
+    );
+
+    // ─── Clamp config when data loads ────────────────────────────────────────
+    // Ensures the actual config state matches valid slider values so
+    // permutationCount and the UI stay in sync.
+    //
+    // Uses a ref to read the latest config without listing config values in the
+    // dependency array. This prevents the effect from firing on every slider
+    // change, which was causing a feedback loop that prevented sliders from
+    // moving (the effect would override user input immediately).
+    const configRef = useRef(config);
+    configRef.current = config;
+
+    useEffect(() => {
+        if (actualMaxOutcomes.length === 0) return;
+        const { groups, marketsPerGroup } = configRef.current;
+
+        let maxGroups = actualMaxOutcomes.length;
+        for (let gi = 0; gi < maxGroups; gi++) {
+            const maxM = Math.min(
+                3,
+                Math.floor(MAX_PERMUTATIONS / actualMaxOutcomes[gi]),
+            );
+            if (maxM < 1) {
+                maxGroups = gi;
+                break;
+            }
+        }
+        if (maxGroups < 1) maxGroups = 1;
+
+        const gIdx = Math.min(groups, actualMaxOutcomes.length) - 1;
+        const moe = gIdx >= 0 ? actualMaxOutcomes[gIdx] : 2;
+        const maxMarkets = Math.min(3, Math.floor(MAX_PERMUTATIONS / moe));
+
+        const nextGroups = Math.max(1, Math.min(groups, maxGroups));
+        const nextMarkets = Math.max(1, Math.min(marketsPerGroup, maxMarkets));
+
+        if (nextGroups !== groups || nextMarkets !== marketsPerGroup) {
+            setConfig({ groups: nextGroups, marketsPerGroup: nextMarkets });
+        }
+    }, [actualMaxOutcomes, setConfig]);
 
     // ─── Derived: live permutation count ──────────────────────────────────────
 
@@ -254,6 +308,7 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
         error,
         permutationCount,
         dataLoaded,
+        actualMaxOutcomes,
         canGenerate,
         runCompute,
         addSlipToBetSlip,

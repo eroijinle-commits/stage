@@ -27,32 +27,39 @@ export const mockBalanceEmpty = {
     },
 };
 
+// ─── Sport List (for ensureSportIdCache) ───────────────────────────────────
+
+export const mockSportListResponse = {
+    data: {
+        sportList: [
+            { id: "1", name: "Football", slug: "football" },
+            { id: "2", name: "Tennis", slug: "tennis" },
+            { id: "3", name: "Cricket", slug: "cricket" },
+        ],
+    },
+};
+
 // ─── Sport Index ────────────────────────────────────────────────────────────
+// This mirrors the raw GraphQL response structure that getSportIndex receives
+// (sport → categoryList → tournamentList → fixtureList).
 
 export const mockSportIndexResponse = {
     data: {
-        sportIndex: {
+        sport: {
             id: "1",
             name: "Football",
             slug: "football",
-            categories: [
+            categoryList: [
                 {
                     id: "10",
                     name: "England",
                     slug: "england",
-                    sport: { id: "1", name: "Football", slug: "football" },
-                    tournaments: [
+                    tournamentList: [
                         {
                             id: "100",
                             name: "Premier League",
                             slug: "premier-league",
-                            category: {
-                                id: "10",
-                                name: "England",
-                                slug: "england",
-                                sport: { id: "1", name: "Football", slug: "football" },
-                            },
-                            fixtures: [
+                            fixtureList: [
                                 {
                                     id: "f1",
                                     name: "Arsenal vs Chelsea",

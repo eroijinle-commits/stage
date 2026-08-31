@@ -8,7 +8,7 @@
 
 import * as Slider from "@radix-ui/react-slider";
 import { cn } from "@/lib/utils/cn";
-import { getSliderMax, MAX_PERMUTATIONS } from "@/lib/compute/types";
+import { MAX_PERMUTATIONS } from "@/lib/compute/types";
 import type { ComputeConfig } from "@/lib/compute/types";
 
 interface ComputeControlsProps {
@@ -16,6 +16,7 @@ interface ComputeControlsProps {
     onConfigChange: (config: ComputeConfig) => void;
     permutationCount: number;
     dataLoaded: boolean;
+    actualMaxOutcomes: number[];
     canGenerate: boolean;
     onGenerate: () => void;
     isLoading: boolean;
@@ -27,24 +28,37 @@ export default function ComputeControls({
     onConfigChange,
     permutationCount,
     dataLoaded,
+    actualMaxOutcomes,
     canGenerate,
     onGenerate,
     isLoading,
     disabled = false,
 }: ComputeControlsProps) {
-    // When market data hasn't been loaded yet, show the full slider range
-    // so users can explore config. Once data loads, constrain the range
-    // to prevent exceeding the 15-permutation cap.
+    // Compute slider max from actual market data (not worst-case heuristic).
+    // When data hasn't loaded yet, show the full slider range.
     const groupsMax = dataLoaded
-        ? getSliderMax(config.groups, config.marketsPerGroup, "groups")
+        ? Math.min(
+            5,
+            actualMaxOutcomes.length > 0 ? actualMaxOutcomes.length : 5,
+        )
         : 5;
-    const marketsMax = dataLoaded
-        ? getSliderMax(config.groups, config.marketsPerGroup, "marketsPerGroup")
-        : 3;
 
-    // Clamp current values when max decreases
-    const effectiveGroups = Math.min(config.groups, groupsMax);
-    const effectiveMarkets = Math.min(config.marketsPerGroup, marketsMax);
+    // Markets max: compute the maximum markets allowed across ALL possible group
+    // selections so the slider max stays stable when the Groups slider moves.
+    // Previously this depended on config.groups, which caused the Radix Slider's
+    // internal state to desync when the max prop changed mid-drag.
+    const marketsMax = dataLoaded
+        ? Math.min(
+            3,
+            actualMaxOutcomes.length > 0
+                ? Math.min(
+                      ...actualMaxOutcomes.map((moe) =>
+                          Math.floor(MAX_PERMUTATIONS / moe),
+                      ),
+                  )
+                : 3,
+        )
+        : 3;
 
     const isAtCap = permutationCount === MAX_PERMUTATIONS;
     const isOverCap = permutationCount > MAX_PERMUTATIONS;
@@ -55,7 +69,7 @@ export default function ComputeControls({
             {/* Groups slider */}
             <SliderField
                 label="Groups"
-                value={effectiveGroups}
+                value={config.groups}
                 min={1}
                 max={groupsMax}
                 onChange={(v) =>
@@ -67,7 +81,7 @@ export default function ComputeControls({
             {/* Markets per group slider */}
             <SliderField
                 label="Markets / Group"
-                value={effectiveMarkets}
+                value={config.marketsPerGroup}
                 min={1}
                 max={marketsMax}
                 onChange={(v) =>
