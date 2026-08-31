@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 import { useCompute, computeSlipToBetSelections } from "@/hooks/useCompute";
 import { useSlipStore } from "@/store/useSlipStore";
 import { generateAllPermutations } from "@/lib/compute/cartesian";
@@ -422,6 +422,9 @@ describe("Compute Flow Integration — Edge Cases", () => {
 
         const { result } = renderHook(() => useCompute(fixture));
 
+        // Wait for auto-fetch to complete
+        await waitFor(() => expect(result.current.dataLoaded).toBe(true));
+
         // First run
         await act(async () => {
             await result.current.runCompute();
@@ -434,7 +437,8 @@ describe("Compute Flow Integration — Edge Cases", () => {
         });
 
         expect(result.current.result!.slips.length).toBe(firstCount);
-        expect(mockGetFixtureDetails).toHaveBeenCalledTimes(2);
+        // auto-fetch(1) + runCompute(1) + retry(1) = 3
+        expect(mockGetFixtureDetails).toHaveBeenCalledTimes(3);
     });
 });
 

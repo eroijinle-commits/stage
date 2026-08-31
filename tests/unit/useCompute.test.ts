@@ -286,6 +286,12 @@ describe("useCompute", () => {
         });
 
         it("sets isLoading to true during fetch", async () => {
+            // Stable fixture reference so useEffect doesn't re-run on re-render
+            const fixture = makeFixture();
+            // Don't set mock before renderHook — auto-fetch gets undefined (from mockReset),
+            // details?.marketGroups is falsy, so auto-fetch early-returns.
+            const { result } = renderHook(() => useCompute(fixture));
+
             let resolvePromise: any;
             mockGetFixtureDetails.mockReturnValue(
                 new Promise((resolve) => {
@@ -293,26 +299,21 @@ describe("useCompute", () => {
                 }),
             );
 
-            const { result } = renderHook(() => useCompute(makeFixture()));
-
+            // Start runCompute without awaiting — observe isLoading
             act(() => {
                 result.current.runCompute();
             });
 
-            // Wait a tick for the async to start
-            await waitFor(() => {
-                expect(result.current.isLoading).toBe(true);
+            expect(result.current.isLoading).toBe(true);
+
+            // Resolve the pending promise
+            resolvePromise({
+                fixture: {} as any,
+                marketGroups: [],
             });
 
-            // Resolve the promise
-            await act(async () => {
-                resolvePromise({
-                    fixture: {} as any,
-                    marketGroups: [],
-                });
-            });
-
-            expect(result.current.isLoading).toBe(false);
+            // Wait for runCompute to finish
+            await waitFor(() => expect(result.current.isLoading).toBe(false));
         });
 
         it("handles API fetch failure with error message", async () => {
@@ -332,12 +333,20 @@ describe("useCompute", () => {
         it("handles non-Error thrown values", async () => {
             mockGetFixtureDetails.mockRejectedValue("string error");
 
-            const { result } = renderHook(() => useCompute(makeFixture()));
+            // Stable fixture reference so useEffect doesn't re-run on re-render
+            const fixture = makeFixture();
+            const { result } = renderHook(() => useCompute(fixture));
+
+            // Wait for auto-fetch to complete — it catches the string and sets its own error
+            await waitFor(() =>
+                expect(result.current.error).toBe("Failed to load fixture data"),
+            );
 
             await act(async () => {
                 await result.current.runCompute();
             });
 
+            // runCompute catches the same string and uses its own error message
             expect(result.current.error).toBe("Failed to fetch fixture details");
         });
 
@@ -372,27 +381,33 @@ describe("useCompute", () => {
 
     describe("retry", () => {
         it("re-runs the compute pipeline after failure", async () => {
-            mockGetFixtureDetails
-                .mockRejectedValueOnce(new Error("First failure"))
-                .mockResolvedValueOnce({
-                    fixture: {} as any,
-                    marketGroups: [
-                        makeApiMarketGroup("main", "Main", [
-                            { id: "m1", name: "Winner", odds: [2.0, 3.0] },
-                        ]),
-                    ],
-                });
+            const validData = {
+                fixture: {} as any,
+                marketGroups: [
+                    makeApiMarketGroup("main", "Main", [
+                        { id: "m1", name: "Winner", odds: [2.0, 3.0] },
+                    ]),
+                ],
+            };
+
+            // Auto-fetch succeeds with valid data on mount
+            mockGetFixtureDetails.mockResolvedValue(validData);
 
             const fixture = makeFixture();
             const { result } = renderHook(() => useCompute(fixture));
 
+            // Wait for auto-fetch to complete
+            await waitFor(() => expect(result.current.dataLoaded).toBe(true));
+
             // First attempt fails
+            mockGetFixtureDetails.mockRejectedValueOnce(new Error("First failure"));
             await act(async () => {
                 await result.current.runCompute();
             });
             expect(result.current.error).toBe("First failure");
 
             // Retry succeeds
+            mockGetFixtureDetails.mockResolvedValueOnce(validData);
             await act(async () => {
                 await result.current.retry();
             });
@@ -465,9 +480,8 @@ describe("useCompute", () => {
             // Initially 0
             expect(result.current.permutationCount).toBe(0);
 
-            await act(async () => {
-                await result.current.runCompute();
-            });
+            // Wait for auto-fetch to populate rankedGroups
+            await waitFor(() => expect(result.current.dataLoaded).toBe(true));
 
             // Config is { groups: 3, marketsPerGroup: 2 }, but we only have 1 group with 2 markets
             // selectTopGroups(1 group, 3) → 1 group
@@ -490,9 +504,8 @@ describe("useCompute", () => {
 
             const { result } = renderHook(() => useCompute(makeFixture()));
 
-            await act(async () => {
-                await result.current.runCompute();
-            });
+            // Wait for auto-fetch to populate rankedGroups
+            await waitFor(() => expect(result.current.dataLoaded).toBe(true));
 
             // Default config: groups=3, marketsPerGroup=2 → 1 group, 2 markets → 6 permutations
             expect(result.current.permutationCount).toBe(6);
@@ -528,9 +541,7 @@ describe("useCompute", () => {
             });
 
             const { result } = renderHook(() => useCompute(makeFixture()));
-            await act(async () => {
-                await result.current.runCompute();
-            });
+            await waitFor(() => expect(result.current.dataLoaded).toBe(true));
 
             // 1 market × 2 outcomes = 2 permutations
             expect(result.current.canGenerate).toBe(true);
@@ -550,9 +561,7 @@ describe("useCompute", () => {
             });
 
             const { result } = renderHook(() => useCompute(makeFixture()));
-            await act(async () => {
-                await result.current.runCompute();
-            });
+            await waitFor(() => expect(result.current.dataLoaded).toBe(true));
 
             // Config: groups=3, marketsPerGroup=2 → 1 group, 2 markets
             // m1(3) * m2(3) = 9 ≤ 15, so canGenerate is true

@@ -15,6 +15,7 @@ interface ComputeControlsProps {
     config: ComputeConfig;
     onConfigChange: (config: ComputeConfig) => void;
     permutationCount: number;
+    dataLoaded: boolean;
     canGenerate: boolean;
     onGenerate: () => void;
     isLoading: boolean;
@@ -25,13 +26,21 @@ export default function ComputeControls({
     config,
     onConfigChange,
     permutationCount,
+    dataLoaded,
     canGenerate,
     onGenerate,
     isLoading,
     disabled = false,
 }: ComputeControlsProps) {
-    const groupsMax = getSliderMax(config.groups, config.marketsPerGroup, "groups");
-    const marketsMax = getSliderMax(config.groups, config.marketsPerGroup, "marketsPerGroup");
+    // When market data hasn't been loaded yet, show the full slider range
+    // so users can explore config. Once data loads, constrain the range
+    // to prevent exceeding the 15-permutation cap.
+    const groupsMax = dataLoaded
+        ? getSliderMax(config.groups, config.marketsPerGroup, "groups")
+        : 5;
+    const marketsMax = dataLoaded
+        ? getSliderMax(config.groups, config.marketsPerGroup, "marketsPerGroup")
+        : 3;
 
     // Clamp current values when max decreases
     const effectiveGroups = Math.min(config.groups, groupsMax);

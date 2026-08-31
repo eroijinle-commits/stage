@@ -5,7 +5,7 @@
  * @module hooks/useCompute
  */
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import type { DiscoveryFixture, BetSelection } from "@/lib/contracts/ui.contract";
 import type {
     ComputeConfig,
@@ -75,6 +75,8 @@ export interface UseComputeReturn {
     error: string | null;
     /** Live permutation count based on current config and available fixture data */
     permutationCount: number;
+    /** Whether market data has been fetched (rankedGroups is populated) */
+    dataLoaded: boolean;
     /** Whether generation is allowed (count > 0 and within cap) */
     canGenerate: boolean;
     /** Run the full compute pipeline */
@@ -110,6 +112,37 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
 
     const addMultipleSelections = useSlipStore((s) => s.addMultipleSelections);
 
+    // ─── Auto-fetch market data on fixture change ────────────────────────────
+    // Fetches fixture details when a fixture is provided, so sliders have
+    // real market constraints and permutation count is live immediately.
+    useEffect(() => {
+        if (!fixture) {
+            setRankedGroups([]);
+            setResult(null);
+            setError(null);
+            return;
+        }
+
+        let cancelled = false;
+
+        (async () => {
+            try {
+                const details = await getFixtureDetailsQuery(fixture.slug);
+                if (cancelled || !details?.marketGroups) return;
+                const ranked = rankGroupsByOdds(details.marketGroups);
+                setRankedGroups(ranked);
+                setError(null);
+            } catch (err) {
+                if (cancelled) return;
+                const message =
+                    err instanceof Error ? err.message : "Failed to load fixture data";
+                setError(message);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [fixture]);
+
     // ─── Derived: live permutation count ──────────────────────────────────────
 
     const permutationCount = useMemo(() => {
@@ -118,6 +151,7 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
         return estimatePermutations(matrix);
     }, [config, rankedGroups]);
 
+    const dataLoaded = rankedGroups.length > 0;
     const canGenerate = permutationCount > 0 && permutationCount <= MAX_PERMUTATIONS;
 
     // ─── Actions ──────────────────────────────────────────────────────────────
@@ -219,6 +253,7 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
         isLoading,
         error,
         permutationCount,
+        dataLoaded,
         canGenerate,
         runCompute,
         addSlipToBetSlip,

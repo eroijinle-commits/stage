@@ -58,6 +58,7 @@ function renderControls(overrides: Partial<React.ComponentProps<typeof ComputeCo
         config: { groups: 3, marketsPerGroup: 2 } as ComputeConfig,
         onConfigChange: vi.fn(),
         permutationCount: 8,
+        dataLoaded: true,
         canGenerate: true,
         onGenerate: vi.fn(),
         isLoading: false,
@@ -78,9 +79,11 @@ describe("ComputeControls", () => {
         });
 
         it("displays clamped config values when max constrains them", () => {
-            // getSliderMax(3, 2, "groups") = floor(15/(2*3)) = 2 → effectiveGroups = min(3,2) = 2
-            // getSliderMax(3, 2, "marketsPerGroup") = floor(15/(3*3)) = 1 → effectiveMarkets = min(2,1) = 1
-            renderControls({ config: { groups: 3, marketsPerGroup: 2 } });
+            // With dataLoaded=true: getSliderMax(3, 2, "groups") = floor(15/(2*3)) = 2
+            // effectiveGroups = min(3, 2) = 2
+            // getSliderMax(3, 2, "marketsPerGroup") = floor(15/(3*3)) = 1
+            // effectiveMarkets = min(2, 1) = 1
+            renderControls({ config: { groups: 3, marketsPerGroup: 2 }, dataLoaded: true });
             expect(screen.getByTestId("slider-value-Groups")).toHaveTextContent("2");
             expect(screen.getByTestId("slider-value-Markets / Group")).toHaveTextContent("1");
         });
@@ -199,6 +202,7 @@ describe("ComputeControls", () => {
         it("shows max constraint hint when max is reduced", () => {
             renderControls({
                 config: { groups: 2, marketsPerGroup: 3 },
+                dataLoaded: true,
             });
             // With marketsPerGroup=3, groupsMax = floor(15/(3*3)) = 1
             expect(screen.getByText(/Max 1 to stay within/)).toBeTruthy();

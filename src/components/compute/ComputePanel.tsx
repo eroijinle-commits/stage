@@ -35,6 +35,7 @@ export default function ComputePanel({
         isLoading,
         error,
         permutationCount,
+        dataLoaded,
         canGenerate,
         runCompute,
         addSlipToBetSlip,
@@ -128,6 +129,7 @@ export default function ComputePanel({
                         config={config}
                         onConfigChange={setConfig}
                         permutationCount={permutationCount}
+                        dataLoaded={dataLoaded}
                         canGenerate={canGenerate}
                         onGenerate={runCompute}
                         isLoading={isLoading}
