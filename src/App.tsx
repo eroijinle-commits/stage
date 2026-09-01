@@ -7,14 +7,16 @@ import DiscoveryPage from "@/pages/DiscoveryPage";
 import HistoryPage from "@/pages/HistoryPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import SettingsPage from "@/pages/SettingsPage";
+import SlipPage from "@/components/slip/SlipPage";
 
-type Page = "discovery" | "history" | "analytics" | "settings";
+type Page = "discovery" | "history" | "analytics" | "settings" | "slip";
 
 const PAGES: Record<Page, React.ComponentType> = {
   discovery: DiscoveryPage,
   history: HistoryPage,
   analytics: AnalyticsPage,
   settings: SettingsPage,
+  slip: SlipPage,
 };
 
 export default function App() {

@@ -12,11 +12,11 @@ const NAV = [
   { id: "history", label: "History" },
   { id: "analytics", label: "Analytics" },
   { id: "settings", label: "Settings" },
+  { id: "slip", label: "Slip" },
 ];
 
 export default function TopBar({ activePage, onNavigate }: TopBarProps) {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
-  const toggleSlip = useUIStore((s) => s.toggleSlip);
   const selectionCount = useSlipStore((s) => s.selections.length);
   const apiToken = useSettingsStore((s) => s.apiToken);
   const currency = useSettingsStore((s) => s.currency);
@@ -86,7 +86,7 @@ export default function TopBar({ activePage, onNavigate }: TopBarProps) {
       <div className="flex items-center gap-2">
         {renderBalance()}
         <button
-          onClick={() => toggleSlip()}
+          onClick={() => onNavigate("slip")}
           className={cn(
             "flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono transition-colors border",
             selectionCount > 0
