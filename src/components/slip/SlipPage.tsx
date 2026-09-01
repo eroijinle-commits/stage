@@ -1,213 +1,125 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useBetSlip } from "@/hooks/useBetSlip";
 import { useSlipStore } from "@/store/useSlipStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
-import { cn } from "@/lib/utils/cn";
-import { calculatePotentialReturn, calculateTotalStake } from "@/lib/state/slipLogic";
-import { X, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { calculatePotentialReturn, calculateTotalStake, getShieldFeeRate } from "@/lib/state/slipLogic";
+import { PanelRight } from "lucide-react";
 import { Button } from "@/components/ui";
-import SlipItem from "@/components/slip/SlipItem";
 import SlipTabs, { type SlipTabId } from "@/components/slip/SlipTabs";
-import SlipVariantA from "@/components/slip/SlipVariantA";
-import type { ComputeSlipEntry } from "@/store/useSlipStore";
-
-// ─── Compute Slip Card (full-width) ──────────────────────────────────────────
-
-function ComputeSlipCard({
-  slip,
-  currency,
-  onRemove,
-  onPlaceBets,
-}: {
-  slip: ComputeSlipEntry;
-  currency: string;
-  onRemove: () => void;
-  onPlaceBets: (id: string) => void;
-}) {
-  const updateComputeSlip = useSlipStore((s) => s.updateComputeSlip);
-  const [expanded, setExpanded] = useState(true);
-
-  const sameFixtureSelectionCount = (() => {
-    const counts = new Map<string, number>();
-    for (const s of slip.selections) counts.set(s.fixtureId, (counts.get(s.fixtureId) ?? 0) + 1);
-    return Math.max(...counts.values());
-  })();
-  const canParlay = sameFixtureSelectionCount <= 1;
-
-  const totalOdds = slip.selections.reduce((acc, s) => acc * s.odds, 1);
-  const potentialReturn = calculatePotentialReturn(slip.selections, slip.mode, slip.stakePerLeg, undefined, slip.stakeShieldEnabled);
-  const totalStake = calculateTotalStake(slip.selections, slip.mode, slip.stakePerLeg);
-  const placed = slip.placeResults.length > 0;
-
-  return (
-    <div className="border border-border rounded-lg overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-2.5 bg-secondary/50">
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="flex items-center gap-2 text-sm font-mono font-semibold text-foreground hover:text-primary transition-colors"
-        >
-          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          {slip.name}
-          <span className="text-muted-foreground font-normal">({slip.selections.length} legs)</span>
-        </button>
-        <button onClick={onRemove} className="text-muted-foreground hover:text-bet-lost transition-colors p-1" title="Remove slip">
-          <X size={14} />
-        </button>
-      </div>
-
-      {expanded && (
-        <>
-          {/* Mode toggle */}
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-border">
-            {(["singles", "parlay"] as const).map((m) => {
-              const disabled = m === "parlay" && !canParlay;
-              return (
-                <button
-                  key={m}
-                  disabled={disabled}
-                  onClick={() => {
-                    if (disabled) return;
-                    updateComputeSlip(slip.id, {
-                      mode: m,
-                      stakeShieldEnabled: m !== "parlay" ? false : slip.stakeShieldEnabled,
-                    });
-                  }}
-                  title={disabled ? "Parlays cannot combine selections from the same match" : undefined}
-                  className={cn(
-                    "flex-1 py-1.5 text-xs font-mono rounded transition-colors capitalize",
-                    slip.mode === m
-                      ? "bg-primary/10 text-primary border border-primary/30"
-                      : disabled
-                        ? "text-muted-foreground/40 border border-transparent cursor-not-allowed"
-                        : "text-muted-foreground hover:bg-muted border border-transparent",
-                  )}
-                >
-                  {m}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Stake Shield for parlay with 3+ legs */}
-          {slip.mode === "parlay" && slip.selections.length >= 3 && (
-            <div className="px-4 py-2 border-b border-border">
-              <button
-                onClick={() => updateComputeSlip(slip.id, { stakeShieldEnabled: !slip.stakeShieldEnabled })}
-                className={cn(
-                  "w-full flex items-center justify-between py-1.5 px-3 rounded text-xs font-mono transition-colors",
-                  slip.stakeShieldEnabled
-                    ? "bg-primary/10 text-primary border border-primary/30"
-                    : "text-muted-foreground hover:bg-muted border border-transparent",
-                )}
-              >
-                <span className="flex items-center gap-1.5">
-                  <span>🛡️</span>
-                  <span>Stake Shield</span>
-                </span>
-                <span className={cn(
-                  "w-7 h-4 rounded-full transition-colors relative",
-                  slip.stakeShieldEnabled ? "bg-primary" : "bg-muted",
-                )}>
-                  <span className={cn(
-                    "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform",
-                    slip.stakeShieldEnabled ? "translate-x-3.5" : "translate-x-0.5",
-                  )} />
-                </span>
-              </button>
-            </div>
-          )}
-
-          {/* Selections */}
-          <div className="p-3 space-y-2">
-            {slip.selections.map((s) => {
-              const result = slip.placeResults.find((r) => r.selectionId === s.id);
-              return (
-                <SlipItem
-                  key={s.id}
-                  selection={s}
-                  onRemove={() => {}}
-                  mode={slip.mode}
-                  result={result}
-                />
-              );
-            })}
-          </div>
-
-          {/* Summary + Place */}
-          <div className="px-4 py-3 border-t border-border space-y-2">
-            {slip.mode === "parlay" && (
-              <div className="flex items-center justify-between text-xs font-mono text-muted-foreground">
-                <span>Total Odds</span>
-                <span className="text-foreground tabular-nums">{totalOdds.toFixed(2)}</span>
-              </div>
-            )}
-            {slip.mode === "parlay" && (
-              <div className="flex items-center justify-between text-xs font-mono text-muted-foreground">
-                <span>Stake ({currency})</span>
-              </div>
-            )}
-            {slip.mode === "parlay" && (
-              <input
-                type="number"
-                value={slip.stakePerLeg}
-                onChange={(e) => updateComputeSlip(slip.id, { stakePerLeg: parseFloat(e.target.value) || 0 })}
-                className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm font-mono text-right focus:outline-none focus:border-ring"
-              />
-            )}
-            <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-muted-foreground">Total Stake</span>
-              <span className="text-foreground tabular-nums">
-                {currency} {totalStake.toLocaleString("en-NG")}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-sm font-mono font-semibold">
-              <span className="text-muted-foreground">Potential Return</span>
-              <span className="text-primary tabular-nums">
-                {currency} {potentialReturn.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-            {slip.lastError && (
-              <div className="text-xs font-mono text-bet-lost bg-bet-lost/10 border border-bet-lost/30 rounded px-3 py-2">
-                {slip.lastError}
-              </div>
-            )}
-            {!placed ? (
-              <Button
-                variant="primary"
-                fullWidth
-                onClick={() => onPlaceBets(slip.id)}
-                loading={slip.isPlacing}
-                disabled={slip.isPlacing || slip.selections.length === 0}
-              >
-                {slip.isPlacing ? "Placing..." : "Place Bet"}
-              </Button>
-            ) : (
-              <div className={cn(
-                "text-xs font-mono text-center py-1.5",
-                slip.placeResults.some((r) => r.success) ? "text-bet-won" : "text-bet-lost",
-              )}>
-                {slip.placeResults.some((r) => r.success)
-                  ? `Placed · ${slip.placeResults.filter((r) => r.success).length} bet(s) successful`
-                  : "Bet placement failed"}
-              </div>
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-// ─── SlipPage ────────────────────────────────────────────────────────────────
+import ToolbarRibbon from "@/components/slip/ToolbarRibbon";
+import ManualTab from "@/components/slip/SlipVariantA";
+import ComputeSlipTable from "@/components/slip/ComputeSlipTable";
+import SavedSlipList from "@/components/slip/SavedSlipList";
+import OrderPanel from "@/components/slip/OrderPanel";
+import BottomBar from "@/components/slip/BottomBar";
 
 export default function SlipPage() {
   const [activeTab, setActiveTab] = useState<SlipTabId>("manual");
-  const { computeSlips, removeComputeSlip, placeBetsForGroup } = useBetSlip();
+  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [stakes, setStakes] = useState<Record<string, number>>({});
+  const [bulkStake, setBulkStake] = useState("");
+  const [saveName, setSaveName] = useState("");
+  const [showSaveInput, setShowSaveInput] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const {
+    selections, mode, stakePerLeg, stakeShieldEnabled, isPlacing, placeResults,
+    potentialReturn, totalStake, placeBets, clearSelections, setMode, setStakePerLeg,
+    setStakeShieldEnabled, computeSlips, removeComputeSlip, placeBetsForGroup,
+  } = useBetSlip();
+
   const savedSlips = useSlipStore((s) => s.savedSlips);
   const loadSlip = useSlipStore((s) => s.loadSlip);
   const deleteSlip = useSlipStore((s) => s.deleteSlip);
+  const saveSlip = useSlipStore((s) => s.saveSlip);
+  const shareSlip = useSlipStore((s) => s.shareSlip);
   const currency = useSettingsStore((s) => s.currency);
-  const selectionCount = useSlipStore((s) => s.selections.length);
+
+  const applyBulkStake = useCallback(() => {
+    const val = parseFloat(bulkStake);
+    if (isNaN(val) || val <= 0) return;
+    const map: Record<string, number> = {};
+    for (const s of selections) map[s.id] = val;
+    setStakes(map);
+    setBulkStake("");
+  }, [bulkStake, selections]);
+
+  const handleStakeChange = useCallback((id: string, value: number) => {
+    setStakes((prev) => ({ ...prev, [id]: value }));
+  }, []);
+
+  const handleModeChange = useCallback((m: "singles" | "parlay") => {
+    setMode(m);
+    if (m !== "parlay") setStakeShieldEnabled(false);
+  }, [setMode, setStakeShieldEnabled]);
+
+  const handleShare = useCallback(() => {
+    const data = shareSlip();
+    if (!data) return;
+    const text = data.link
+      ? `${data.code}\nStake fixture: ${data.link}\nRestore in Stage: ${data.stageLink}`
+      : data.stageLink;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      prompt("Copy this slip:", text);
+    });
+  }, [shareSlip]);
+
+  const handleSave = useCallback(() => {
+    if (!saveName.trim()) {
+      setShowSaveInput(true);
+      return;
+    }
+    saveSlip(saveName.trim());
+    setSaveName("");
+    setShowSaveInput(false);
+  }, [saveName, saveSlip]);
+
+  const handleLoad = useCallback((id: string) => {
+    loadSlip(id);
+    setActiveTab("manual");
+  }, [loadSlip]);
+
+  const manualDisplayReturn = useMemo(() => {
+    return mode === "singles"
+      ? selections.reduce((acc, s) => acc + (stakes[s.id] ?? stakePerLeg) * s.odds, 0)
+      : (() => {
+        let r = stakePerLeg * selections.reduce((acc, s) => acc * s.odds, 1);
+        if (stakeShieldEnabled && selections.length >= 3) r *= (1 - getShieldFeeRate(selections.length));
+        return Math.round(r * 100) / 100;
+      })();
+  }, [mode, selections, stakes, stakePerLeg, stakeShieldEnabled]);
+
+  const manualTotalStake = useMemo(() => {
+    return mode === "singles"
+      ? selections.reduce((acc, s) => acc + (stakes[s.id] ?? stakePerLeg), 0)
+      : stakePerLeg;
+  }, [mode, selections, stakes, stakePerLeg]);
+
+  const manualProfit = manualDisplayReturn - manualTotalStake;
+  const placed = placeResults.length > 0;
+
+  const computeSummary = useMemo(() => {
+    let totalStake = 0;
+    let totalReturn = 0;
+    let selectionCount = 0;
+    for (const slip of computeSlips) {
+      totalStake += calculateTotalStake(slip.selections, slip.mode, slip.stakePerLeg);
+      totalReturn += calculatePotentialReturn(slip.selections, slip.mode, slip.stakePerLeg, undefined, slip.stakeShieldEnabled);
+      selectionCount += slip.selections.length;
+    }
+    return { slipCount: computeSlips.length, selectionCount, totalStake, totalReturn, currency };
+  }, [computeSlips, currency]);
+
+  const savedSummary = useMemo(() => ({
+    slipCount: savedSlips.length,
+    selectionCount: savedSlips.reduce((acc, s) => acc + s.selections.length, 0),
+  }), [savedSlips]);
+
+  const totalCount = selections.length + computeSlips.reduce((acc, cs) => acc + cs.selections.length, 0);
+  const hasContent = selections.length > 0 || computeSlips.length > 0;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -215,76 +127,126 @@ export default function SlipPage() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         badges={{
-          manual: selectionCount || undefined,
+          manual: selections.length || undefined,
           compute: computeSlips.length || undefined,
           saved: savedSlips.length || undefined,
         }}
       />
-      <div className="flex-1 overflow-hidden flex flex-col">
-        {activeTab === "manual" && <SlipVariantA />}
 
-        {activeTab === "compute" && (
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {computeSlips.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-sm font-mono text-muted-foreground">
-                No compute slips. Generate permutations from the Compute panel.
-              </div>
-            ) : (
-              computeSlips.map((slip) => (
-                <ComputeSlipCard
-                  key={slip.id}
-                  slip={slip}
-                  currency={currency}
-                  onRemove={() => removeComputeSlip(slip.id)}
-                  onPlaceBets={placeBetsForGroup}
-                />
-              ))
-            )}
-          </div>
-        )}
+      <ToolbarRibbon
+        mode={mode}
+        onModeChange={handleModeChange}
+        bulkStake={bulkStake}
+        onBulkStakeChange={setBulkStake}
+        onApplyBulkStake={applyBulkStake}
+        onShare={handleShare}
+        onSave={handleSave}
+        onClear={() => { clearSelections(); }}
+        hasContent={activeTab === "manual" ? selections.length > 0 : hasContent}
+        copied={copied}
+      />
 
-        {activeTab === "saved" && (
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {savedSlips.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-sm font-mono text-muted-foreground">
-                No saved slips. Save your current slip from the Manual tab.
-              </div>
-            ) : (
-              savedSlips.map((slip) => (
-                <div key={slip.id} className="border border-border rounded-lg p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-mono font-semibold text-foreground">{slip.name}</p>
-                      <p className="text-xs font-mono text-muted-foreground">
-                        {slip.selections.length} leg{slip.selections.length !== 1 ? "s" : ""} · {slip.mode}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button variant="primary" size="sm" onClick={() => { loadSlip(slip.id); setActiveTab("manual"); }}>
-                        Load
-                      </Button>
-                      <button
-                        onClick={() => deleteSlip(slip.id)}
-                        className="text-muted-foreground hover:text-bet-lost transition-colors p-1"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    {slip.selections.map((s) => (
-                      <div key={s.id} className="flex items-center justify-between text-xs font-mono text-muted-foreground">
-                        <span className="truncate">{s.outcomeName}</span>
-                        <span className="text-foreground tabular-nums ml-2 shrink-0">{s.odds.toFixed(2)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
+      {/* Save input row */}
+      {showSaveInput && activeTab === "manual" && selections.length > 0 && (
+        <div className="shrink-0 flex items-center gap-1.5 px-2 py-1 border-b border-border bg-card/30">
+          <span className="text-[11px] font-mono text-muted-foreground">Save as:</span>
+          <input
+            type="text"
+            value={saveName}
+            onChange={(e) => setSaveName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSave()}
+            placeholder="Slip name"
+            className="flex-1 max-w-xs bg-secondary border border-border rounded px-2 py-0.5 text-[11px] font-mono focus:outline-none focus:border-ring"
+            autoFocus
+          />
+          <Button variant="primary" size="sm" className="px-2 py-0.5 text-[10px]" onClick={handleSave} disabled={!saveName.trim()}>
+            Save
+          </Button>
+          <Button variant="ghost" size="sm" className="px-2 py-0.5 text-[10px]" onClick={() => { setShowSaveInput(false); setSaveName(""); }}>
+            Cancel
+          </Button>
+        </div>
+      )}
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Main content */}
+        <div className="relative flex-1 min-w-0 flex flex-col overflow-hidden">
+          {activeTab === "manual" && (
+            <ManualTab
+              stakes={stakes}
+              onStakeChange={handleStakeChange}
+              bulkStake={bulkStake}
+              onBulkStakeChange={setBulkStake}
+              onApplyBulkStake={applyBulkStake}
+            />
+          )}
+          {activeTab === "compute" && (
+            <ComputeSlipTable
+              slips={computeSlips}
+              currency={currency}
+              onRemove={removeComputeSlip}
+              onPlaceBets={placeBetsForGroup}
+            />
+          )}
+          {activeTab === "saved" && (
+            <SavedSlipList
+              slips={savedSlips}
+              onLoad={handleLoad}
+              onDelete={deleteSlip}
+            />
+          )}
+
+          {/* Right panel toggle when panel is closed (mobile/desktop) */}
+          {!rightPanelOpen && (
+            <button
+              onClick={() => setRightPanelOpen(true)}
+              className="absolute right-0 top-[72px] z-10 text-muted-foreground hover:text-foreground bg-card border border-border rounded-l p-1"
+              title="Open order panel"
+            >
+              <PanelRight size={14} />
+            </button>
+          )}
+        </div>
+
+        <OrderPanel
+          open={rightPanelOpen}
+          onToggle={() => setRightPanelOpen((v) => !v)}
+          activeTab={activeTab}
+          manualSummary={{
+            mode,
+            selectionCount: selections.length,
+            currency,
+            totalStake: manualTotalStake,
+            displayReturn: manualDisplayReturn,
+            potentialProfit: manualProfit,
+            stakePerLeg,
+            stakeShieldEnabled,
+            totalOdds: mode === "parlay" ? selections.reduce((acc, s) => acc * s.odds, 1) : undefined,
+          }}
+          computeSummary={computeSummary}
+          savedSummary={savedSummary}
+          onStakeChange={setStakePerLeg}
+          onStakeShieldToggle={() => setStakeShieldEnabled(!stakeShieldEnabled)}
+          onPlaceBets={placeBets}
+          onClear={clearSelections}
+          isPlacing={isPlacing}
+          placed={placed}
+        />
       </div>
+
+      {activeTab === "manual" && (
+        <BottomBar
+          selectionCount={selections.length}
+          currency={currency}
+          totalStake={manualTotalStake}
+          displayReturn={manualDisplayReturn}
+          potentialProfit={manualProfit}
+          isPlacing={isPlacing}
+          placed={placed}
+          onPlaceBets={placeBets}
+          onClear={clearSelections}
+        />
+      )}
     </div>
   );
 }
