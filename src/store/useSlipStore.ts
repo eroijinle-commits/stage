@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { BetSelection } from "@/lib/contracts/ui.contract";
 import { SlipMode } from "@/lib/contracts/db.contract";
+import { BetPlacementResult } from "@/lib/state/betPlacement";
 
 export interface SavedSlip {
   id: string;
@@ -18,6 +19,20 @@ export interface SlipShareData {
   stageLink: string;
 }
 
+/** An isolated compute slip with its own mode, stake, and placement state. */
+export interface ComputeSlipEntry {
+  id: string;
+  name: string;
+  selections: BetSelection[];
+  mode: SlipMode;
+  stakePerLeg: number;
+  stakeShieldEnabled: boolean;
+  isPlacing: boolean;
+  placeResults: BetPlacementResult[];
+  lastError: string | null;
+  createdAt: number;
+}
+
 interface SlipStore {
   selections: BetSelection[];
   mode: SlipMode;
@@ -32,6 +47,18 @@ interface SlipStore {
     placedAt: number;
   }>;
   lastError: string | null;
+
+  // ── Compute slip isolation ────────────────────────────────────────────
+  computeSlips: ComputeSlipEntry[];
+  addComputeSlip: (entry: ComputeSlipEntry) => void;
+  addComputeSlips: (entries: ComputeSlipEntry[]) => void;
+  removeComputeSlip: (id: string) => void;
+  clearComputeSlips: () => void;
+  updateComputeSlip: (id: string, patch: Partial<Pick<ComputeSlipEntry, "mode" | "stakePerLeg" | "stakeShieldEnabled">>) => void;
+  setComputeSlipPlacing: (id: string, v: boolean) => void;
+  setComputeSlipResults: (id: string, results: BetPlacementResult[]) => void;
+  setComputeSlipError: (id: string, error: string | null) => void;
+
   addSelection: (s: BetSelection) => void;
   addMultipleSelections: (selections: BetSelection[]) => void;
   removeSelection: (id: string) => void;
@@ -72,6 +99,50 @@ export const useSlipStore = create<SlipStore>()(
       isPlacing: false,
       placeResults: [],
       lastError: null,
+
+      // ── Compute slip isolation ──────────────────────────────────────
+      computeSlips: [],
+      addComputeSlip: (entry) =>
+        set((st) => {
+          const exists = st.computeSlips.some((g) => g.id === entry.id);
+          if (exists) return {};
+          return { computeSlips: [...st.computeSlips, entry] };
+        }),
+      addComputeSlips: (entries) =>
+        set((st) => {
+          if (!entries || entries.length === 0) return {};
+          const existingIds = new Set(st.computeSlips.map((g) => g.id));
+          const toAdd = entries.filter((e) => e && e.id && !existingIds.has(e.id));
+          if (toAdd.length === 0) return {};
+          return { computeSlips: [...st.computeSlips, ...toAdd] };
+        }),
+      removeComputeSlip: (id) =>
+        set((st) => ({ computeSlips: st.computeSlips.filter((g) => g.id !== id) })),
+      clearComputeSlips: () => set({ computeSlips: [] }),
+      updateComputeSlip: (id, patch) =>
+        set((st) => ({
+          computeSlips: st.computeSlips.map((g) =>
+            g.id === id ? { ...g, ...patch } : g,
+          ),
+        })),
+      setComputeSlipPlacing: (id, v) =>
+        set((st) => ({
+          computeSlips: st.computeSlips.map((g) =>
+            g.id === id ? { ...g, isPlacing: v } : g,
+          ),
+        })),
+      setComputeSlipResults: (id, results) =>
+        set((st) => ({
+          computeSlips: st.computeSlips.map((g) =>
+            g.id === id ? { ...g, placeResults: results } : g,
+          ),
+        })),
+      setComputeSlipError: (id, error) =>
+        set((st) => ({
+          computeSlips: st.computeSlips.map((g) =>
+            g.id === id ? { ...g, lastError: error } : g,
+          ),
+        })),
       addSelection: (s) =>
         set((st) => {
           const exists = st.selections.find((x) => x.id === s.id);
@@ -203,6 +274,12 @@ export const useSlipStore = create<SlipStore>()(
         mode: state.mode,
         stakePerLeg: state.stakePerLeg,
         savedSlips: state.savedSlips,
+        computeSlips: state.computeSlips.map((cs) => ({
+          ...cs,
+          isPlacing: false,
+          placeResults: [],
+          lastError: null,
+        })),
       }),
       onRehydrateStorage: () => {
         return (_state, _error) => {

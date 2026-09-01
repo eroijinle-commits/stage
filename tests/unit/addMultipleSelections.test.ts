@@ -13,6 +13,7 @@ import type { BetSelection } from "@/lib/contracts/ui.contract";
 beforeEach(() => {
     useSlipStore.setState({
         selections: [],
+        computeSlips: [],
         mode: "singles",
         stakePerLeg: 1000,
         placeResults: [],

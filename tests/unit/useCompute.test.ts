@@ -141,6 +141,7 @@ function makeComputeSelection(overrides: Partial<ComputeSelection> = {}): Comput
 beforeEach(() => {
     useSlipStore.setState({
         selections: [],
+        computeSlips: [],
         mode: "singles",
         stakePerLeg: 1000,
         placeResults: [],
@@ -550,7 +551,7 @@ describe("useCompute", () => {
     // ─── addSlipToBetSlip ──────────────────────────────────────────────────
 
     describe("addSlipToBetSlip", () => {
-        it("adds a single slip's selections to the store", () => {
+        it("adds a single slip as an isolated compute slip entry", () => {
             const fixture = makeFixture();
             const { result } = renderHook(() => useCompute(fixture));
 
@@ -563,11 +564,15 @@ describe("useCompute", () => {
                 result.current.addSlipToBetSlip(slip);
             });
 
-            const selections = useSlipStore.getState().selections;
-            expect(selections).toHaveLength(2);
-            expect(selections[0].marketId).toBe("m1");
-            expect(selections[1].marketId).toBe("m2");
-            expect(selections[0].betType).toBe("compute");
+            const computeSlips = useSlipStore.getState().computeSlips;
+            expect(computeSlips).toHaveLength(1);
+            expect(computeSlips[0].id).toBe("test-slip-1");
+            expect(computeSlips[0].selections).toHaveLength(2);
+            expect(computeSlips[0].selections[0].marketId).toBe("m1");
+            expect(computeSlips[0].selections[1].marketId).toBe("m2");
+            expect(computeSlips[0].selections[0].betType).toBe("compute");
+            // Manual selections should remain empty
+            expect(useSlipStore.getState().selections).toHaveLength(0);
         });
 
         it("no-op when fixture is null", () => {
@@ -581,14 +586,14 @@ describe("useCompute", () => {
                 result.current.addSlipToBetSlip(slip);
             });
 
-            expect(useSlipStore.getState().selections).toHaveLength(0);
+            expect(useSlipStore.getState().computeSlips).toHaveLength(0);
         });
     });
 
     // ─── addSelectedSlips ───────────────────────────────────────────────────
 
     describe("addSelectedSlips", () => {
-        it("adds only the slips matching the given IDs", async () => {
+        it("adds only the slips matching the given IDs as isolated entries", async () => {
             const groups = makeFourBinaryMarkets();
             mockGetFixtureDetails.mockResolvedValue({
                 fixture: {} as any,
@@ -606,12 +611,17 @@ describe("useCompute", () => {
             const slipIds = result.current.result!.slips.map((s) => s.id);
             expect(slipIds).toHaveLength(16);
 
-            // Add only the first slip (4 selections)
+            // Add only the first slip (4 selections inside one entry)
             act(() => {
                 result.current.addSelectedSlips([slipIds[0]]);
             });
 
-            expect(useSlipStore.getState().selections).toHaveLength(4);
+            const computeSlips = useSlipStore.getState().computeSlips;
+            expect(computeSlips).toHaveLength(1);
+            expect(computeSlips[0].selections).toHaveLength(4);
+            expect(computeSlips[0].id).toBe(slipIds[0]);
+            // Manual selections should remain empty
+            expect(useSlipStore.getState().selections).toHaveLength(0);
         });
 
         it("no-op when result is null", () => {
@@ -621,7 +631,7 @@ describe("useCompute", () => {
                 result.current.addSelectedSlips(["nonexistent-id"]);
             });
 
-            expect(useSlipStore.getState().selections).toHaveLength(0);
+            expect(useSlipStore.getState().computeSlips).toHaveLength(0);
         });
 
         it("ignores IDs that don't match any slip", async () => {
@@ -642,14 +652,14 @@ describe("useCompute", () => {
                 result.current.addSelectedSlips(["totally-fake-id"]);
             });
 
-            expect(useSlipStore.getState().selections).toHaveLength(0);
+            expect(useSlipStore.getState().computeSlips).toHaveLength(0);
         });
     });
 
     // ─── addAllSlips ────────────────────────────────────────────────────────
 
     describe("addAllSlips", () => {
-        it("adds all generated slips to the store", async () => {
+        it("adds all generated slips as isolated entries", async () => {
             const groups = makeFourBinaryMarkets();
             mockGetFixtureDetails.mockResolvedValue({
                 fixture: {} as any,
@@ -663,12 +673,19 @@ describe("useCompute", () => {
                 await result.current.runCompute();
             });
 
-            // 16 slips × 4 selections each = 64 BetSelections
+            // 16 slips → 16 isolated compute slip entries
             act(() => {
                 result.current.addAllSlips();
             });
 
-            expect(useSlipStore.getState().selections).toHaveLength(64);
+            const computeSlips = useSlipStore.getState().computeSlips;
+            expect(computeSlips).toHaveLength(16);
+            // Each entry has 4 selections
+            computeSlips.forEach((cs) => {
+                expect(cs.selections).toHaveLength(4);
+            });
+            // Manual selections should remain empty
+            expect(useSlipStore.getState().selections).toHaveLength(0);
         });
 
         it("no-op when result is null", () => {
@@ -830,7 +847,7 @@ describe("useCompute", () => {
             expect(result.current.result!.fixtureName).toBe("Arsenal vs Chelsea");
         });
 
-        it("store accumulates selections across multiple addAllSlips calls", async () => {
+        it("store deduplicates compute slips across multiple addAllSlips calls", async () => {
             const groups = makeFourBinaryMarkets();
             mockGetFixtureDetails.mockResolvedValue({
                 fixture: {} as any,
@@ -844,17 +861,17 @@ describe("useCompute", () => {
                 await result.current.runCompute();
             });
 
-            // 16 slips × 4 selections = 64
+            // 16 slips → 16 isolated entries
             act(() => {
                 result.current.addAllSlips();
             });
-            expect(useSlipStore.getState().selections).toHaveLength(64);
+            expect(useSlipStore.getState().computeSlips).toHaveLength(16);
 
-            // Add again — store deduplicates by id, so still 64
+            // Add again — store deduplicates by entry id, so still 16
             act(() => {
                 result.current.addAllSlips();
             });
-            expect(useSlipStore.getState().selections).toHaveLength(64);
+            expect(useSlipStore.getState().computeSlips).toHaveLength(16);
         });
     });
 });

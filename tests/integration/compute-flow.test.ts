@@ -179,6 +179,7 @@ function makeRankedMarket(
 beforeEach(() => {
     useSlipStore.setState({
         selections: [],
+        computeSlips: [],
         mode: "singles",
         stakePerLeg: 1000,
         stakeShieldEnabled: false,
@@ -219,27 +220,31 @@ describe("Compute Flow Integration — Full Happy Path", () => {
             result.current.result!.slips.length,
         );
 
-        // Add all slips to the bet slip store
+        // Add all slips to the bet slip store as isolated entries
         act(() => {
             result.current.addAllSlips();
         });
 
-        // Verify selections are in the store
-        const { selections } = useSlipStore.getState();
-        expect(selections.length).toBeGreaterThan(0);
+        // Verify compute slips are isolated in the store
+        const { computeSlips } = useSlipStore.getState();
+        expect(computeSlips.length).toBeGreaterThan(0);
 
-        // Every selection should have betType "compute"
-        selections.forEach((s) => {
-            expect(s.betType).toBe("compute");
-            expect(s.fixtureSlug).toBe("arsenal-vs-chelsea");
-            expect(s.fixtureName).toBe("Arsenal vs Chelsea");
-            expect(s.active).toBe(true);
+        // Every compute slip entry should contain selections with betType "compute"
+        computeSlips.forEach((cs) => {
+            expect(cs.selections.length).toBeGreaterThan(0);
+            cs.selections.forEach((s) => {
+                expect(s.betType).toBe("compute");
+                expect(s.fixtureSlug).toBe("arsenal-vs-chelsea");
+                expect(s.fixtureName).toBe("Arsenal vs Chelsea");
+                expect(s.active).toBe(true);
+            });
         });
 
-        // Selections should reference valid fixture data
-        expect(selections[0].tournamentName).toBe("Premier League");
-        expect(selections[0].sport).toBe("soccer");
-        expect(selections[0].stakeUrl).toBe(
+        // First entry's selections should reference valid fixture data
+        const firstEntrySelections = computeSlips[0].selections;
+        expect(firstEntrySelections[0].tournamentName).toBe("Premier League");
+        expect(firstEntrySelections[0].sport).toBe("soccer");
+        expect(firstEntrySelections[0].stakeUrl).toBe(
             "https://stake.com/sports/soccer/arsenal-vs-chelsea",
         );
     });
@@ -275,12 +280,13 @@ describe("Compute Flow Integration — Full Happy Path", () => {
             result.current.addSelectedSlips(firstTwoIds);
         });
 
-        const { selections } = useSlipStore.getState();
-        // Each slip has 4 legs (4 markets), so 2 slips × 4 legs = 8
-        expect(selections).toHaveLength(8);
-
-        // All should be compute
-        selections.forEach((s) => expect(s.betType).toBe("compute"));
+        const { computeSlips: selectedComputeSlips } = useSlipStore.getState();
+        // 2 isolated entries, each with 4 legs (4 markets)
+        expect(selectedComputeSlips).toHaveLength(2);
+        selectedComputeSlips.forEach((cs) => {
+            expect(cs.selections).toHaveLength(4);
+            cs.selections.forEach((s) => expect(s.betType).toBe("compute"));
+        });
     });
 });
 
@@ -307,7 +313,7 @@ describe("Compute Flow Integration — Edge Cases", () => {
         act(() => {
             result.current.addAllSlips();
         });
-        expect(useSlipStore.getState().selections).toHaveLength(0);
+        expect(useSlipStore.getState().computeSlips).toHaveLength(0);
     });
 
     it("handles API error gracefully", async () => {
@@ -481,12 +487,12 @@ describe("Compute Flow Integration — Duplicate Prevention", () => {
         act(() => {
             result.current.addAllSlips();
         });
-        const afterFirst = useSlipStore.getState().selections.length;
+        const afterFirst = useSlipStore.getState().computeSlips.length;
 
         act(() => {
             result.current.addAllSlips();
         });
-        const afterSecond = useSlipStore.getState().selections.length;
+        const afterSecond = useSlipStore.getState().computeSlips.length;
 
         expect(afterFirst).toBeGreaterThan(0);
         expect(afterSecond).toBe(afterFirst); // No duplicates
@@ -517,12 +523,12 @@ describe("Compute Flow Integration — Duplicate Prevention", () => {
         act(() => {
             result.current.addSelectedSlips(slipIds);
         });
-        const afterFirst = useSlipStore.getState().selections.length;
+        const afterFirst = useSlipStore.getState().computeSlips.length;
 
         act(() => {
             result.current.addSelectedSlips(slipIds);
         });
-        const afterSecond = useSlipStore.getState().selections.length;
+        const afterSecond = useSlipStore.getState().computeSlips.length;
 
         expect(afterSecond).toBe(afterFirst); // No duplicates
     });
@@ -580,16 +586,15 @@ describe("Compute Flow Integration — Mixed Compute + Normal Selections", () =>
             result.current.addAllSlips();
         });
 
-        const { selections } = useSlipStore.getState();
-        // Normal + compute selections coexist
-        expect(selections.length).toBeGreaterThan(1);
-
-        const normalOnes = selections.filter((s) => s.betType === "match-winner");
-        const computeOnes = selections.filter((s) => s.betType === "compute");
-
+        // Manual selection is in selections, compute entries are in computeSlips
+        const { selections: mixedSelections, computeSlips: mixedComputeSlips } = useSlipStore.getState();
+        const normalOnes = mixedSelections.filter((s) => s.betType === "match-winner");
         expect(normalOnes).toHaveLength(1);
-        expect(computeOnes.length).toBeGreaterThan(0);
         expect(normalOnes[0].id).toBe("manual-1");
+        expect(mixedComputeSlips.length).toBeGreaterThan(0);
+        mixedComputeSlips.forEach((cs) => {
+            cs.selections.forEach((s) => expect(s.betType).toBe("compute"));
+        });
     });
 
     it("removing a compute selection does not affect normal selections", async () => {
@@ -636,19 +641,18 @@ describe("Compute Flow Integration — Mixed Compute + Normal Selections", () =>
             result.current.addAllSlips();
         });
 
-        const beforeRemove = useSlipStore.getState().selections.length;
-        const computeIds = useSlipStore
-            .getState()
-            .selections.filter((s) => s.betType === "compute")
-            .map((s) => s.id);
+        const beforeComputeCount = useSlipStore.getState().computeSlips.length;
+        expect(beforeComputeCount).toBeGreaterThan(0);
 
-        // Remove first compute selection
-        useSlipStore.getState().removeSelection(computeIds[0]);
+        // Remove first compute slip entry
+        const firstComputeEntryId = useSlipStore.getState().computeSlips[0].id;
+        useSlipStore.getState().removeComputeSlip(firstComputeEntryId);
 
-        const afterRemove = useSlipStore.getState().selections;
-        expect(afterRemove.length).toBe(beforeRemove - 1);
+        const afterRemoveComputeSlips = useSlipStore.getState().computeSlips;
+        expect(afterRemoveComputeSlips.length).toBe(beforeComputeCount - 1);
+        // Manual selection should remain untouched
         expect(
-            afterRemove.find((s) => s.id === "manual-1"),
+            useSlipStore.getState().selections.find((s) => s.id === "manual-1"),
         ).toBeDefined();
     });
 });
@@ -681,23 +685,24 @@ describe("Compute Flow Integration — BetSlipDrawer Compatibility", () => {
             result.current.addAllSlips();
         });
 
-        const { selections } = useSlipStore.getState();
-        expect(selections.length).toBeGreaterThan(0);
+        const { computeSlips: compatComputeSlips } = useSlipStore.getState();
+        expect(compatComputeSlips.length).toBeGreaterThan(0);
 
-        // Verify every selection has the fields SlipItem uses:
-        // fixtureName, outcomeName, marketName, odds, id
-        selections.forEach((s) => {
-            expect(typeof s.id).toBe("string");
-            expect(s.id.length).toBeGreaterThan(0);
-            expect(typeof s.fixtureName).toBe("string");
-            expect(s.fixtureName.length).toBeGreaterThan(0);
-            expect(typeof s.outcomeName).toBe("string");
-            expect(s.outcomeName.length).toBeGreaterThan(0);
-            expect(typeof s.marketName).toBe("string");
-            expect(s.marketName.length).toBeGreaterThan(0);
-            expect(typeof s.odds).toBe("number");
-            expect(s.odds).toBeGreaterThan(0);
-            expect(s.betType).toBe("compute");
+        // Verify every selection inside each entry has the fields SlipItem uses
+        compatComputeSlips.forEach((cs) => {
+            cs.selections.forEach((s) => {
+                expect(typeof s.id).toBe("string");
+                expect(s.id.length).toBeGreaterThan(0);
+                expect(typeof s.fixtureName).toBe("string");
+                expect(s.fixtureName.length).toBeGreaterThan(0);
+                expect(typeof s.outcomeName).toBe("string");
+                expect(s.outcomeName.length).toBeGreaterThan(0);
+                expect(typeof s.marketName).toBe("string");
+                expect(s.marketName.length).toBeGreaterThan(0);
+                expect(typeof s.odds).toBe("number");
+                expect(s.odds).toBeGreaterThan(0);
+                expect(s.betType).toBe("compute");
+            });
         });
     });
 
@@ -724,13 +729,15 @@ describe("Compute Flow Integration — BetSlipDrawer Compatibility", () => {
             result.current.addAllSlips();
         });
 
-        const { selections } = useSlipStore.getState();
+        const { computeSlips: serialComputeSlips } = useSlipStore.getState();
 
-        // Should be JSON-serializable (no functions, no circular refs)
-        const serialized = JSON.stringify(selections);
-        const parsed = JSON.parse(serialized) as BetSelection[];
-        expect(parsed).toHaveLength(selections.length);
-        expect(parsed[0].betType).toBe("compute");
+        // Each entry's selections should be JSON-serializable
+        serialComputeSlips.forEach((cs) => {
+            const serialized = JSON.stringify(cs.selections);
+            const parsed = JSON.parse(serialized) as BetSelection[];
+            expect(parsed).toHaveLength(cs.selections.length);
+            expect(parsed[0].betType).toBe("compute");
+        });
     });
 });
 

@@ -22,6 +22,7 @@ import {
 import { generateAllPermutations } from "@/lib/compute/cartesian";
 import { getFixtureDetailsQuery } from "@/lib/stake-api/queries";
 import { useSlipStore } from "@/store/useSlipStore";
+import type { ComputeSlipEntry } from "@/store/useSlipStore";
 import type { StakeGroupWithMarkets } from "@/lib/contracts/api.contract";
 
 // ─── Default config ──────────────────────────────────────────────────────────
@@ -108,7 +109,8 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
     // Raw market groups from the last successful API fetch.
     const [marketGroups, setMarketGroups] = useState<StakeGroupWithMarkets[]>([]);
 
-    const addMultipleSelections = useSlipStore((s) => s.addMultipleSelections);
+    const addComputeSlip = useSlipStore((s) => s.addComputeSlip);
+    const addComputeSlips = useSlipStore((s) => s.addComputeSlips);
 
     // ─── Available slip count options ──────────────────────────────────────
 
@@ -227,37 +229,67 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
     /** Clear error state. */
     const clearError = useCallback(() => setError(null), []);
 
-    /** Add a single ComputeSlip to the bet slip store. */
+    /** Add a single ComputeSlip as an isolated entry in the bet slip store. */
     const addSlipToBetSlip = useCallback(
         (slip: ComputeSlip) => {
             if (!fixture) return;
             const selections = computeSlipToBetSelections(slip, fixture);
-            addMultipleSelections(selections);
+            const entry: ComputeSlipEntry = {
+                id: slip.id,
+                name: `Slip`,
+                selections,
+                mode: "singles",
+                stakePerLeg: 1000,
+                stakeShieldEnabled: false,
+                isPlacing: false,
+                placeResults: [],
+                lastError: null,
+                createdAt: Date.now(),
+            };
+            addComputeSlip(entry);
         },
-        [fixture, addMultipleSelections],
+        [fixture, addComputeSlip],
     );
 
-    /** Add multiple slips by their IDs from the current result. */
+    /** Add multiple slips by their IDs as isolated entries. */
     const addSelectedSlips = useCallback(
         (ids: string[]) => {
             if (!fixture || !result) return;
             const selectedSlips = result.slips.filter((s) => ids.includes(s.id));
-            const allSelections = selectedSlips.flatMap((slip) =>
-                computeSlipToBetSelections(slip, fixture),
-            );
-            addMultipleSelections(allSelections);
+            const entries: ComputeSlipEntry[] = selectedSlips.map((slip) => ({
+                id: slip.id,
+                name: `Slip`,
+                selections: computeSlipToBetSelections(slip, fixture),
+                mode: "singles" as const,
+                stakePerLeg: 1000,
+                stakeShieldEnabled: false,
+                isPlacing: false,
+                placeResults: [],
+                lastError: null,
+                createdAt: Date.now(),
+            }));
+            addComputeSlips(entries);
         },
-        [fixture, result, addMultipleSelections],
+        [fixture, result, addComputeSlips],
     );
 
-    /** Add all generated slips to the bet slip store. */
+    /** Add all generated slips as isolated entries. */
     const addAllSlips = useCallback(() => {
         if (!fixture || !result) return;
-        const allSelections = result.slips.flatMap((slip) =>
-            computeSlipToBetSelections(slip, fixture),
-        );
-        addMultipleSelections(allSelections);
-    }, [fixture, result, addMultipleSelections]);
+        const entries: ComputeSlipEntry[] = result.slips.map((slip, i) => ({
+            id: slip.id,
+            name: `Slip ${i + 1}`,
+            selections: computeSlipToBetSelections(slip, fixture),
+            mode: "singles" as const,
+            stakePerLeg: 1000,
+            stakeShieldEnabled: false,
+            isPlacing: false,
+            placeResults: [],
+            lastError: null,
+            createdAt: Date.now(),
+        }));
+        addComputeSlips(entries);
+    }, [fixture, result, addComputeSlips]);
 
     return {
         config,

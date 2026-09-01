@@ -6,6 +6,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useSlipStore } from "@/store/useSlipStore";
+import type { ComputeSlipEntry } from "@/store/useSlipStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useBalance } from "./useBalance";
 import { calculatePotentialReturn, calculateTotalStake, validateSlip } from "@/lib/state/slipLogic";
@@ -31,6 +32,12 @@ export function useBetSlip() {
     const setPlacing = useSlipStore((s) => s.setPlacing);
     const setPlaceResults = useSlipStore((s) => s.setPlaceResults);
     const setLastError = useSlipStore((s) => s.setLastError);
+
+    // ── Compute slip isolation ────────────────────────────────────────────
+    const computeSlips = useSlipStore((s) => s.computeSlips);
+    const removeComputeSlip = useSlipStore((s) => s.removeComputeSlip);
+    const clearComputeSlips = useSlipStore((s) => s.clearComputeSlips);
+    const updateComputeSlip = useSlipStore((s) => s.updateComputeSlip);
 
     const currency = useSettingsStore((s) => s.currency);
     const { balance, refetch: refetchBalance } = useBalance();
@@ -110,7 +117,51 @@ export function useBetSlip() {
         refetchBalance,
     ]);
 
+    /** Place bets for a specific compute slip (isolated). */
+    const placeBetsForGroup = useCallback(async (groupId: string): Promise<BetPlacementResult[]> => {
+        const group = useSlipStore.getState().computeSlips.find((g) => g.id === groupId);
+        if (!group || group.selections.length === 0) return [];
+
+        const balanceAmount = balance?.amount ?? null;
+        const groupTotalStake = calculateTotalStake(group.selections, group.mode, group.stakePerLeg);
+        const errors = validateSlip(group.selections, balanceAmount, groupTotalStake);
+        if (errors.length > 0) {
+            useSlipStore.getState().setComputeSlipError(groupId, errors.join("; "));
+            return [];
+        }
+
+        useSlipStore.getState().setComputeSlipPlacing(groupId, true);
+        useSlipStore.getState().setComputeSlipError(groupId, null);
+        useSlipStore.getState().setComputeSlipResults(groupId, []);
+
+        try {
+            const results = await executeBetPlacement({
+                selections: group.selections,
+                mode: group.mode,
+                stakePerLeg: group.stakePerLeg,
+                currency,
+                balance: balanceAmount,
+                stakeShieldEnabled: group.mode === "parlay" ? group.stakeShieldEnabled : false,
+            });
+
+            useSlipStore.getState().setComputeSlipResults(groupId, results);
+
+            if (results.some((r) => r.success)) {
+                refetchBalance();
+            }
+
+            return results;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Bet placement failed";
+            useSlipStore.getState().setComputeSlipError(groupId, message);
+            return [];
+        } finally {
+            useSlipStore.getState().setComputeSlipPlacing(groupId, false);
+        }
+    }, [currency, balance, refetchBalance]);
+
     return {
+        // Manual slip
         selections,
         mode,
         stakePerLeg,
@@ -127,7 +178,13 @@ export function useBetSlip() {
         setStakePerLeg,
         setStakeShieldEnabled,
         placeBets,
+        // Compute slip isolation
+        computeSlips,
+        removeComputeSlip,
+        clearComputeSlips,
+        updateComputeSlip,
+        placeBetsForGroup,
     };
 }
 
-export type { BetSelection, SlipMode };
+export type { BetSelection, SlipMode, ComputeSlipEntry };

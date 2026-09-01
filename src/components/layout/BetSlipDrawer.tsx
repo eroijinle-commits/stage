@@ -3,11 +3,195 @@ import { useSettingsStore } from "@/store/useSettingsStore";
 import { useBetSlip } from "@/hooks/useBetSlip";
 import { useSlipStore } from "@/store/useSlipStore";
 import { cn } from "@/lib/utils/cn";
-import { getShieldFeeRate } from "@/lib/state/slipLogic";
-import { X, Trash2, Share2, Save, FolderOpen, ChevronDown, ChevronUp, Copy, Check } from "lucide-react";
+import { getShieldFeeRate, calculatePotentialReturn, calculateTotalStake } from "@/lib/state/slipLogic";
+import { X, Trash2, Share2, Save, FolderOpen, ChevronDown, ChevronUp, Copy, Check, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui";
 import SlipItem from "@/components/slip/SlipItem";
 import { useState, useCallback } from "react";
+import type { ComputeSlipEntry } from "@/store/useSlipStore";
+import type { SlipMode } from "@/lib/contracts/db.contract";
+
+// ─── Compute Slip Card ──────────────────────────────────────────────────────
+
+function ComputeSlipCard({
+  slip,
+  currency,
+  onRemove,
+  onPlaceBets,
+}: {
+  slip: ComputeSlipEntry;
+  currency: string;
+  onRemove: () => void;
+  onPlaceBets: (id: string) => void;
+}) {
+  const updateComputeSlip = useSlipStore((s) => s.updateComputeSlip);
+  const [expanded, setExpanded] = useState(true);
+
+  const totalOdds = slip.selections.reduce((acc, s) => acc * s.odds, 1);
+  const potentialReturn = calculatePotentialReturn(
+    slip.selections,
+    slip.mode,
+    slip.stakePerLeg,
+    undefined,
+    slip.stakeShieldEnabled,
+  );
+  const totalStake = calculateTotalStake(slip.selections, slip.mode, slip.stakePerLeg);
+  const placed = slip.placeResults.length > 0;
+
+  return (
+    <div className="border border-border rounded-lg overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2 bg-secondary/50">
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="flex items-center gap-1.5 text-xs font-mono font-semibold text-foreground hover:text-primary transition-colors"
+        >
+          {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          {slip.name}
+          <span className="text-muted-foreground font-normal">({slip.selections.length} legs)</span>
+        </button>
+        <button
+          onClick={onRemove}
+          className="text-muted-foreground hover:text-bet-lost transition-colors p-0.5"
+          title="Remove slip"
+        >
+          <X size={12} />
+        </button>
+      </div>
+
+      {expanded && (
+        <>
+          {/* Mode toggle */}
+          <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border">
+            {(["singles", "parlay"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => {
+                  updateComputeSlip(slip.id, {
+                    mode: m,
+                    stakeShieldEnabled: m !== "parlay" ? false : slip.stakeShieldEnabled,
+                  });
+                }}
+                className={cn(
+                  "flex-1 py-0.5 text-[10px] font-mono rounded transition-colors capitalize",
+                  slip.mode === m
+                    ? "bg-primary/10 text-primary border border-primary/30"
+                    : "text-muted-foreground hover:bg-muted border border-transparent",
+                )}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+
+          {/* Stake Shield for parlay with 3+ legs */}
+          {slip.mode === "parlay" && slip.selections.length >= 3 && (
+            <div className="px-3 py-1.5 border-b border-border">
+              <button
+                onClick={() => updateComputeSlip(slip.id, { stakeShieldEnabled: !slip.stakeShieldEnabled })}
+                className={cn(
+                  "w-full flex items-center justify-between py-1 px-2 rounded text-[10px] font-mono transition-colors",
+                  slip.stakeShieldEnabled
+                    ? "bg-primary/10 text-primary border border-primary/30"
+                    : "text-muted-foreground hover:bg-muted border border-transparent",
+                )}
+              >
+                <span className="flex items-center gap-1">
+                  <span>🛡️</span>
+                  <span>Stake Shield</span>
+                </span>
+                <span className={cn(
+                  "w-6 h-3.5 rounded-full transition-colors relative",
+                  slip.stakeShieldEnabled ? "bg-primary" : "bg-muted",
+                )}>
+                  <span className={cn(
+                    "absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-transform",
+                    slip.stakeShieldEnabled ? "translate-x-3" : "translate-x-0.5",
+                  )} />
+                </span>
+              </button>
+            </div>
+          )}
+
+          {/* Selections */}
+          <div className="p-2 space-y-1.5 max-h-40 overflow-y-auto">
+            {slip.selections.map((s) => {
+              const result = slip.placeResults.find((r) => r.selectionId === s.id);
+              return (
+                <SlipItem
+                  key={s.id}
+                  selection={s}
+                  onRemove={() => {}}
+                  mode={slip.mode}
+                  result={result}
+                />
+              );
+            })}
+          </div>
+
+          {/* Summary + Place */}
+          <div className="px-3 py-2 border-t border-border space-y-1.5">
+            {slip.mode === "parlay" && (
+              <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground">
+                <span>Total Odds</span>
+                <span className="text-foreground tabular-nums">{totalOdds.toFixed(2)}</span>
+              </div>
+            )}
+            {slip.mode === "parlay" && (
+              <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground">
+                <span>Stake ({currency})</span>
+              </div>
+            )}
+            {slip.mode === "parlay" && (
+              <input
+                type="number"
+                value={slip.stakePerLeg}
+                onChange={(e) => updateComputeSlip(slip.id, { stakePerLeg: parseFloat(e.target.value) || 0 })}
+                className="w-full bg-secondary border border-border rounded px-2 py-1 text-[10px] font-mono text-right focus:outline-none focus:border-ring"
+              />
+            )}
+            <div className="flex items-center justify-between text-[10px] font-mono">
+              <span className="text-muted-foreground">Total Stake</span>
+              <span className="text-foreground tabular-nums">
+                {currency} {totalStake.toLocaleString("en-NG")}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs font-mono font-semibold">
+              <span className="text-muted-foreground">Potential Return</span>
+              <span className="text-primary tabular-nums">
+                {currency} {potentialReturn.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+            {slip.lastError && (
+              <div className="text-[10px] font-mono text-bet-lost bg-bet-lost/10 border border-bet-lost/30 rounded px-2 py-1">
+                {slip.lastError}
+              </div>
+            )}
+            {!placed ? (
+              <Button
+                variant="primary"
+                fullWidth
+                onClick={() => onPlaceBets(slip.id)}
+                loading={slip.isPlacing}
+                disabled={slip.isPlacing || slip.selections.length === 0}
+              >
+                {slip.isPlacing ? "Placing..." : "Place Bet"}
+              </Button>
+            ) : (
+              <div className="text-[10px] font-mono text-bet-won text-center py-1">
+                {slip.placeResults.filter((r) => r.success).length > 0
+                  ? `Placed · ${slip.placeResults.filter((r) => r.success).length} bet(s) successful`
+                  : "Bet placement completed"}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Drawer ────────────────────────────────────────────────────────────
 
 export default function BetSlipDrawer() {
   const slipOpen = useUIStore((s) => s.slipOpen);
@@ -29,6 +213,11 @@ export default function BetSlipDrawer() {
     removeSelection,
     clearSelections,
     placeBets,
+    // Compute slip isolation
+    computeSlips,
+    removeComputeSlip,
+    clearComputeSlips,
+    placeBetsForGroup,
   } = useBetSlip();
 
   const shareSlip = useSlipStore((s) => s.shareSlip);
@@ -59,6 +248,8 @@ export default function BetSlipDrawer() {
 
   const placed = placeResults.length > 0;
 
+  const totalCount = selections.length + computeSlips.reduce((acc, cs) => acc + cs.selections.length, 0);
+
   const handleShare = useCallback(() => {
     const data = shareSlip();
     if (!data) return;
@@ -81,6 +272,8 @@ export default function BetSlipDrawer() {
     setShowSaveInput(false);
   }, [saveName, saveSlip]);
 
+  const hasContent = selections.length > 0 || computeSlips.length > 0;
+
   return (
     <>
       {slipOpen && (
@@ -98,9 +291,9 @@ export default function BetSlipDrawer() {
         <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-mono font-semibold">Bet Slip</span>
-            {selections.length > 0 && (
+            {totalCount > 0 && (
               <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold">
-                {selections.length}
+                {totalCount}
               </span>
             )}
           </div>
@@ -121,9 +314,9 @@ export default function BetSlipDrawer() {
                 </button>
               </>
             )}
-            {selections.length > 0 && (
+            {hasContent && (
               <button
-                onClick={clearSelections}
+                onClick={() => { clearSelections(); clearComputeSlips(); }}
                 className="text-muted-foreground hover:text-bet-lost transition-colors p-1"
               >
                 <Trash2 size={13} />
@@ -188,147 +381,180 @@ export default function BetSlipDrawer() {
           </div>
         )}
 
-        {selections.length === 0 ? (
+        {!hasContent ? (
           <div className="flex-1 flex items-center justify-center text-xs font-mono text-muted-foreground text-center px-6">
-            Add selections from the discovery table to build your slip.
+            Add selections from the discovery table or compute slips to build your slip.
           </div>
         ) : (
-          <>
-            <div className="flex items-center gap-1 px-3 py-2 border-b border-border shrink-0">
-              {(["singles", "parlay"] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => {
-                    setMode(m);
-                    // Auto-disable shield when switching away from parlay
-                    if (m !== "parlay") setStakeShieldEnabled(false);
-                  }}
-                  className={cn(
-                    "flex-1 py-1 text-xs font-mono rounded transition-colors capitalize",
-                    mode === m
-                      ? "bg-primary/10 text-primary border border-primary/30"
-                      : "text-muted-foreground hover:bg-muted border border-transparent",
-                  )}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            {/* ── Manual Slip Section ──────────────────────────────────── */}
+            {selections.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-1 px-1">
+                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Manual Slip</span>
+                </div>
 
-            {mode === "parlay" && selections.length >= 3 && (
-              <div className="px-3 py-2 border-b border-border shrink-0">
-                <button
-                  onClick={() => setStakeShieldEnabled(!stakeShieldEnabled)}
-                  className={cn(
-                    "w-full flex items-center justify-between py-1.5 px-2.5 rounded text-xs font-mono transition-colors",
-                    stakeShieldEnabled
-                      ? "bg-primary/10 text-primary border border-primary/30"
-                      : "text-muted-foreground hover:bg-muted border border-transparent",
-                  )}
-                >
-                  <span className="flex items-center gap-1.5">
-                    <span>🛡️</span>
-                    <span>Stake Shield</span>
-                  </span>
-                  <span className={cn(
-                    "w-7 h-4 rounded-full transition-colors relative",
-                    stakeShieldEnabled ? "bg-primary" : "bg-muted",
-                  )}>
-                    <span className={cn(
-                      "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform",
-                      stakeShieldEnabled ? "translate-x-3.5" : "translate-x-0.5",
-                    )} />
-                  </span>
-                </button>
-                {stakeShieldEnabled && (
-                  <div className="mt-1.5 px-2.5 text-[10px] font-mono text-muted-foreground">
-                    <span className="text-primary/70">🛡️</span> Fee: {(getShieldFeeRate(selections.length) * 100).toFixed(0)}% — potential return reduced
+                <div className="flex items-center gap-1">
+                  {(["singles", "parlay"] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => {
+                        setMode(m);
+                        if (m !== "parlay") setStakeShieldEnabled(false);
+                      }}
+                      className={cn(
+                        "flex-1 py-1 text-xs font-mono rounded transition-colors capitalize",
+                        mode === m
+                          ? "bg-primary/10 text-primary border border-primary/30"
+                          : "text-muted-foreground hover:bg-muted border border-transparent",
+                      )}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+
+                {mode === "parlay" && selections.length >= 3 && (
+                  <div className="py-1">
+                    <button
+                      onClick={() => setStakeShieldEnabled(!stakeShieldEnabled)}
+                      className={cn(
+                        "w-full flex items-center justify-between py-1.5 px-2.5 rounded text-xs font-mono transition-colors",
+                        stakeShieldEnabled
+                          ? "bg-primary/10 text-primary border border-primary/30"
+                          : "text-muted-foreground hover:bg-muted border border-transparent",
+                      )}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <span>🛡️</span>
+                        <span>Stake Shield</span>
+                      </span>
+                      <span className={cn(
+                        "w-7 h-4 rounded-full transition-colors relative",
+                        stakeShieldEnabled ? "bg-primary" : "bg-muted",
+                      )}>
+                        <span className={cn(
+                          "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform",
+                          stakeShieldEnabled ? "translate-x-3.5" : "translate-x-0.5",
+                        )} />
+                      </span>
+                    </button>
+                    {stakeShieldEnabled && (
+                      <div className="mt-1 px-2.5 text-[10px] font-mono text-muted-foreground">
+                        <span className="text-primary/70">🛡️</span> Fee: {(getShieldFeeRate(selections.length) * 100).toFixed(0)}% — potential return reduced
+                      </div>
+                    )}
                   </div>
                 )}
+
+                <div className="space-y-2">
+                  {selections.map((s) => {
+                    const result = placeResults.find((r) => r.selectionId === s.id);
+                    return (
+                      <SlipItem
+                        key={s.id}
+                        selection={s}
+                        onRemove={() => removeSelection(s.id)}
+                        stake={stakes[s.id] ?? stakePerLeg}
+                        onStakeChange={(v) =>
+                          setStakes((prev) => ({ ...prev, [s.id]: v }))
+                        }
+                        mode={mode}
+                        result={result}
+                      />
+                    );
+                  })}
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  {mode === "parlay" && (
+                    <>
+                      <div className="flex items-center justify-between text-xs font-mono text-muted-foreground">
+                        <span>Total Odds</span>
+                        <span className="text-foreground tabular-nums">{totalOdds.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs font-mono text-muted-foreground">
+                        <span>Stake ({currency})</span>
+                      </div>
+                      <input
+                        type="number"
+                        value={stakePerLeg}
+                        onChange={(e) => setStakePerLeg(parseFloat(e.target.value) || 0)}
+                        className="w-full bg-secondary border border-border rounded px-2.5 py-1.5 text-sm font-mono text-right focus:outline-none focus:border-ring"
+                      />
+                    </>
+                  )}
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="text-muted-foreground">Total Stake</span>
+                    <span className="text-foreground tabular-nums">
+                      {currency} {totalStake.toLocaleString("en-NG")}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm font-mono font-semibold">
+                    <span className="text-muted-foreground">Potential Return</span>
+                    <span className="text-primary tabular-nums">
+                      {currency} {displayReturn.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {!placed && lastError && (
+                    <div className="text-xs font-mono text-bet-lost bg-bet-lost/10 border border-bet-lost/30 rounded px-2.5 py-1.5">
+                      {lastError}
+                    </div>
+                  )}
+                  {!placed ? (
+                    <Button
+                      variant="primary"
+                      fullWidth
+                      onClick={placeBets}
+                      loading={isPlacing}
+                      disabled={isPlacing || selections.length === 0}
+                    >
+                      {isPlacing
+                        ? "Placing Bets..."
+                        : `Place ${selections.length} Bet${selections.length !== 1 ? "s" : ""}`}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      fullWidth
+                      onClick={clearSelections}
+                    >
+                      Clear Slip
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {selections.map((s) => {
-                const result = placeResults.find((r) => r.selectionId === s.id);
-                return (
-                  <SlipItem
-                    key={s.id}
-                    selection={s}
-                    onRemove={() => removeSelection(s.id)}
-                    stake={stakes[s.id] ?? stakePerLeg}
-                    onStakeChange={(v) =>
-                      setStakes((prev) => ({ ...prev, [s.id]: v }))
-                    }
-                    mode={mode}
-                    result={result}
-                  />
-                );
-              })}
-            </div>
-
-            <div className="p-3 border-t border-border space-y-3 shrink-0">
-              {mode === "parlay" && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs font-mono text-muted-foreground">
-                    <span>Total Odds</span>
-                    <span className="text-foreground tabular-nums">
-                      {totalOdds.toFixed(2)}
+            {/* ── Compute Slips Section ───────────────────────────────── */}
+            {computeSlips.length > 0 && (
+              <div className="space-y-2">
+                {selections.length > 0 && (
+                  <div className="flex items-center justify-between px-1 pt-2 border-t border-border">
+                    <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+                      Compute Slips ({computeSlips.length})
                     </span>
+                    <button
+                      onClick={clearComputeSlips}
+                      className="text-[10px] font-mono text-muted-foreground hover:text-bet-lost transition-colors"
+                    >
+                      Clear All
+                    </button>
                   </div>
-                  <div className="flex items-center justify-between text-xs font-mono text-muted-foreground">
-                    <span>Stake ({currency})</span>
-                  </div>
-                  <input
-                    type="number"
-                    value={stakePerLeg}
-                    onChange={(e) =>
-                      setStakePerLeg(parseFloat(e.target.value) || 0)
-                    }
-                    className="w-full bg-secondary border border-border rounded px-2.5 py-1.5 text-sm font-mono text-right focus:outline-none focus:border-ring"
+                )}
+
+                {computeSlips.map((slip) => (
+                  <ComputeSlipCard
+                    key={slip.id}
+                    slip={slip}
+                    currency={currency}
+                    onRemove={() => removeComputeSlip(slip.id)}
+                    onPlaceBets={placeBetsForGroup}
                   />
-                </div>
-              )}
-              <div className="flex items-center justify-between text-xs font-mono">
-                <span className="text-muted-foreground">Total Stake</span>
-                <span className="text-foreground tabular-nums">
-                  {currency} {totalStake.toLocaleString("en-NG")}
-                </span>
+                ))}
               </div>
-              <div className="flex items-center justify-between text-sm font-mono font-semibold">
-                <span className="text-muted-foreground">Potential Return</span>
-                <span className="text-primary tabular-nums">
-                  {currency} {displayReturn.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-              {!placed && lastError && (
-                <div className="text-xs font-mono text-bet-lost bg-bet-lost/10 border border-bet-lost/30 rounded px-2.5 py-1.5">
-                  {lastError}
-                </div>
-              )}
-              {!placed ? (
-                <Button
-                  variant="primary"
-                  fullWidth
-                  onClick={placeBets}
-                  loading={isPlacing}
-                  disabled={isPlacing || selections.length === 0}
-                >
-                  {isPlacing
-                    ? "Placing Bets..."
-                    : `Place ${selections.length} Bet${selections.length !== 1 ? "s" : ""}`}
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  fullWidth
-                  onClick={clearSelections}
-                >
-                  Clear Slip
-                </Button>
-              )}
-            </div>
-          </>
+            )}
+          </div>
         )}
       </div>
     </>
