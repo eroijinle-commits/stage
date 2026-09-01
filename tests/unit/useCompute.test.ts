@@ -10,8 +10,7 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import { useCompute, computeSlipToBetSelections } from "@/hooks/useCompute";
 import { useSlipStore } from "@/store/useSlipStore";
 import type { DiscoveryFixture, BetSelection } from "@/lib/contracts/ui.contract";
-import type { ComputeSlip, ComputeSelection, RankedGroup } from "@/lib/compute/types";
-import { MAX_PERMUTATIONS } from "@/lib/compute/types";
+import type { ComputeSlip, ComputeSelection } from "@/lib/compute/types";
 import type { StakeGroupWithMarkets } from "@/lib/contracts/api.contract";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
@@ -57,35 +56,6 @@ function makeOutcome(id: string, odds: number, active = true) {
     };
 }
 
-function makeRankedMarket(id: string, name: string, oddsList: number[], groupName = "main") {
-    const outcomes = oddsList.map((odds, i) => makeOutcome(`${id}-o${i}`, odds));
-    return {
-        market: {
-            id,
-            name,
-            status: "active" as const,
-            extId: `ext-${id}`,
-            provider: "test",
-            outcomes,
-        },
-        groupName,
-        avgOdds: oddsList.reduce((s, o) => s + o, 0) / oddsList.length,
-        outcomeCount: oddsList.length,
-    };
-}
-
-function makeRankedGroup(
-    name: string,
-    marketConfigs: Array<{ id: string; name: string; odds: number[] }>,
-    translation?: string,
-): RankedGroup {
-    return {
-        groupName: name,
-        groupTranslation: translation ?? name,
-        markets: marketConfigs.map((m) => makeRankedMarket(m.id, m.name, m.odds, name)),
-    };
-}
-
 function makeApiMarketGroup(
     name: string,
     translation: string,
@@ -114,6 +84,38 @@ function makeApiMarketGroup(
     };
 }
 
+/** 4 binary markets across 2 groups — meets default config needs (needed=4). */
+function makeFourBinaryMarkets(): StakeGroupWithMarkets[] {
+    return [
+        makeApiMarketGroup("Goals", "Goals", [
+            { id: "m1", name: "O/U 2.5", odds: [1.85, 2.10] },
+            { id: "m2", name: "BTTS", odds: [1.95, 1.90] },
+        ]),
+        makeApiMarketGroup("Corners", "Corners", [
+            { id: "m3", name: "O/U 9.5 Corners", odds: [1.70, 2.20] },
+            { id: "m4", name: "Corner Handicap", odds: [1.80, 2.00] },
+        ]),
+    ];
+}
+
+/** 6 binary markets across 3 groups — supports slipCount up to 64. */
+function makeSixBinaryMarkets(): StakeGroupWithMarkets[] {
+    return [
+        makeApiMarketGroup("Goals", "Goals", [
+            { id: "m1", name: "O/U 2.5", odds: [1.85, 2.10] },
+            { id: "m2", name: "BTTS", odds: [1.95, 1.90] },
+        ]),
+        makeApiMarketGroup("Corners", "Corners", [
+            { id: "m3", name: "O/U 9.5 Corners", odds: [1.70, 2.20] },
+            { id: "m4", name: "Corner Handicap", odds: [1.80, 2.00] },
+        ]),
+        makeApiMarketGroup("Cards", "Cards", [
+            { id: "m5", name: "O/U 3.5 Cards", odds: [1.65, 2.30] },
+            { id: "m6", name: "Red Card Yes/No", odds: [6.00, 1.12] },
+        ]),
+    ];
+}
+
 function makeComputeSlip(
     id: string,
     selections: ComputeSelection[],
@@ -130,7 +132,6 @@ function makeComputeSelection(overrides: Partial<ComputeSelection> = {}): Comput
         outcomeId: "m1-o0",
         outcomeName: "Home",
         odds: 2.0,
-        groupName: "main",
         ...overrides,
     };
 }
@@ -219,7 +220,7 @@ describe("useCompute", () => {
     describe("initial state", () => {
         it("returns default config", () => {
             const { result } = renderHook(() => useCompute(null));
-            expect(result.current.config).toEqual({ groups: 3, marketsPerGroup: 2 });
+            expect(result.current.config).toEqual({ maxOutcomes: 2, slipCount: 16 });
         });
 
         it("returns null result initially", () => {
@@ -260,11 +261,7 @@ describe("useCompute", () => {
         });
 
         it("fetches fixture details and generates slips on success", async () => {
-            const groups: StakeGroupWithMarkets[] = [
-                makeApiMarketGroup("main", "Main Markets", [
-                    { id: "m1", name: "Match Winner", odds: [2.0, 3.5, 4.0] },
-                ]),
-            ];
+            const groups = makeFourBinaryMarkets();
             mockGetFixtureDetails.mockResolvedValue({
                 fixture: {} as any,
                 marketGroups: groups,
@@ -283,13 +280,13 @@ describe("useCompute", () => {
             expect(result.current.result).not.toBeNull();
             expect(result.current.result!.fixtureName).toBe("Arsenal vs Chelsea");
             expect(result.current.result!.fixtureSlug).toBe("arsenal-vs-chelsea");
+            // 4 binary markets → 2^4 = 16 permutations
+            expect(result.current.result!.totalPermutations).toBe(16);
+            expect(result.current.result!.slips).toHaveLength(16);
         });
 
         it("sets isLoading to true during fetch", async () => {
-            // Stable fixture reference so useEffect doesn't re-run on re-render
             const fixture = makeFixture();
-            // Don't set mock before renderHook — auto-fetch gets undefined (from mockReset),
-            // details?.marketGroups is falsy, so auto-fetch early-returns.
             const { result } = renderHook(() => useCompute(fixture));
 
             let resolvePromise: any;
@@ -299,20 +296,17 @@ describe("useCompute", () => {
                 }),
             );
 
-            // Start runCompute without awaiting — observe isLoading
             act(() => {
                 result.current.runCompute();
             });
 
             expect(result.current.isLoading).toBe(true);
 
-            // Resolve the pending promise
             resolvePromise({
                 fixture: {} as any,
                 marketGroups: [],
             });
 
-            // Wait for runCompute to finish
             await waitFor(() => expect(result.current.isLoading).toBe(false));
         });
 
@@ -333,11 +327,9 @@ describe("useCompute", () => {
         it("handles non-Error thrown values", async () => {
             mockGetFixtureDetails.mockRejectedValue("string error");
 
-            // Stable fixture reference so useEffect doesn't re-run on re-render
             const fixture = makeFixture();
             const { result } = renderHook(() => useCompute(fixture));
 
-            // Wait for auto-fetch to complete — it catches the string and sets its own error
             await waitFor(() =>
                 expect(result.current.error).toBe("Failed to load fixture data"),
             );
@@ -346,19 +338,11 @@ describe("useCompute", () => {
                 await result.current.runCompute();
             });
 
-            // runCompute catches the same string and uses its own error message
             expect(result.current.error).toBe("Failed to fetch fixture details");
         });
 
         it("generates correct permutation count for multi-group data", async () => {
-            const groups: StakeGroupWithMarkets[] = [
-                makeApiMarketGroup("main", "Main", [
-                    { id: "m1", name: "Winner", odds: [2.0, 3.0] },
-                ]),
-                makeApiMarketGroup("goals", "Goals", [
-                    { id: "m2", name: "Over/Under", odds: [1.8, 2.2] },
-                ]),
-            ];
+            const groups = makeFourBinaryMarkets();
             mockGetFixtureDetails.mockResolvedValue({
                 fixture: {} as any,
                 marketGroups: groups,
@@ -371,9 +355,9 @@ describe("useCompute", () => {
                 await result.current.runCompute();
             });
 
-            // 2 markets × 2 outcomes each = 4 permutations
-            expect(result.current.result!.totalPermutations).toBe(4);
-            expect(result.current.result!.slips).toHaveLength(4);
+            // 4 binary markets → 2^4 = 16 permutations
+            expect(result.current.result!.totalPermutations).toBe(16);
+            expect(result.current.result!.slips).toHaveLength(16);
         });
     });
 
@@ -383,11 +367,7 @@ describe("useCompute", () => {
         it("re-runs the compute pipeline after failure", async () => {
             const validData = {
                 fixture: {} as any,
-                marketGroups: [
-                    makeApiMarketGroup("main", "Main", [
-                        { id: "m1", name: "Winner", odds: [2.0, 3.0] },
-                    ]),
-                ],
+                marketGroups: makeFourBinaryMarkets(),
             };
 
             // Auto-fetch succeeds with valid data on mount
@@ -397,7 +377,7 @@ describe("useCompute", () => {
             const { result } = renderHook(() => useCompute(fixture));
 
             // Wait for auto-fetch to complete
-            await waitFor(() => expect(result.current.dataLoaded).toBe(true));
+            await waitFor(() => expect(mockGetFixtureDetails).toHaveBeenCalled());
 
             // First attempt fails
             mockGetFixtureDetails.mockRejectedValueOnce(new Error("First failure"));
@@ -442,17 +422,28 @@ describe("useCompute", () => {
             const { result } = renderHook(() => useCompute(makeFixture()));
 
             act(() => {
-                result.current.setConfig({ groups: 2, marketsPerGroup: 1 });
+                result.current.setConfig({ maxOutcomes: 3, slipCount: 27 });
             });
 
-            expect(result.current.config).toEqual({ groups: 2, marketsPerGroup: 1 });
+            expect(result.current.config).toEqual({ maxOutcomes: 3, slipCount: 27 });
+        });
+
+        it("setConfig resets slipCount when maxOutcomes changes", () => {
+            const { result } = renderHook(() => useCompute(makeFixture()));
+
+            act(() => {
+                result.current.setConfig({ maxOutcomes: 3, slipCount: 81 });
+            });
+
+            // When maxOutcomes changes to 3, slipCount resets to SLIP_OPTIONS[3][0] = 27
+            expect(result.current.config).toEqual({ maxOutcomes: 3, slipCount: 27 });
         });
 
         it("permutationCount stays 0 until data is loaded", () => {
             const { result } = renderHook(() => useCompute(makeFixture()));
 
             act(() => {
-                result.current.setConfig({ groups: 5, marketsPerGroup: 3 });
+                result.current.setConfig({ maxOutcomes: 2, slipCount: 32 });
             });
 
             // No data loaded yet, so count is still 0
@@ -464,12 +455,7 @@ describe("useCompute", () => {
 
     describe("permutationCount", () => {
         it("updates after successful compute", async () => {
-            const groups: StakeGroupWithMarkets[] = [
-                makeApiMarketGroup("main", "Main", [
-                    { id: "m1", name: "Winner", odds: [2.0, 3.0, 4.0] },
-                    { id: "m2", name: "BTTS", odds: [1.5, 2.5] },
-                ]),
-            ];
+            const groups = makeFourBinaryMarkets();
             mockGetFixtureDetails.mockResolvedValue({
                 fixture: {} as any,
                 marketGroups: groups,
@@ -480,23 +466,16 @@ describe("useCompute", () => {
             // Initially 0
             expect(result.current.permutationCount).toBe(0);
 
-            // Wait for auto-fetch to populate rankedGroups
-            await waitFor(() => expect(result.current.dataLoaded).toBe(true));
+            // Wait for auto-fetch to populate marketGroups
+            await waitFor(() => expect(result.current.permutationCount).toBe(16));
 
-            // Config is { groups: 3, marketsPerGroup: 2 }, but we only have 1 group with 2 markets
-            // selectTopGroups(1 group, 3) → 1 group
-            // rankMarketsInGroup(2 markets, 2) → 2 markets
-            // Market m1: 3 outcomes, Market m2: 2 outcomes → 3 * 2 = 6
-            expect(result.current.permutationCount).toBe(6);
+            // Default config: maxOutcomes=2, slipCount=16 → needed=4
+            // 4 qualifying binary markets → 2^4 = 16
+            expect(result.current.permutationCount).toBe(16);
         });
 
         it("recomputes when config changes after data load", async () => {
-            const groups: StakeGroupWithMarkets[] = [
-                makeApiMarketGroup("main", "Main", [
-                    { id: "m1", name: "Winner", odds: [2.0, 3.0, 4.0] },
-                    { id: "m2", name: "BTTS", odds: [1.5, 2.5] },
-                ]),
-            ];
+            const groups = makeSixBinaryMarkets();
             mockGetFixtureDetails.mockResolvedValue({
                 fixture: {} as any,
                 marketGroups: groups,
@@ -504,78 +483,62 @@ describe("useCompute", () => {
 
             const { result } = renderHook(() => useCompute(makeFixture()));
 
-            // Wait for auto-fetch to populate rankedGroups
-            await waitFor(() => expect(result.current.dataLoaded).toBe(true));
+            // Wait for auto-fetch to populate marketGroups
+            await waitFor(() => expect(result.current.permutationCount).toBe(16));
 
-            // Default config: groups=3, marketsPerGroup=2 → 1 group, 2 markets → 6 permutations
-            expect(result.current.permutationCount).toBe(6);
+            // Default config: slipCount=16, needed=4, top 4 → 2^4 = 16
+            expect(result.current.permutationCount).toBe(16);
 
-            // Change to groups=1, marketsPerGroup=1 → 1 group, 1 market → 3 outcomes → 3
+            // Change to slipCount=32, needed=5, top 5 → 2^5 = 32
             act(() => {
-                result.current.setConfig({ groups: 1, marketsPerGroup: 1 });
+                result.current.setConfig({ maxOutcomes: 2, slipCount: 32 });
             });
+            expect(result.current.permutationCount).toBe(32);
 
-            expect(result.current.permutationCount).toBe(3);
-
-            // Change to groups=1, marketsPerGroup=2 → 1 group, 2 markets → 6
+            // Change to slipCount=64, needed=6, top 6 → 2^6 = 64
             act(() => {
-                result.current.setConfig({ groups: 1, marketsPerGroup: 2 });
+                result.current.setConfig({ maxOutcomes: 2, slipCount: 64 });
             });
-
-            expect(result.current.permutationCount).toBe(6);
+            expect(result.current.permutationCount).toBe(64);
         });
     });
 
     // ─── canGenerate ────────────────────────────────────────────────────────
 
     describe("canGenerate", () => {
-        it("is true when permutationCount is between 1 and MAX_PERMUTATIONS", async () => {
-            const groups: StakeGroupWithMarkets[] = [
-                makeApiMarketGroup("main", "Main", [
-                    { id: "m1", name: "Winner", odds: [2.0, 3.0] },
-                ]),
-            ];
+        it("is true when enough qualifying markets are available", async () => {
+            const groups = makeFourBinaryMarkets();
             mockGetFixtureDetails.mockResolvedValue({
                 fixture: {} as any,
                 marketGroups: groups,
             });
 
             const { result } = renderHook(() => useCompute(makeFixture()));
-            await waitFor(() => expect(result.current.dataLoaded).toBe(true));
+            await waitFor(() => expect(result.current.permutationCount).toBe(16));
 
-            // 1 market × 2 outcomes = 2 permutations
+            // permutationCount=16 > 0 → canGenerate = true
             expect(result.current.canGenerate).toBe(true);
         });
 
-        it("is false when permutationCount exceeds MAX_PERMUTATIONS", async () => {
-            const groups: StakeGroupWithMarkets[] = [
-                makeApiMarketGroup("main", "Main", [
-                    { id: "m1", name: "Winner", odds: [2.0, 3.0, 4.0] },
-                    { id: "m2", name: "BTTS", odds: [1.5, 2.5, 3.5] },
-                    { id: "m3", name: "CS", odds: [2.0, 2.5, 3.0] },
-                ]),
-            ];
+        it("is true even with high permutation count (config bounds permutations)", async () => {
+            const groups = makeSixBinaryMarkets();
             mockGetFixtureDetails.mockResolvedValue({
                 fixture: {} as any,
                 marketGroups: groups,
             });
 
             const { result } = renderHook(() => useCompute(makeFixture()));
-            await waitFor(() => expect(result.current.dataLoaded).toBe(true));
+            await waitFor(() => expect(result.current.permutationCount).toBe(16));
 
-            // Config: groups=3, marketsPerGroup=2 → 1 group, 2 markets
-            // m1(3) * m2(3) = 9 ≤ 15, so canGenerate is true
-            expect(result.current.permutationCount).toBe(9);
+            // Default config limits to 16 permutations — canGenerate is true
             expect(result.current.canGenerate).toBe(true);
 
-            // Now set config to include 3 markets → 3*3 = 27 > 15
+            // Change to slipCount=64, needed=6 → 2^6 = 64 — still true
             act(() => {
-                result.current.setConfig({ groups: 1, marketsPerGroup: 3 });
+                result.current.setConfig({ maxOutcomes: 2, slipCount: 64 });
             });
-
-            // After config change: m1(3) * m2(3) * m3(3) = 27
-            expect(result.current.permutationCount).toBe(27);
-            expect(result.current.canGenerate).toBe(false);
+            expect(result.current.permutationCount).toBe(64);
+            expect(result.current.canGenerate).toBe(true);
         });
 
         it("is false when permutationCount is 0", () => {
@@ -626,11 +589,7 @@ describe("useCompute", () => {
 
     describe("addSelectedSlips", () => {
         it("adds only the slips matching the given IDs", async () => {
-            const groups: StakeGroupWithMarkets[] = [
-                makeApiMarketGroup("main", "Main", [
-                    { id: "m1", name: "Winner", odds: [2.0, 3.0] },
-                ]),
-            ];
+            const groups = makeFourBinaryMarkets();
             mockGetFixtureDetails.mockResolvedValue({
                 fixture: {} as any,
                 marketGroups: groups,
@@ -643,17 +602,16 @@ describe("useCompute", () => {
                 await result.current.runCompute();
             });
 
-            // 2 slips generated
+            // 16 slips generated (4 binary markets → 2^4)
             const slipIds = result.current.result!.slips.map((s) => s.id);
-            expect(slipIds).toHaveLength(2);
+            expect(slipIds).toHaveLength(16);
 
-            // Add only the first slip
+            // Add only the first slip (4 selections)
             act(() => {
                 result.current.addSelectedSlips([slipIds[0]]);
             });
 
-            // Each slip has 1 selection (1 market), so 1 BetSelection total
-            expect(useSlipStore.getState().selections).toHaveLength(1);
+            expect(useSlipStore.getState().selections).toHaveLength(4);
         });
 
         it("no-op when result is null", () => {
@@ -667,11 +625,7 @@ describe("useCompute", () => {
         });
 
         it("ignores IDs that don't match any slip", async () => {
-            const groups: StakeGroupWithMarkets[] = [
-                makeApiMarketGroup("main", "Main", [
-                    { id: "m1", name: "Winner", odds: [2.0, 3.0] },
-                ]),
-            ];
+            const groups = makeFourBinaryMarkets();
             mockGetFixtureDetails.mockResolvedValue({
                 fixture: {} as any,
                 marketGroups: groups,
@@ -696,12 +650,7 @@ describe("useCompute", () => {
 
     describe("addAllSlips", () => {
         it("adds all generated slips to the store", async () => {
-            const groups: StakeGroupWithMarkets[] = [
-                makeApiMarketGroup("main", "Main", [
-                    { id: "m1", name: "Winner", odds: [2.0, 3.0] },
-                    { id: "m2", name: "BTTS", odds: [1.5, 2.5] },
-                ]),
-            ];
+            const groups = makeFourBinaryMarkets();
             mockGetFixtureDetails.mockResolvedValue({
                 fixture: {} as any,
                 marketGroups: groups,
@@ -714,12 +663,12 @@ describe("useCompute", () => {
                 await result.current.runCompute();
             });
 
-            // 2 markets × 2 outcomes = 4 permutations, each with 2 selections = 8 BetSelections
+            // 16 slips × 4 selections each = 64 BetSelections
             act(() => {
                 result.current.addAllSlips();
             });
 
-            expect(useSlipStore.getState().selections).toHaveLength(8);
+            expect(useSlipStore.getState().selections).toHaveLength(64);
         });
 
         it("no-op when result is null", () => {
@@ -749,9 +698,9 @@ describe("useCompute", () => {
                 await result.current.runCompute();
             });
 
-            expect(result.current.result).not.toBeNull();
-            expect(result.current.result!.slips).toHaveLength(0);
-            expect(result.current.result!.totalPermutations).toBe(0);
+            // selectTopMarkets throws when 0 qualifying markets < needed
+            expect(result.current.error).toBeTruthy();
+            expect(result.current.result).toBeNull();
             expect(result.current.permutationCount).toBe(0);
             expect(result.current.canGenerate).toBe(false);
         });
@@ -808,26 +757,16 @@ describe("useCompute", () => {
                 await result.current.runCompute();
             });
 
-            // Only m2 should be included (m1 has no active outcomes)
-            // Config: groups=3, marketsPerGroup=2 → 1 group, 1 market (only 1 has active outcomes)
-            expect(result.current.result!.totalPermutations).toBe(2);
-            expect(result.current.result!.slips).toHaveLength(2);
-
-            // Verify only m2 selections
-            for (const slip of result.current.result!.slips) {
-                expect(slip.selections).toHaveLength(1);
-                expect(slip.selections[0].marketId).toBe("m2");
-            }
+            // Only 1 qualifying market (m2) but default config needs 4 → throws
+            expect(result.current.error).toBeTruthy();
+            expect(result.current.error).toContain("Not enough qualifying markets");
         });
 
-        it("handles fewer groups than configured", async () => {
+        it("handles fewer qualifying markets than needed", async () => {
             const groups: StakeGroupWithMarkets[] = [
                 makeApiMarketGroup("main", "Main", [
                     { id: "m1", name: "Winner", odds: [2.0, 3.0] },
-                ]),
-                // Only 2 groups but config asks for 3
-                makeApiMarketGroup("goals", "Goals", [
-                    { id: "m2", name: "O/U", odds: [1.8, 2.2] },
+                    { id: "m2", name: "BTTS", odds: [1.8, 2.2] },
                 ]),
             ];
             mockGetFixtureDetails.mockResolvedValue({
@@ -842,17 +781,15 @@ describe("useCompute", () => {
                 await result.current.runCompute();
             });
 
-            // Config: groups=3, marketsPerGroup=2 → selectTopGroups(2, 3) → 2 groups
-            // m1(2) * m2(2) = 4
-            expect(result.current.result!.totalPermutations).toBe(4);
-            expect(result.current.result!.selectedGroups).toHaveLength(2);
+            // 2 qualifying markets but default config needs 4 → throws
+            expect(result.current.error).toBeTruthy();
+            expect(result.current.error).toContain("Not enough qualifying markets");
         });
 
-        it("handles fewer markets than configured per group", async () => {
+        it("handles ternary markets filtered by binary config", async () => {
             const groups: StakeGroupWithMarkets[] = [
                 makeApiMarketGroup("main", "Main", [
                     { id: "m1", name: "Winner", odds: [2.0, 3.0, 4.0] },
-                    // Only 1 market but config asks for 2
                 ]),
             ];
             mockGetFixtureDetails.mockResolvedValue({
@@ -867,9 +804,9 @@ describe("useCompute", () => {
                 await result.current.runCompute();
             });
 
-            // Config: groups=3, marketsPerGroup=2 → 1 group, 1 market (only 1 available)
-            expect(result.current.result!.totalPermutations).toBe(3);
-            expect(result.current.result!.selectedGroups[0].markets).toHaveLength(1);
+            // Ternary market filtered out by maxOutcomes=2 → 0 qualifying → throws
+            expect(result.current.error).toBeTruthy();
+            expect(result.current.error).toContain("Not enough qualifying markets");
         });
 
         it("handles fixture with null tournament", async () => {
@@ -877,11 +814,7 @@ describe("useCompute", () => {
                 tournament: undefined as any,
             });
 
-            const groups: StakeGroupWithMarkets[] = [
-                makeApiMarketGroup("main", "Main", [
-                    { id: "m1", name: "Winner", odds: [2.0, 3.0] },
-                ]),
-            ];
+            const groups = makeFourBinaryMarkets();
             mockGetFixtureDetails.mockResolvedValue({
                 fixture: {} as any,
                 marketGroups: groups,
@@ -898,11 +831,7 @@ describe("useCompute", () => {
         });
 
         it("store accumulates selections across multiple addAllSlips calls", async () => {
-            const groups: StakeGroupWithMarkets[] = [
-                makeApiMarketGroup("main", "Main", [
-                    { id: "m1", name: "Winner", odds: [2.0, 3.0] },
-                ]),
-            ];
+            const groups = makeFourBinaryMarkets();
             mockGetFixtureDetails.mockResolvedValue({
                 fixture: {} as any,
                 marketGroups: groups,
@@ -915,17 +844,17 @@ describe("useCompute", () => {
                 await result.current.runCompute();
             });
 
-            // 2 slips × 1 selection each = 2
+            // 16 slips × 4 selections = 64
             act(() => {
                 result.current.addAllSlips();
             });
-            expect(useSlipStore.getState().selections).toHaveLength(2);
+            expect(useSlipStore.getState().selections).toHaveLength(64);
 
-            // Add again — store deduplicates by id, so still 2
+            // Add again — store deduplicates by id, so still 64
             act(() => {
                 result.current.addAllSlips();
             });
-            expect(useSlipStore.getState().selections).toHaveLength(2);
+            expect(useSlipStore.getState().selections).toHaveLength(64);
         });
     });
 });

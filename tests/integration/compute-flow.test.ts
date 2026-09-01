@@ -14,9 +14,8 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import { useCompute, computeSlipToBetSelections } from "@/hooks/useCompute";
 import { useSlipStore } from "@/store/useSlipStore";
 import { generateAllPermutations } from "@/lib/compute/cartesian";
-import { MAX_PERMUTATIONS } from "@/lib/compute/types";
 import type { DiscoveryFixture, BetSelection } from "@/lib/contracts/ui.contract";
-import type { ComputeSlip, RankedMarket, RankedGroup } from "@/lib/compute/types";
+import type { ComputeSlip, RankedMarket } from "@/lib/compute/types";
 import type { StakeGroupWithMarkets, StakeFixture } from "@/lib/contracts/api.contract";
 import type { FixtureDetailsData } from "@/lib/stake-api/queries";
 
@@ -133,7 +132,7 @@ function makeApiGroup(
     };
 }
 
-/** Build a realistic API response with 4 market groups. */
+/** Build a realistic API response with 4 market groups (7 binary + 1 ternary). */
 function makeRichApiGroups(): StakeGroupWithMarkets[] {
     return [
         makeApiGroup("Goals", "Goals", [
@@ -159,7 +158,6 @@ function makeRankedMarket(
     id: string,
     name: string,
     oddsList: number[],
-    groupName = "main",
 ): RankedMarket {
     const outcomes = oddsList.map((odds, i) => makeOutcome(`${id}-o${i}`, odds));
     return {
@@ -171,8 +169,7 @@ function makeRankedMarket(
             provider: "test",
             outcomes,
         },
-        groupName,
-        avgOdds: oddsList.reduce((s, o) => s + o, 0) / oddsList.length,
+        highestOdds: Math.max(...oddsList),
         outcomeCount: oddsList.length,
     };
 }
@@ -252,9 +249,11 @@ describe("Compute Flow Integration — Full Happy Path", () => {
         mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
             makeApiGroup("Goals", "Goals", [
                 { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
+                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
             ]),
             makeApiGroup("Corners", "Corners", [
                 { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
+                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
             ]),
         ], fixture));
 
@@ -266,7 +265,8 @@ describe("Compute Flow Integration — Full Happy Path", () => {
 
         expect(result.current.result).not.toBeNull();
         const allSlips = result.current.result!.slips;
-        expect(allSlips.length).toBeGreaterThanOrEqual(2);
+        // 4 binary markets → 2^4 = 16 slips
+        expect(allSlips).toHaveLength(16);
 
         // Pick the first 2 slips
         const firstTwoIds = allSlips.slice(0, 2).map((s) => s.id);
@@ -276,8 +276,8 @@ describe("Compute Flow Integration — Full Happy Path", () => {
         });
 
         const { selections } = useSlipStore.getState();
-        // Each slip has 2 legs (1 market per group × 2 groups), so 2 slips × 2 legs = 4
-        expect(selections.length).toBe(4);
+        // Each slip has 4 legs (4 markets), so 2 slips × 4 legs = 8
+        expect(selections).toHaveLength(8);
 
         // All should be compute
         selections.forEach((s) => expect(s.betType).toBe("compute"));
@@ -299,11 +299,11 @@ describe("Compute Flow Integration — Edge Cases", () => {
             await result.current.runCompute();
         });
 
-        expect(result.current.result).not.toBeNull();
-        expect(result.current.result!.slips).toHaveLength(0);
-        expect(result.current.result!.totalPermutations).toBe(0);
+        // selectTopMarkets throws → error state
+        expect(result.current.result).toBeNull();
+        expect(result.current.error).toBeTruthy();
 
-        // addAllSlips should add nothing
+        // addAllSlips should add nothing (result is null)
         act(() => {
             result.current.addAllSlips();
         });
@@ -336,7 +336,7 @@ describe("Compute Flow Integration — Edge Cases", () => {
         expect(result.current.result).toBeNull();
     });
 
-    it("produces 0 permutations when all outcomes are inactive", async () => {
+    it("produces error when all outcomes are inactive (0 qualifying markets)", async () => {
         const fixture = makeFixture();
         const group: StakeGroupWithMarkets = {
             name: "Goals",
@@ -373,57 +373,68 @@ describe("Compute Flow Integration — Edge Cases", () => {
             await result.current.runCompute();
         });
 
-        expect(result.current.result!.slips).toHaveLength(0);
-        // Note: permutationCount may be 1 due to estimatePermutations returning 1 for empty groups.
-        // The key assertion is that no actual slips are generated.
-        expect(result.current.result!.totalPermutations).toBe(0);
+        // 0 qualifying markets → selectTopMarkets throws
+        expect(result.current.error).toBeTruthy();
+        expect(result.current.error).toContain("Not enough qualifying markets");
+        expect(result.current.result).toBeNull();
     });
 
-    it("respects the MAX_PERMUTATIONS cap on permutation count", async () => {
+    it("config bounds the permutation count regardless of available markets", async () => {
         const fixture = makeFixture();
 
-        // Build a scenario with many outcomes that would exceed the cap
-        // 5 groups × 3 markets × 3 outcomes = 1230 > 15
-        const bigGroups: StakeGroupWithMarkets[] = Array.from(
-            { length: 5 },
-            (_, gi) =>
-                makeApiGroup(`Group${gi}`, `Group${gi}`, [
-                    { id: `g${gi}-m1`, name: `Market A`, odds: [2.0, 3.0, 4.0] },
-                    { id: `g${gi}-m2`, name: `Market B`, odds: [1.5, 2.5, 3.5] },
-                    { id: `g${gi}-m3`, name: `Market C`, odds: [1.8, 2.2, 5.0] },
-                ]),
-        );
+        // Provide many binary markets (9 binary markets across 3 groups)
+        const manyBinaryMarkets: StakeGroupWithMarkets[] = [
+            makeApiGroup("Goals", "Goals", [
+                { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
+                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
+                { id: "g3", name: "GG/NG", odds: [1.75, 2.15] },
+            ]),
+            makeApiGroup("Corners", "Corners", [
+                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
+                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
+                { id: "c3", name: "First Corner", odds: [2.50, 1.60] },
+            ]),
+            makeApiGroup("Cards", "Cards", [
+                { id: "cd1", name: "O/U 3.5 Cards", odds: [1.65, 2.30] },
+                { id: "cd2", name: "Red Card", odds: [6.00, 1.12] },
+                { id: "cd3", name: "Card Handicap", odds: [1.90, 1.95] },
+            ]),
+        ];
 
-        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails(bigGroups, fixture));
+        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails(manyBinaryMarkets, fixture));
 
         const { result } = renderHook(() => useCompute(fixture));
 
-        // Even though API returns many markets, config defaults to 3 groups × 2 markets
-        // which should still be under the cap
         await act(async () => {
             await result.current.runCompute();
         });
 
-        // The cap is enforced at the UI level via canGenerate, not in generateAllPermutations.
-        // Verify that canGenerate reflects whether the count is within bounds.
-        // With default config (3 groups × 2 markets) and 3 outcomes each: 3^6 = 729 > 15.
-        // canGenerate should be false since the estimated count exceeds the cap.
-        expect(result.current.result!.totalPermutations).toBeGreaterThan(MAX_PERMUTATIONS);
-        expect(result.current.canGenerate).toBe(false);
+        // Default config: maxOutcomes=2, slipCount=16 → needed=4
+        // Even though 9 binary markets are available, only top 4 are selected
+        // 2^4 = 16 permutations, not 2^9 = 512
+        expect(result.current.result!.totalPermutations).toBe(16);
+        expect(result.current.result!.selectedMarkets).toHaveLength(4);
+        expect(result.current.canGenerate).toBe(true);
     });
 
     it("retry re-runs the pipeline with the same config", async () => {
         const fixture = makeFixture();
-        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
+        const validGroups = [
             makeApiGroup("Goals", "Goals", [
                 { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
+                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
             ]),
-        ], fixture));
+            makeApiGroup("Corners", "Corners", [
+                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
+                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
+            ]),
+        ];
+        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails(validGroups, fixture));
 
         const { result } = renderHook(() => useCompute(fixture));
 
         // Wait for auto-fetch to complete
-        await waitFor(() => expect(result.current.dataLoaded).toBe(true));
+        await waitFor(() => expect(mockGetFixtureDetails).toHaveBeenCalled());
 
         // First run
         await act(async () => {
@@ -452,6 +463,11 @@ describe("Compute Flow Integration — Duplicate Prevention", () => {
         mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
             makeApiGroup("Goals", "Goals", [
                 { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
+                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
+            ]),
+            makeApiGroup("Corners", "Corners", [
+                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
+                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
             ]),
         ], fixture));
 
@@ -481,9 +497,11 @@ describe("Compute Flow Integration — Duplicate Prevention", () => {
         mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
             makeApiGroup("Goals", "Goals", [
                 { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
+                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
             ]),
             makeApiGroup("Corners", "Corners", [
                 { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
+                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
             ]),
         ], fixture));
 
@@ -544,6 +562,11 @@ describe("Compute Flow Integration — Mixed Compute + Normal Selections", () =>
         mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
             makeApiGroup("Goals", "Goals", [
                 { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
+                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
+            ]),
+            makeApiGroup("Corners", "Corners", [
+                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
+                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
             ]),
         ], fixture));
 
@@ -595,6 +618,11 @@ describe("Compute Flow Integration — Mixed Compute + Normal Selections", () =>
         mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
             makeApiGroup("Goals", "Goals", [
                 { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
+                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
+            ]),
+            makeApiGroup("Corners", "Corners", [
+                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
+                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
             ]),
         ], fixture));
 
@@ -635,6 +663,11 @@ describe("Compute Flow Integration — BetSlipDrawer Compatibility", () => {
         mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
             makeApiGroup("Goals", "Goals", [
                 { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
+                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
+            ]),
+            makeApiGroup("Corners", "Corners", [
+                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
+                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
             ]),
         ], fixture));
 
@@ -673,6 +706,11 @@ describe("Compute Flow Integration — BetSlipDrawer Compatibility", () => {
         mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
             makeApiGroup("Goals", "Goals", [
                 { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
+                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
+            ]),
+            makeApiGroup("Corners", "Corners", [
+                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
+                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
             ]),
         ], fixture));
 
@@ -702,12 +740,12 @@ describe("Compute Flow Integration — BetSlipDrawer Compatibility", () => {
 
 describe("Compute Flow Integration — Pipeline Chaining", () => {
     it("generateAllPermutations produces correct count for known matrix", () => {
-        // 2 markets with 2 outcomes each = 4 permutations
-        const market1 = makeRankedMarket("m1", "O/U 2.5", [1.85, 2.10], "Goals");
-        const market2 = makeRankedMarket("m2", "BTTS", [1.95, 1.90], "Goals");
+        // 2 markets with 2 outcomes each = 4 permutations (flat array)
+        const market1 = makeRankedMarket("m1", "O/U 2.5", [1.85, 2.10]);
+        const market2 = makeRankedMarket("m2", "BTTS", [1.95, 1.90]);
 
-        const matrix: RankedMarket[][] = [[market1, market2]];
-        const slips = generateAllPermutations(matrix);
+        const markets: RankedMarket[] = [market1, market2];
+        const slips = generateAllPermutations(markets);
 
         expect(slips).toHaveLength(4);
 
@@ -720,11 +758,11 @@ describe("Compute Flow Integration — Pipeline Chaining", () => {
     });
 
     it("produces deterministic slip IDs", () => {
-        const market1 = makeRankedMarket("m1", "O/U 2.5", [1.85, 2.10], "Goals");
-        const matrix: RankedMarket[][] = [[market1]];
+        const market1 = makeRankedMarket("m1", "O/U 2.5", [1.85, 2.10]);
+        const markets: RankedMarket[] = [market1];
 
-        const run1 = generateAllPermutations(matrix);
-        const run2 = generateAllPermutations(matrix);
+        const run1 = generateAllPermutations(markets);
+        const run2 = generateAllPermutations(markets);
 
         expect(run1.map((s) => s.id)).toEqual(run2.map((s) => s.id));
     });
@@ -732,10 +770,15 @@ describe("Compute Flow Integration — Pipeline Chaining", () => {
     it("pipeline produces BetSelections with correct odds from API data", async () => {
         const fixture = makeFixture();
 
-        // Simple 1-group, 1-market, 2-outcome scenario
+        // Provide 4 binary markets for default config (needed=4)
         mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
             makeApiGroup("Goals", "Goals", [
                 { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
+                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
+            ]),
+            makeApiGroup("Corners", "Corners", [
+                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
+                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
             ]),
         ], fixture));
 
@@ -746,17 +789,19 @@ describe("Compute Flow Integration — Pipeline Chaining", () => {
         });
 
         const slips = result.current.result!.slips;
-        expect(slips).toHaveLength(2);
+        // 4 binary markets → 2^4 = 16
+        expect(slips).toHaveLength(16);
 
-        // Slip 0: first outcome (1.85), Slip 1: second outcome (2.10)
-        expect(slips[0].selections[0].odds).toBe(1.85);
-        expect(slips[1].selections[0].odds).toBe(2.10);
+        // Markets are ranked by highestOdds desc: c1(2.20), g1(2.10), c2(2.00), g2(1.95)
+        // Slip 0: all first outcomes → c1-o0 (1.70), g1-o0 (1.85), c2-o0 (1.80), g2-o0 (1.95)
+        expect(slips[0].selections[0].odds).toBe(1.70); // c1 first outcome
+        expect(slips[0].selections[1].odds).toBe(1.85); // g1 first outcome
+        expect(slips[0].selections[2].odds).toBe(1.80); // c2 first outcome
+        expect(slips[0].selections[3].odds).toBe(1.95); // g2 first outcome
 
         // Convert to BetSelections and verify odds preserved
         const betSelections = computeSlipToBetSelections(slips[0], fixture);
-        expect(betSelections[0].odds).toBe(1.85);
-
-        const betSelections2 = computeSlipToBetSelections(slips[1], fixture);
-        expect(betSelections2[0].odds).toBe(2.10);
+        expect(betSelections[0].odds).toBe(1.70);
+        expect(betSelections[1].odds).toBe(1.85);
     });
 });

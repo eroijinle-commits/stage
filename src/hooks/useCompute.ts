@@ -1,24 +1,23 @@
 /**
  * React hook that orchestrates the compute pipeline:
- * fetch fixture details → filter markets → build matrix → generate permutations.
+ * fetch fixture details → filter markets → select top → generate permutations.
  * Exposes config controls, results, and actions to add slips to the bet slip store.
  * @module hooks/useCompute
  */
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import type { DiscoveryFixture, BetSelection } from "@/lib/contracts/ui.contract";
 import type {
     ComputeConfig,
     ComputeResult,
     ComputeSlip,
-    RankedGroup,
+    RankedMarket,
 } from "@/lib/compute/types";
-import { MAX_PERMUTATIONS, estimatePermutations } from "@/lib/compute/types";
+import { SLIP_OPTIONS, marketsNeeded } from "@/lib/compute/types";
 import {
-    rankGroupsByOdds,
-    buildFilteredMatrix,
-    selectTopGroups,
-    rankMarketsInGroup,
+    flattenAllMarkets,
+    filterByOutcomeCount,
+    selectTopMarkets,
 } from "@/lib/compute/marketFilter";
 import { generateAllPermutations } from "@/lib/compute/cartesian";
 import { getFixtureDetailsQuery } from "@/lib/stake-api/queries";
@@ -27,7 +26,7 @@ import type { StakeGroupWithMarkets } from "@/lib/contracts/api.contract";
 
 // ─── Default config ──────────────────────────────────────────────────────────
 
-const DEFAULT_CONFIG: ComputeConfig = { groups: 3, marketsPerGroup: 2 };
+const DEFAULT_CONFIG: ComputeConfig = { maxOutcomes: 2, slipCount: 16 };
 
 // ─── Conversion: ComputeSlip → BetSelection[] ────────────────────────────────
 
@@ -75,11 +74,9 @@ export interface UseComputeReturn {
     error: string | null;
     /** Live permutation count based on current config and available fixture data */
     permutationCount: number;
-    /** Whether market data has been fetched (rankedGroups is populated) */
-    dataLoaded: boolean;
-    /** Max outcomes per group derived from real market data (index = group rank) */
-    actualMaxOutcomes: number[];
-    /** Whether generation is allowed (count > 0 and within cap) */
+    /** Available slip count options derived from maxOutcomes */
+    availableSlipCounts: number[];
+    /** Whether generation is allowed (enough qualifying markets) */
     canGenerate: boolean;
     /** Run the full compute pipeline */
     runCompute: () => Promise<void>;
@@ -108,18 +105,38 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Ranked groups from the last successful API fetch. Stored in state so that
-    // permutationCount recomputes when it changes (and when config changes).
-    const [rankedGroups, setRankedGroups] = useState<RankedGroup[]>([]);
+    // Raw market groups from the last successful API fetch.
+    const [marketGroups, setMarketGroups] = useState<StakeGroupWithMarkets[]>([]);
 
     const addMultipleSelections = useSlipStore((s) => s.addMultipleSelections);
 
-    // ─── Auto-fetch market data on fixture change ────────────────────────────
-    // Fetches fixture details when a fixture is provided, so sliders have
-    // real market constraints and permutation count is live immediately.
+    // ─── Available slip count options ──────────────────────────────────────
+
+    const availableSlipCounts = useMemo(
+        () => SLIP_OPTIONS[config.maxOutcomes],
+        [config.maxOutcomes],
+    );
+
+    // ─── Reset slipCount when maxOutcomes changes ──────────────────────────
+
+    const setConfigStable = useCallback(
+        (next: ComputeConfig) => {
+            setConfig((prev) => {
+                // If maxOutcomes changed, reset slipCount to first valid option
+                if (next.maxOutcomes !== prev.maxOutcomes) {
+                    return { maxOutcomes: next.maxOutcomes, slipCount: SLIP_OPTIONS[next.maxOutcomes][0] };
+                }
+                return next;
+            });
+        },
+        [],
+    );
+
+    // ─── Auto-fetch market data on fixture change ────────────────────────
+
     useEffect(() => {
         if (!fixture) {
-            setRankedGroups([]);
+            setMarketGroups([]);
             setResult(null);
             setError(null);
             return;
@@ -131,8 +148,7 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
             try {
                 const details = await getFixtureDetailsQuery(fixture.slug);
                 if (cancelled || !details?.marketGroups) return;
-                const ranked = rankGroupsByOdds(details.marketGroups);
-                setRankedGroups(ranked);
+                setMarketGroups(details.marketGroups);
                 setError(null);
             } catch (err) {
                 if (cancelled) return;
@@ -145,70 +161,21 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
         return () => { cancelled = true; };
     }, [fixture]);
 
-    // ─── Derived: actual max outcomes per group from real data ────────────────
-    // Used to compute accurate slider constraints instead of worst-case heuristic.
-    const actualMaxOutcomes = useMemo(
-        () =>
-            rankedGroups.map((g) =>
-                g.markets.length > 0
-                    ? Math.max(...g.markets.map((m) => m.outcomeCount))
-                    : 1,
-            ),
-        [rankedGroups],
-    );
-
-    // ─── Clamp config when data loads ────────────────────────────────────────
-    // Ensures the actual config state matches valid slider values so
-    // permutationCount and the UI stay in sync.
-    //
-    // Uses a ref to read the latest config without listing config values in the
-    // dependency array. This prevents the effect from firing on every slider
-    // change, which was causing a feedback loop that prevented sliders from
-    // moving (the effect would override user input immediately).
-    const configRef = useRef(config);
-    configRef.current = config;
-
-    useEffect(() => {
-        if (actualMaxOutcomes.length === 0) return;
-        const { groups, marketsPerGroup } = configRef.current;
-
-        let maxGroups = actualMaxOutcomes.length;
-        for (let gi = 0; gi < maxGroups; gi++) {
-            const maxM = Math.min(
-                3,
-                Math.floor(MAX_PERMUTATIONS / actualMaxOutcomes[gi]),
-            );
-            if (maxM < 1) {
-                maxGroups = gi;
-                break;
-            }
-        }
-        if (maxGroups < 1) maxGroups = 1;
-
-        const gIdx = Math.min(groups, actualMaxOutcomes.length) - 1;
-        const moe = gIdx >= 0 ? actualMaxOutcomes[gIdx] : 2;
-        const maxMarkets = Math.min(3, Math.floor(MAX_PERMUTATIONS / moe));
-
-        const nextGroups = Math.max(1, Math.min(groups, maxGroups));
-        const nextMarkets = Math.max(1, Math.min(marketsPerGroup, maxMarkets));
-
-        if (nextGroups !== groups || nextMarkets !== marketsPerGroup) {
-            setConfig({ groups: nextGroups, marketsPerGroup: nextMarkets });
-        }
-    }, [actualMaxOutcomes, setConfig]);
-
-    // ─── Derived: live permutation count ──────────────────────────────────────
+    // ─── Derived: live permutation count ──────────────────────────────────
 
     const permutationCount = useMemo(() => {
-        if (rankedGroups.length === 0) return 0;
-        const matrix = buildFilteredMatrix(rankedGroups, config);
-        return estimatePermutations(matrix);
-    }, [config, rankedGroups]);
+        if (marketGroups.length === 0) return 0;
+        const needed = marketsNeeded(config.slipCount, config.maxOutcomes);
+        const allMarkets = flattenAllMarkets(marketGroups);
+        const qualifying = filterByOutcomeCount(allMarkets, config.maxOutcomes);
+        if (qualifying.length < needed) return 0;
+        const topN = qualifying.slice(0, needed);
+        return topN.reduce((acc, m) => acc * m.outcomeCount, 1);
+    }, [config, marketGroups]);
 
-    const dataLoaded = rankedGroups.length > 0;
-    const canGenerate = permutationCount > 0 && permutationCount <= MAX_PERMUTATIONS;
+    const canGenerate = permutationCount > 0;
 
-    // ─── Actions ──────────────────────────────────────────────────────────────
+    // ─── Actions ──────────────────────────────────────────────────────────
 
     /**
      * Run the full compute pipeline.
@@ -226,26 +193,18 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
         try {
             // Fetch fixture details (market groups with markets and outcomes)
             const details = await getFixtureDetailsQuery(fixture.slug);
+            setMarketGroups(details.marketGroups);
 
-            // Rank groups from raw API data
-            const ranked = rankGroupsByOdds(details.marketGroups);
-            setRankedGroups(ranked);
+            // Select top N markets using the flat pipeline
+            const selectedMarkets = selectTopMarkets(details.marketGroups, config);
 
-            // Build the filtered matrix using current config
-            const matrix = buildFilteredMatrix(ranked, config);
-            const slips = generateAllPermutations(matrix);
-
-            // Build selected groups summary (the groups/markets that were picked)
-            const topGroups = selectTopGroups(ranked, config.groups);
-            const selectedGroups = topGroups.map((group) =>
-                rankMarketsInGroup(group, config.marketsPerGroup),
-            );
+            // Generate Cartesian product from flat array
+            const slips = generateAllPermutations(selectedMarkets);
 
             const computeResult: ComputeResult = {
                 fixtureName: fixture.name,
                 fixtureSlug: fixture.slug,
-                config: { ...config },
-                selectedGroups,
+                selectedMarkets,
                 totalPermutations: slips.length,
                 slips,
             };
@@ -302,13 +261,12 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
 
     return {
         config,
-        setConfig,
+        setConfig: setConfigStable,
         result,
         isLoading,
         error,
         permutationCount,
-        dataLoaded,
-        actualMaxOutcomes,
+        availableSlipCounts,
         canGenerate,
         runCompute,
         addSlipToBetSlip,

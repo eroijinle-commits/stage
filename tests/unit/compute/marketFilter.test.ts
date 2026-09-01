@@ -1,12 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
-    rankGroupsByOdds,
-    selectTopGroups,
-    rankMarketsInGroup,
-    buildFilteredMatrix,
+    flattenAllMarkets,
+    filterByOutcomeCount,
+    selectTopMarkets,
 } from "@/lib/compute/marketFilter";
 import type { StakeGroupWithMarkets, StakeMarket, StakeMarketOutcome } from "@/lib/contracts/api.contract";
-import type { RankedGroup, RankedMarket, ComputeConfig } from "@/lib/compute/types";
+import type { RankedMarket, ComputeConfig } from "@/lib/compute/types";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 function makeOutcome(id: string, odds: number, active = true): StakeMarketOutcome {
@@ -64,91 +63,103 @@ function makeGroupMultiTemplate(
     };
 }
 
-// ─── rankGroupsByOdds ───────────────────────────────────────────────────────
-describe("rankGroupsByOdds", () => {
-    it("returns empty array for empty input", () => {
-        expect(rankGroupsByOdds([])).toEqual([]);
+// ─── flattenAllMarkets ──────────────────────────────────────────────────────
+describe("flattenAllMarkets", () => {
+    it("returns empty array for empty groups", () => {
+        expect(flattenAllMarkets([])).toEqual([]);
     });
 
-    it("ranks a single group", () => {
-        const m1 = makeMarket("m1", "Market 1", [makeOutcome("o1", 2.0), makeOutcome("o2", 3.0)]);
-        const g = makeGroup("Goal Lines", "Goal Lines", [m1]);
-        const result = rankGroupsByOdds([g]);
+    it("flattens markets from a single group with one template", () => {
+        const m1 = makeMarket("m1", "M1", [makeOutcome("o1", 2.0)]);
+        const m2 = makeMarket("m2", "M2", [makeOutcome("o1", 3.0)]);
+        const g = makeGroup("G", "G", [m1, m2]);
+        const result = flattenAllMarkets([g]);
+        expect(result).toHaveLength(2);
+        expect(result[0].id).toBe("m1");
+        expect(result[1].id).toBe("m2");
+    });
+
+    it("flattens markets across multiple groups and templates", () => {
+        const m1 = makeMarket("m1", "M1", [makeOutcome("o1", 2.0)]);
+        const m2 = makeMarket("m2", "M2", [makeOutcome("o1", 3.0)]);
+        const m3 = makeMarket("m3", "M3", [makeOutcome("o1", 4.0)]);
+        const g1 = makeGroup("G1", "G1", [m1]);
+        const g2 = makeGroupMultiTemplate("G2", "G2", [[m2], [m3]]);
+
+        const result = flattenAllMarkets([g1, g2]);
+        expect(result).toHaveLength(3);
+        expect(result.map((m) => m.id)).toEqual(["m1", "m2", "m3"]);
+    });
+});
+
+// ─── filterByOutcomeCount ───────────────────────────────────────────────────
+describe("filterByOutcomeCount", () => {
+    it("returns empty for empty markets", () => {
+        expect(filterByOutcomeCount([], 2)).toEqual([]);
+    });
+
+    it("includes binary markets when maxOutcomes=2", () => {
+        const m1 = makeMarket("m1", "Binary", [makeOutcome("o1", 2.0), makeOutcome("o2", 3.0)]);
+        const result = filterByOutcomeCount([m1], 2);
         expect(result).toHaveLength(1);
-        expect(result[0].groupName).toBe("Goal Lines");
-        expect(result[0].markets).toHaveLength(1);
-        expect(result[0].markets[0].avgOdds).toBe(2.5); // (2+3)/2
+        expect(result[0].market.id).toBe("m1");
+        expect(result[0].outcomeCount).toBe(2);
+        expect(result[0].highestOdds).toBe(3.0);
     });
 
-    it("ranks groups by their average odds descending", () => {
-        const m1 = makeMarket("m1", "High odds", [makeOutcome("o1", 4.0), makeOutcome("o2", 6.0)]);
-        const m2 = makeMarket("m2", "Low odds", [makeOutcome("o1", 1.2), makeOutcome("o2", 1.4)]);
-        const g1 = makeGroup("High", "High Group", [m1]);
-        const g2 = makeGroup("Low", "Low Group", [m2]);
-
-        const result = rankGroupsByOdds([g2, g1]); // input in wrong order
-        expect(result[0].groupName).toBe("High"); // should be sorted desc
-        expect(result[1].groupName).toBe("Low");
+    it("excludes ternary markets when maxOutcomes=2", () => {
+        const m1 = makeMarket("m1", "Binary", [makeOutcome("o1", 2.0), makeOutcome("o2", 3.0)]);
+        const m2 = makeMarket("m2", "Ternary", [
+            makeOutcome("o1", 2.0),
+            makeOutcome("o2", 3.0),
+            makeOutcome("o3", 4.0),
+        ]);
+        const result = filterByOutcomeCount([m1, m2], 2);
+        expect(result).toHaveLength(1);
+        expect(result[0].market.id).toBe("m1");
     });
 
-    it("excludes markets with no active outcomes", () => {
+    it("includes ternary markets when maxOutcomes=3", () => {
+        const m1 = makeMarket("m1", "Ternary", [
+            makeOutcome("o1", 2.0),
+            makeOutcome("o2", 3.0),
+            makeOutcome("o3", 4.0),
+        ]);
+        const result = filterByOutcomeCount([m1], 3);
+        expect(result).toHaveLength(1);
+        expect(result[0].outcomeCount).toBe(3);
+    });
+
+    it("excludes markets with 0 active outcomes", () => {
         const active = makeMarket("m1", "Active", [makeOutcome("o1", 2.0), makeOutcome("o2", 3.0)]);
-        const inactive = makeMarket("m2", "Inactive", [
+        const dead = makeMarket("m2", "Dead", [
             makeOutcome("o1", 2.0, false),
             makeOutcome("o2", 3.0, false),
         ]);
-        const g = makeGroup("Mixed", "Mixed Group", [active, inactive]);
-
-        const result = rankGroupsByOdds([g]);
-        expect(result[0].markets).toHaveLength(1);
-        expect(result[0].markets[0].market.id).toBe("m1");
-    });
-
-    it("excludes group from ranking if all markets have 0 active outcomes", () => {
-        const dead = makeMarket("m1", "Dead", [
-            makeOutcome("o1", 2.0, false),
-            makeOutcome("o2", 3.0, false),
-        ]);
-        const g = makeGroup("Dead Group", "Dead", [dead]);
-
-        const result = rankGroupsByOdds([g]);
-        // Group should still appear but with 0 markets
+        const result = filterByOutcomeCount([active, dead], 2);
         expect(result).toHaveLength(1);
-        expect(result[0].markets).toHaveLength(0);
+        expect(result[0].market.id).toBe("m1");
     });
 
-    it("ranks markets within group by avg odds descending", () => {
+    it("ranks by highestOdds descending", () => {
         const m1 = makeMarket("m1", "Low", [makeOutcome("o1", 1.5)]);
         const m2 = makeMarket("m2", "High", [makeOutcome("o1", 4.0)]);
-        const g = makeGroup("Mixed", "Mixed", [m1, m2]);
-
-        const result = rankGroupsByOdds([g]);
-        expect(result[0].markets[0].market.id).toBe("m2"); // higher avg first
-        expect(result[0].markets[1].market.id).toBe("m1");
+        const m3 = makeMarket("m3", "Mid", [makeOutcome("o1", 2.5)]);
+        const result = filterByOutcomeCount([m1, m2, m3], 2);
+        expect(result[0].market.id).toBe("m2"); // 4.0
+        expect(result[1].market.id).toBe("m3"); // 2.5
+        expect(result[2].market.id).toBe("m1"); // 1.5
     });
 
-    it("handles multiple templates in a group", () => {
-        const m1 = makeMarket("m1", "From tpl1", [makeOutcome("o1", 2.0)]);
-        const m2 = makeMarket("m2", "From tpl2", [makeOutcome("o1", 4.0)]);
-        const g = makeGroupMultiTemplate("Combined", "Combined", [[m1], [m2]]);
-
-        const result = rankGroupsByOdds([g]);
-        expect(result[0].markets).toHaveLength(2);
-        // Markets should be sorted by avgOdds desc
-        expect(result[0].markets[0].avgOdds).toBeGreaterThanOrEqual(result[0].markets[1].avgOdds);
-    });
-
-    it("computes correct avgOdds for 3-outcome market", () => {
+    it("computes correct highestOdds for 3-outcome market", () => {
         const m = makeMarket("m1", "3-way", [
             makeOutcome("o1", 2.0),
             makeOutcome("o2", 3.0),
             makeOutcome("o3", 6.0),
         ]);
-        const g = makeGroup("G", "G", [m]);
-
-        const result = rankGroupsByOdds([g]);
-        expect(result[0].markets[0].avgOdds).toBeCloseTo(11 / 3); // (2+3+6)/3
-        expect(result[0].markets[0].outcomeCount).toBe(3);
+        const result = filterByOutcomeCount([m], 3);
+        expect(result[0].highestOdds).toBe(6.0);
+        expect(result[0].outcomeCount).toBe(3);
     });
 
     it("handles suspended/deactivated outcomes correctly", () => {
@@ -157,157 +168,99 @@ describe("rankGroupsByOdds", () => {
             makeOutcome("o2", 3.0, false),
             makeOutcome("o3", 4.0, true),
         ]);
-        const g = makeGroup("G", "G", [m]);
+        const result = filterByOutcomeCount([m], 2);
+        expect(result).toHaveLength(1); // 2 active outcomes ≤ 2
+        expect(result[0].highestOdds).toBe(4.0);
+        expect(result[0].outcomeCount).toBe(2);
+    });
 
-        const result = rankGroupsByOdds([g]);
-        expect(result[0].markets[0].avgOdds).toBe(3.0); // (2+4)/2
-        expect(result[0].markets[0].outcomeCount).toBe(2);
+    it("handles multiple templates in a group", () => {
+        const m1 = makeMarket("m1", "From tpl1", [makeOutcome("o1", 2.0)]);
+        const m2 = makeMarket("m2", "From tpl2", [makeOutcome("o1", 4.0)]);
+        const g = makeGroupMultiTemplate("Combined", "Combined", [[m1], [m2]]);
+        const allMarkets = flattenAllMarkets([g]);
+        const result = filterByOutcomeCount(allMarkets, 2);
+        expect(result).toHaveLength(2);
+        expect(result[0].highestOdds).toBeGreaterThanOrEqual(result[1].highestOdds);
     });
 });
 
-// ─── selectTopGroups ────────────────────────────────────────────────────────
-describe("selectTopGroups", () => {
-    function makeRankedGroup(name: string): RankedGroup {
-        return { groupName: name, groupTranslation: name, markets: [] };
-    }
+// ─── selectTopMarkets ───────────────────────────────────────────────────────
+describe("selectTopMarkets", () => {
+    it("returns top N markets by highest odds", () => {
+        const m1 = makeMarket("m1", "Low", [makeOutcome("o1", 1.5), makeOutcome("o2", 2.0)]);
+        const m2 = makeMarket("m2", "Mid", [makeOutcome("o1", 2.5), makeOutcome("o2", 3.0)]);
+        const m3 = makeMarket("m3", "High", [makeOutcome("o1", 4.0), makeOutcome("o2", 5.0)]);
+        const g = makeGroup("G", "G", [m1, m2, m3]);
 
-    it("returns empty array for empty input", () => {
-        expect(selectTopGroups([], 3)).toEqual([]);
+        // slipCount=16, maxOutcomes=2 → needed = log2(16) = 4, but only 3 markets
+        // Should throw
+        const config: ComputeConfig = { maxOutcomes: 2, slipCount: 16 };
+        expect(() => selectTopMarkets([g], config)).toThrow("Not enough qualifying markets");
     });
 
-    it("returns all groups when fewer than max", () => {
-        const groups = [makeRankedGroup("A"), makeRankedGroup("B")];
-        expect(selectTopGroups(groups, 5)).toHaveLength(2);
+    it("returns exactly needed number of markets", () => {
+        const markets = Array.from({ length: 6 }, (_, i) =>
+            makeMarket(`m${i}`, `M${i}`, [makeOutcome(`o${i}`, 1.5 + i)]),
+        );
+        const g = makeGroup("G", "G", markets);
+
+        // slipCount=16, maxOutcomes=2 → needed = 4
+        const config: ComputeConfig = { maxOutcomes: 2, slipCount: 16 };
+        const result = selectTopMarkets([g], config);
+        expect(result).toHaveLength(4);
+        // Highest odds first
+        expect(result[0].market.id).toBe("m5"); // 6.5
+        expect(result[1].market.id).toBe("m4"); // 5.5
     });
 
-    it("returns exactly max groups when more are available", () => {
-        const groups = [makeRankedGroup("A"), makeRankedGroup("B"), makeRankedGroup("C"), makeRankedGroup("D")];
-        expect(selectTopGroups(groups, 2)).toHaveLength(2);
-        expect(selectTopGroups(groups, 2)[0].groupName).toBe("A");
-        expect(selectTopGroups(groups, 2)[1].groupName).toBe("B");
-    });
-
-    it("returns empty when max is 0", () => {
-        const groups = [makeRankedGroup("A")];
-        expect(selectTopGroups(groups, 0)).toHaveLength(0);
-    });
-});
-
-// ─── rankMarketsInGroup ─────────────────────────────────────────────────────
-describe("rankMarketsInGroup", () => {
-    function makeRM(id: string, avgOdds: number): RankedMarket {
-        return {
-            market: { id, name: id, status: "active" as const, extId: id, provider: "test", outcomes: [] },
-            groupName: "G",
-            avgOdds,
-            outcomeCount: 2,
-        };
-    }
-
-    it("returns all markets when fewer than max", () => {
-        const group: RankedGroup = {
-            groupName: "G",
-            groupTranslation: "G",
-            markets: [makeRM("m1", 2.0), makeRM("m2", 3.0)],
-        };
-        expect(rankMarketsInGroup(group, 3).markets).toHaveLength(2);
-    });
-
-    it("truncates to maxMarkets", () => {
-        const group: RankedGroup = {
-            groupName: "G",
-            groupTranslation: "G",
-            markets: [makeRM("m1", 5.0), makeRM("m2", 3.0), makeRM("m3", 1.0)],
-        };
-        const result = rankMarketsInGroup(group, 2);
-        expect(result.markets).toHaveLength(2);
-        // First two (already sorted by avgOdds desc from rankGroupsByOdds)
-        expect(result.markets[0].market.id).toBe("m1");
-        expect(result.markets[1].market.id).toBe("m2");
-    });
-
-    it("returns empty markets array when maxMarkets is 0", () => {
-        const group: RankedGroup = {
-            groupName: "G",
-            groupTranslation: "G",
-            markets: [makeRM("m1", 2.0)],
-        };
-        expect(rankMarketsInGroup(group, 0).markets).toHaveLength(0);
-    });
-
-    it("preserves group name and translation", () => {
-        const group: RankedGroup = {
-            groupName: "Goals",
-            groupTranslation: "Metas",
-            markets: [makeRM("m1", 2.0)],
-        };
-        const result = rankMarketsInGroup(group, 1);
-        expect(result.groupName).toBe("Goals");
-        expect(result.groupTranslation).toBe("Metas");
-    });
-});
-
-// ─── buildFilteredMatrix ────────────────────────────────────────────────────
-describe("buildFilteredMatrix", () => {
-    // buildFilteredMatrix expects RankedGroup[] (already ranked), not StakeGroupWithMarkets[]
-    // We need to run rankGroupsByOdds first to get RankedGroup[]
-    function rankedFromGroups(...groups: StakeGroupWithMarkets[]): RankedGroup[] {
-        return rankGroupsByOdds(groups);
-    }
-
-    it("returns empty for empty groups", () => {
-        const config: ComputeConfig = { groups: 3, marketsPerGroup: 2 };
-        expect(buildFilteredMatrix([], config)).toEqual([]);
-    });
-
-    it("builds correct matrix dimensions", () => {
+    it("throws when fewer markets than needed", () => {
         const m1 = makeMarket("m1", "M1", [makeOutcome("o1", 2.0)]);
-        const m2 = makeMarket("m2", "M2", [makeOutcome("o1", 3.0)]);
-        const m3 = makeMarket("m3", "M3", [makeOutcome("o1", 4.0)]);
-        const m4 = makeMarket("m4", "M4", [makeOutcome("o1", 5.0)]);
-        const g1 = makeGroup("G1", "G1", [m1, m2]);
-        const g2 = makeGroup("G2", "G2", [m3, m4]);
-        const ranked = rankedFromGroups(g1, g2);
+        const g = makeGroup("G", "G", [m1]);
 
-        const config: ComputeConfig = { groups: 2, marketsPerGroup: 1 };
-        const matrix = buildFilteredMatrix(ranked, config);
-        expect(matrix).toHaveLength(2); // 2 groups
-        expect(matrix[0]).toHaveLength(1); // 1 market per group
-        expect(matrix[1]).toHaveLength(1);
+        // slipCount=16, maxOutcomes=2 → needed = 4, but only 1 market
+        const config: ComputeConfig = { maxOutcomes: 2, slipCount: 16 };
+        expect(() => selectTopMarkets([g], config)).toThrow("Not enough qualifying markets");
     });
 
-    it("uses all available groups when fewer than configured", () => {
-        const m1 = makeMarket("m1", "M1", [makeOutcome("o1", 2.0)]);
-        const g1 = makeGroup("G1", "G1", [m1]);
-        const ranked = rankedFromGroups(g1);
-
-        const config: ComputeConfig = { groups: 3, marketsPerGroup: 1 };
-        const matrix = buildFilteredMatrix(ranked, config);
-        expect(matrix).toHaveLength(1); // only 1 group available
-    });
-
-    it("uses all available markets when fewer than configured", () => {
-        const m1 = makeMarket("m1", "M1", [makeOutcome("o1", 2.0)]);
-        const g1 = makeGroup("G1", "G1", [m1]);
-        const ranked = rankedFromGroups(g1);
-
-        const config: ComputeConfig = { groups: 1, marketsPerGroup: 3 };
-        const matrix = buildFilteredMatrix(ranked, config);
-        expect(matrix[0]).toHaveLength(1); // only 1 market available
-    });
-
-    it("filters out markets with 0 active outcomes before building matrix", () => {
-        const active = makeMarket("m1", "Active", [makeOutcome("o1", 2.0)]);
-        const dead = makeMarket("m2", "Dead", [
-            makeOutcome("o1", 2.0, false),
-            makeOutcome("o2", 3.0, false),
+    it("throws when no markets have qualifying outcome counts", () => {
+        const m1 = makeMarket("m1", "Ternary", [
+            makeOutcome("o1", 2.0),
+            makeOutcome("o2", 3.0),
+            makeOutcome("o3", 4.0),
         ]);
-        const g = makeGroup("G", "G", [active, dead]);
-        const ranked = rankedFromGroups(g);
+        const g = makeGroup("G", "G", [m1]);
 
-        const config: ComputeConfig = { groups: 1, marketsPerGroup: 3 };
-        const matrix = buildFilteredMatrix(ranked, config);
-        expect(matrix[0]).toHaveLength(1); // dead market excluded
-        expect(matrix[0][0].market.id).toBe("m1");
+        // maxOutcomes=2 excludes ternary
+        const config: ComputeConfig = { maxOutcomes: 2, slipCount: 16 };
+        expect(() => selectTopMarkets([g], config)).toThrow("Not enough qualifying markets");
+    });
+
+    it("works with ternary config (3 outcomes)", () => {
+        const markets = Array.from({ length: 4 }, (_, i) =>
+            makeMarket(`m${i}`, `M${i}`, [
+                makeOutcome(`o${i}-1`, 1.5 + i),
+                makeOutcome(`o${i}-2`, 2.0 + i),
+                makeOutcome(`o${i}-3`, 3.0 + i),
+            ]),
+        );
+        const g = makeGroup("G", "G", markets);
+
+        // slipCount=27, maxOutcomes=3 → needed = 3
+        const config: ComputeConfig = { maxOutcomes: 3, slipCount: 27 };
+        const result = selectTopMarkets([g], config);
+        expect(result).toHaveLength(3);
+        expect(result.every((m) => m.outcomeCount === 3)).toBe(true);
+    });
+
+    it("flattens across groups before selecting", () => {
+        const m1 = makeMarket("m1", "Low", [makeOutcome("o1", 1.5), makeOutcome("o2", 2.0)]);
+        const m2 = makeMarket("m2", "High", [makeOutcome("o1", 4.0), makeOutcome("o2", 5.0)]);
+        const g1 = makeGroup("G1", "G1", [m1]);
+        const g2 = makeGroup("G2", "G2", [m2]);
+
+        // slipCount=16, maxOutcomes=2 → needed = 4, but only 2 markets
+        const config: ComputeConfig = { maxOutcomes: 2, slipCount: 16 };
+        expect(() => selectTopMarkets([g1, g2], config)).toThrow("Not enough qualifying markets");
     });
 });

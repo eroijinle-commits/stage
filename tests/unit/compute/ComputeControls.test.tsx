@@ -1,91 +1,83 @@
 /**
  * Unit tests for ComputeControls component.
- * Tests slider constraints, live counter color, disabled Generate state,
- * and dynamic max constraints.
+ * Tests dropdown controls, live counter, disabled Generate state,
+ * and markets needed display.
  * @module tests/unit/compute/ComputeControls
  */
 
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import ComputeControls from "@/components/compute/ComputeControls";
 import type { ComputeConfig } from "@/lib/compute/types";
 import { MAX_PERMUTATIONS } from "@/lib/compute/types";
 
-// ─── Mock Radix Slider ────────────────────────────────────────────────────────
+// ─── Mock Select ─────────────────────────────────────────────────────────────
 
-vi.mock("@radix-ui/react-slider", () => ({
-    Root: ({ children, value, onValueChange, disabled, min, max, ...props }: any) => (
-        <div
-            data-testid={props["data-testid"]}
-            data-min={min}
-            data-max={max}
-            data-value={value?.[0]}
-            data-disabled={disabled}
-        >
-            {/* Simple mock: clicking increments value */}
-            <button
-                data-testid="slider-mock-inc"
-                onClick={() => {
-                    if (onValueChange && value?.[0] !== undefined) {
-                        onValueChange([Math.min(max, value[0] + 1)]);
-                    }
-                }}
+vi.mock("@/components/ui/Select", () => ({
+    default: ({
+        label,
+        value,
+        options,
+        onChange,
+        disabled,
+        "data-testid": testId,
+    }: any) => (
+        <div data-testid={testId} data-disabled={disabled}>
+            <label>{label}</label>
+            <select
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                disabled={disabled}
+                data-testid={`${testId}-select`}
             >
-                +
-            </button>
-            <button
-                data-testid="slider-mock-dec"
-                onClick={() => {
-                    if (onValueChange && value?.[0] !== undefined) {
-                        onValueChange([Math.max(min, value[0] - 1)]);
-                    }
-                }}
-            >
-                −
-            </button>
-            {children}
+                {options.map((opt: any) => (
+                    <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                    </option>
+                ))}
+            </select>
         </div>
     ),
-    Track: ({ children }: any) => <div>{children}</div>,
-    Range: () => <div />,
-    Thumb: () => <div />,
 }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function renderControls(overrides: Partial<React.ComponentProps<typeof ComputeControls>> = {}) {
     const defaultProps = {
-        config: { groups: 3, marketsPerGroup: 2 } as ComputeConfig,
+        config: { maxOutcomes: 2, slipCount: 16 } as ComputeConfig,
         onConfigChange: vi.fn(),
         permutationCount: 8,
-        dataLoaded: true,
+        availableSlipCounts: [16, 32, 64],
         canGenerate: true,
         onGenerate: vi.fn(),
         isLoading: false,
         disabled: false,
+        error: null as string | null,
         ...overrides,
     };
     return { ...render(<ComputeControls {...defaultProps} />), props: defaultProps };
 }
 
+afterEach(() => {
+    cleanup();
+});
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("ComputeControls", () => {
     describe("renders correctly", () => {
-        it("shows both slider labels", () => {
+        it("shows both dropdown labels", () => {
             renderControls();
-            expect(screen.getByText("Groups")).toBeTruthy();
-            expect(screen.getByText("Markets / Group")).toBeTruthy();
+            expect(screen.getByText("Outcomes / Market")).toBeTruthy();
+            expect(screen.getByText("Number of Slips")).toBeTruthy();
         });
 
-        it("displays clamped config values when max constrains them", () => {
-            // With dataLoaded=true: getSliderMax(3, 2, "groups") = floor(15/(2*3)) = 2
-            // effectiveGroups = min(3, 2) = 2
-            // getSliderMax(3, 2, "marketsPerGroup") = floor(15/(3*3)) = 1
-            // effectiveMarkets = min(2, 1) = 1
-            renderControls({ config: { groups: 3, marketsPerGroup: 2 }, dataLoaded: true });
-            expect(screen.getByTestId("slider-value-Groups")).toHaveTextContent("2");
-            expect(screen.getByTestId("slider-value-Markets / Group")).toHaveTextContent("1");
+        it("shows markets needed value", () => {
+            // slipCount=16, maxOutcomes=2 → needed = 4
+            renderControls({
+                config: { maxOutcomes: 2, slipCount: 16 },
+            });
+            expect(screen.getByTestId("markets-needed")).toHaveTextContent("4");
         });
 
         it("shows permutation count", () => {
@@ -100,22 +92,10 @@ describe("ComputeControls", () => {
     });
 
     describe("permutation count color coding", () => {
-        it("uses green (bet-won) class when count is under cap", () => {
+        it("uses green (bet-won) class when count is non-zero", () => {
             renderControls({ permutationCount: 8 });
             const el = screen.getByTestId("permutation-count");
             expect(el.className).toContain("text-bet-won");
-        });
-
-        it("uses pending class when at cap", () => {
-            renderControls({ permutationCount: MAX_PERMUTATIONS });
-            const el = screen.getByTestId("permutation-count");
-            expect(el.className).toContain("text-bet-pending");
-        });
-
-        it("uses danger (bet-lost) class when over cap", () => {
-            renderControls({ permutationCount: 20 });
-            const el = screen.getByTestId("permutation-count");
-            expect(el.className).toContain("text-bet-lost");
         });
 
         it("uses muted class when count is 0", () => {
@@ -170,60 +150,66 @@ describe("ComputeControls", () => {
         });
     });
 
-    describe("slider value changes", () => {
-        it("calls onConfigChange when groups slider changes", () => {
+    describe("dropdown value changes", () => {
+        it("calls onConfigChange when outcomes dropdown changes", () => {
             const onConfigChange = vi.fn();
-            // With marketsPerGroup=1, groupsMax = floor(15/3) = 5, effectiveGroups = min(1,5) = 1
             renderControls({
-                config: { groups: 1, marketsPerGroup: 1 },
+                config: { maxOutcomes: 2, slipCount: 16 },
                 onConfigChange,
             });
-            const groupsSlider = screen.getByTestId("slider-Groups");
-            const incBtn = groupsSlider.querySelector("[data-testid='slider-mock-inc']");
-            fireEvent.click(incBtn!);
-            expect(onConfigChange).toHaveBeenCalledWith({ groups: 2, marketsPerGroup: 1 });
+            fireEvent.change(screen.getByTestId("select-outcomes-select"), {
+                target: { value: "3" },
+            });
+            expect(onConfigChange).toHaveBeenCalledWith({ maxOutcomes: 3, slipCount: 16 });
         });
 
-        it("calls onConfigChange when markets slider changes", () => {
+        it("calls onConfigChange when slips dropdown changes", () => {
             const onConfigChange = vi.fn();
-            // With groups=1, marketsMax = min(3, floor(15/3)) = 3, effectiveMarkets = min(1,3) = 1
             renderControls({
-                config: { groups: 1, marketsPerGroup: 1 },
+                config: { maxOutcomes: 2, slipCount: 16 },
                 onConfigChange,
             });
-            const marketsSlider = screen.getByTestId("slider-Markets / Group");
-            const incBtn = marketsSlider.querySelector("[data-testid='slider-mock-inc']");
-            fireEvent.click(incBtn!);
-            expect(onConfigChange).toHaveBeenCalledWith({ groups: 1, marketsPerGroup: 2 });
+            fireEvent.change(screen.getByTestId("select-slips-select"), {
+                target: { value: "32" },
+            });
+            expect(onConfigChange).toHaveBeenCalledWith({ maxOutcomes: 2, slipCount: 32 });
         });
     });
 
-    describe("dynamic max constraints", () => {
-        it("shows max constraint hint when max is reduced", () => {
-            renderControls({
-                config: { groups: 2, marketsPerGroup: 3 },
-                dataLoaded: true,
-            });
-            // With marketsPerGroup=3, groupsMax = floor(15/(3*3)) = 1
-            expect(screen.getByText(/Max 1 to stay within/)).toBeTruthy();
+    describe("markets needed calculation", () => {
+        it("shows 4 for slipCount=16, maxOutcomes=2", () => {
+            renderControls({ config: { maxOutcomes: 2, slipCount: 16 } });
+            expect(screen.getByTestId("markets-needed")).toHaveTextContent("4");
         });
 
-        it("does not show max hint when max is at default", () => {
-            renderControls({
-                config: { groups: 1, marketsPerGroup: 1 },
-            });
-            // With marketsPerGroup=1, groupsMax = min(5, floor(15/3)) = 5
-            // With groups=1, marketsMax = min(3, floor(15/3)) = 3
-            // Neither shows hint
-            expect(screen.queryByText(/Max .* to stay within/)).toBeNull();
+        it("shows 3 for slipCount=27, maxOutcomes=3", () => {
+            renderControls({ config: { maxOutcomes: 3, slipCount: 27 } });
+            expect(screen.getByTestId("markets-needed")).toHaveTextContent("3");
+        });
+
+        it("shows 6 for slipCount=64, maxOutcomes=2", () => {
+            renderControls({ config: { maxOutcomes: 2, slipCount: 64 } });
+            expect(screen.getByTestId("markets-needed")).toHaveTextContent("6");
+        });
+    });
+
+    describe("error display", () => {
+        it("shows error message when error is provided", () => {
+            renderControls({ error: "Not enough qualifying markets" });
+            expect(screen.getByText("Not enough qualifying markets")).toBeTruthy();
+        });
+
+        it("does not show error when error is null", () => {
+            renderControls({ error: null });
+            expect(screen.queryByText("Not enough qualifying markets")).toBeNull();
         });
     });
 
     describe("disabled state", () => {
-        it("passes disabled to sliders", () => {
+        it("passes disabled to selects", () => {
             renderControls({ disabled: true });
-            const groupsSlider = screen.getByTestId("slider-Groups");
-            expect(groupsSlider.getAttribute("data-disabled")).toBe("true");
+            const outcomesSelect = screen.getByTestId("select-outcomes");
+            expect(outcomesSelect.getAttribute("data-disabled")).toBe("true");
         });
     });
 });

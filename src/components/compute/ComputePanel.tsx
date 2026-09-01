@@ -1,6 +1,6 @@
 /**
  * Full modal panel for the compute feature.
- * Contains header, config controls, live counter, matrix preview,
+ * Contains header, config controls, live counter, selected markets preview,
  * results list, and action buttons. Uses `useCompute(fixture)` for all state.
  * @module components/compute/ComputePanel
  */
@@ -12,10 +12,9 @@ import ComputeControls from "./ComputeControls";
 import ComputeSlipPreview from "./ComputeSlipPreview";
 import type { DiscoveryFixture } from "@/lib/contracts/ui.contract";
 import type { ComputeSlip } from "@/lib/compute/types";
-import { MAX_PERMUTATIONS } from "@/lib/compute/types";
 import { cn } from "@/lib/utils/cn";
 
-const MAX_DISPLAY_SLIPS = 15;
+const MAX_DISPLAY_SLIPS = 81;
 
 interface ComputePanelProps {
     open: boolean;
@@ -35,7 +34,7 @@ export default function ComputePanel({
         isLoading,
         error,
         permutationCount,
-        dataLoaded,
+        availableSlipCounts,
         canGenerate,
         runCompute,
         addSlipToBetSlip,
@@ -122,35 +121,17 @@ export default function ComputePanel({
             <div className="space-y-4 max-h-[70vh] overflow-y-auto -mx-1 px-1">
                 {/* Config controls */}
                 <section>
-                    <h3 className="text-xs font-mono font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                        Configuration
-                    </h3>
                     <ComputeControls
                         config={config}
                         onConfigChange={setConfig}
                         permutationCount={permutationCount}
-                        dataLoaded={dataLoaded}
+                        availableSlipCounts={availableSlipCounts}
                         canGenerate={canGenerate}
                         onGenerate={runCompute}
                         isLoading={isLoading}
+                        error={error}
                     />
                 </section>
-
-                {/* Error state */}
-                {error && (
-                    <div className="border border-bet-lost/40 bg-bet-lost/5 rounded p-3 text-xs font-mono text-bet-lost">
-                        <p>{error}</p>
-                        <button
-                            onClick={() => {
-                                clearError();
-                                retry();
-                            }}
-                            className="mt-2 text-foreground underline hover:text-primary transition-colors"
-                        >
-                            Retry
-                        </button>
-                    </div>
-                )}
 
                 {/* Loading state */}
                 {isLoading && (
@@ -164,34 +145,24 @@ export default function ComputePanel({
                     </div>
                 )}
 
-                {/* Matrix preview (after generation) */}
-                {result && result.selectedGroups.length > 0 && (
+                {/* Selected markets preview (before generation) */}
+                {result && result.selectedMarkets.length > 0 && (
                     <section>
                         <h3 className="text-xs font-mono font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                             Selected Markets
                         </h3>
                         <div className="space-y-1.5">
-                            {result.selectedGroups.map((group) => (
+                            {result.selectedMarkets.map((market) => (
                                 <div
-                                    key={group.groupName}
-                                    className="border border-border rounded p-2 text-xs font-mono"
+                                    key={market.market.id}
+                                    className="border border-border rounded p-2 text-xs font-mono flex items-center justify-between"
                                 >
-                                    <p className="text-foreground font-semibold mb-1">
-                                        {group.groupTranslation || group.groupName}
-                                    </p>
-                                    {group.markets.map((market) => (
-                                        <div
-                                            key={market.market.id}
-                                            className="flex items-center justify-between text-muted-foreground pl-2"
-                                        >
-                                            <span className="truncate">
-                                                {market.market.name}
-                                            </span>
-                                            <span className="text-foreground tabular-nums ml-2 shrink-0">
-                                                {market.avgOdds.toFixed(2)} avg
-                                            </span>
-                                        </div>
-                                    ))}
+                                    <span className="text-muted-foreground truncate">
+                                        {market.market.name}
+                                    </span>
+                                    <span className="text-foreground tabular-nums ml-2 shrink-0">
+                                        {market.highestOdds.toFixed(2)} best
+                                    </span>
                                 </div>
                             ))}
                         </div>

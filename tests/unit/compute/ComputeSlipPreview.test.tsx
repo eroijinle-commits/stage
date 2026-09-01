@@ -18,7 +18,6 @@ function makeSelection(overrides: Partial<ComputeSelection> = {}): ComputeSelect
         outcomeId: "m1-o0",
         outcomeName: "Home",
         odds: 2.0,
-        groupName: "main",
         ...overrides,
     };
 }
