@@ -10,11 +10,8 @@ type SortKey = "odds" | "time" | null;
 type SortDir = "asc" | "desc";
 
 interface ManualTabProps {
-  stakes: Record<string, number>;
-  onStakeChange: (id: string, value: number) => void;
-  bulkStake: string;
-  onBulkStakeChange: (value: string) => void;
-  onApplyBulkStake: () => void;
+  bulkStake?: string;
+  onBulkStakeChange?: (value: string) => void;
 }
 
 function getStatus(result: { success: boolean } | undefined): "pending" | "placed" | "failed" {
@@ -38,13 +35,7 @@ function getOddsClass(odds: number): string {
   return "text-odds-stable";
 }
 
-export default function ManualTab({
-  stakes,
-  onStakeChange,
-  bulkStake,
-  onBulkStakeChange,
-  onApplyBulkStake,
-}: ManualTabProps) {
+export default function ManualTab({ bulkStake, onBulkStakeChange }: ManualTabProps = {}) {
   const {
     selections, mode, stakePerLeg, placeResults, removeSelection,
   } = useBetSlip();
@@ -112,12 +103,11 @@ export default function ManualTab({
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
-            {sorted.map((s, index) => {
-              const result = placeResults.find((r) => r.selectionId === s.id);
+            {sorted.map((s: BetSelection, index: number) => {
+              const result = placeResults.find((r: { selectionId: string }) => r.selectionId === s.id);
               const status = getStatus(result);
-              const stake = stakes[s.id] ?? stakePerLeg;
+              const stake = stakePerLeg;
               const rowReturn = stake * s.odds;
-              const fixtureParts = s.fixtureName.split(/\s+[-v]\s+/i);
 
               return (
                 <tr
@@ -147,16 +137,7 @@ export default function ManualTab({
                     </span>
                   </td>
                   <td className="px-2 py-1.5 text-right">
-                    {isSingles && !result ? (
-                      <input
-                        type="number"
-                        value={stake}
-                        onChange={(e) => onStakeChange(s.id, parseFloat(e.target.value) || 0)}
-                        className="w-20 bg-secondary border border-border rounded px-1.5 py-0.5 text-[11px] font-mono text-right focus:outline-none focus:border-ring"
-                      />
-                    ) : (
-                      <span className="text-foreground tabular-nums">{stake.toLocaleString("en-NG")}</span>
-                    )}
+                    <span className="text-foreground tabular-nums">{stake.toLocaleString("en-NG")}</span>
                   </td>
                   <td className="px-2 py-1.5 text-right">
                     <span className="text-foreground tabular-nums">{formatCurrency(rowReturn, currency)}</span>
@@ -184,24 +165,17 @@ export default function ManualTab({
         </table>
       </div>
 
-      {/* Bulk stake row for singles - compact footer inside table area */}
-      {isSingles && selections.length > 0 && (
+      {/* Bulk stake row for singles */}
+      {isSingles && selections.length > 0 && bulkStake !== undefined && onBulkStakeChange && (
         <div className="shrink-0 border-t border-border px-3 py-1.5 flex items-center gap-2 text-[11px] font-mono">
           <span className="text-muted-foreground">Set all stakes:</span>
           <input
             type="number"
             value={bulkStake}
             onChange={(e) => onBulkStakeChange(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onApplyBulkStake()}
             placeholder={String(stakePerLeg)}
             className="w-20 bg-secondary border border-border rounded px-1.5 py-0.5 text-[11px] font-mono text-right focus:outline-none focus:border-ring"
           />
-          <button
-            onClick={onApplyBulkStake}
-            className="text-primary hover:text-primary/80 transition-colors font-medium"
-          >
-            Apply
-          </button>
         </div>
       )}
     </div>

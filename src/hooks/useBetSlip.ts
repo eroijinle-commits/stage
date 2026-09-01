@@ -1,12 +1,12 @@
 /**
  * Real implementation of useBetSlip — backed by the Zustand slip store.
- * Provides bet slip state, calculations, and the placeBets action.
+ * Reads/writes the active slip in the unified slips[] array.
  * @module hooks/useBetSlip
  */
 
 import { useCallback, useMemo } from "react";
 import { useSlipStore } from "@/store/useSlipStore";
-import type { ComputeSlipEntry } from "@/store/useSlipStore";
+import type { SlipData } from "@/store/useSlipStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useBalance } from "./useBalance";
 import { calculatePotentialReturn, calculateTotalStake, validateSlip } from "@/lib/state/slipLogic";
@@ -14,16 +14,30 @@ import { executeBetPlacement, type BetPlacementResult } from "@/lib/state/betPla
 import type { BetSelection } from "@/lib/contracts/ui.contract";
 import type { SlipMode } from "@/lib/contracts/db.contract";
 
-export function useBetSlip() {
-    const selections = useSlipStore((s) => s.selections);
-    const mode = useSlipStore((s) => s.mode);
-    const stakePerLeg = useSlipStore((s) => s.stakePerLeg);
-    const stakeShieldEnabled = useSlipStore((s) => s.stakeShieldEnabled);
-    const isPlacing = useSlipStore((s) => s.isPlacing);
-    const placeResults = useSlipStore((s) => s.placeResults);
-    const lastError = useSlipStore((s) => s.lastError);
+/** Get the active slip from raw state (non-reactive helper for .getState() calls). */
+function getActiveSlip(state: ReturnType<typeof useSlipStore.getState>): SlipData | null {
+    if (!state.activeSlipId) return state.slips[0] ?? null;
+    return state.slips.find((s) => s.id === state.activeSlipId) ?? state.slips[0] ?? null;
+}
 
+export function useBetSlip() {
+    // ── Active slip read (reactive) ─────────────────────────────────────────
+    const activeSlip = useSlipStore((s) => {
+        if (!s.activeSlipId) return s.slips[0] ?? null;
+        return s.slips.find((slip) => slip.id === s.activeSlipId) ?? s.slips[0] ?? null;
+    });
+
+    const selections = activeSlip?.selections ?? [];
+    const mode = activeSlip?.mode ?? "singles";
+    const stakePerLeg = activeSlip?.stakePerLeg ?? 1000;
+    const stakeShieldEnabled = activeSlip?.stakeShieldEnabled ?? false;
+    const isPlacing = activeSlip?.isPlacing ?? false;
+    const placeResults = activeSlip?.placeResults ?? [];
+    const lastError = activeSlip?.lastError ?? null;
+
+    // ── Per-slip mutations ──────────────────────────────────────────────────
     const addSelection = useSlipStore((s) => s.addSelection);
+    const addMultipleSelections = useSlipStore((s) => s.addMultipleSelections);
     const removeSelection = useSlipStore((s) => s.removeSelection);
     const clearSelections = useSlipStore((s) => s.clearSelections);
     const setMode = useSlipStore((s) => s.setMode);
@@ -33,11 +47,12 @@ export function useBetSlip() {
     const setPlaceResults = useSlipStore((s) => s.setPlaceResults);
     const setLastError = useSlipStore((s) => s.setLastError);
 
-    // ── Compute slip isolation ────────────────────────────────────────────
-    const computeSlips = useSlipStore((s) => s.computeSlips);
-    const removeComputeSlip = useSlipStore((s) => s.removeComputeSlip);
-    const clearComputeSlips = useSlipStore((s) => s.clearComputeSlips);
-    const updateComputeSlip = useSlipStore((s) => s.updateComputeSlip);
+    // ── All slips / compute helpers ─────────────────────────────────────────
+    const allSlips = useSlipStore((s) => s.slips);
+    const createSlip = useSlipStore((s) => s.createSlip);
+    const deleteSlip = useSlipStore((s) => s.deleteSlip);
+    const clearSlip = useSlipStore((s) => s.clearSlip);
+    const switchSlip = useSlipStore((s) => s.switchSlip);
 
     const currency = useSettingsStore((s) => s.currency);
     const { balance, refetch: refetchBalance } = useBalance();
@@ -52,14 +67,18 @@ export function useBetSlip() {
         [selections, mode, stakePerLeg],
     );
 
+    /** Place bets for the currently active slip. */
     const placeBets = useCallback(async (): Promise<BetPlacementResult[]> => {
-        if (selections.length === 0) {
+        const state = useSlipStore.getState();
+        const slip = getActiveSlip(state);
+        if (!slip || slip.selections.length === 0) {
             setLastError("No selections in the slip.");
             return [];
         }
 
         const balanceAmount = balance?.amount ?? null;
-        const validationErrors = validateSlip(selections, balanceAmount, totalStake);
+        const slipTotalStake = calculateTotalStake(slip.selections, slip.mode, slip.stakePerLeg);
+        const validationErrors = validateSlip(slip.selections, balanceAmount, slipTotalStake, slip.mode);
         if (validationErrors.length > 0) {
             setLastError(validationErrors.join("; "));
             return [];
@@ -71,12 +90,12 @@ export function useBetSlip() {
 
         try {
             const results = await executeBetPlacement({
-                selections,
-                mode,
-                stakePerLeg,
+                selections: slip.selections,
+                mode: slip.mode,
+                stakePerLeg: slip.stakePerLeg,
                 currency,
                 balance: balanceAmount,
-                stakeShieldEnabled: mode === "parlay" ? stakeShieldEnabled : false,
+                stakeShieldEnabled: slip.mode === "parlay" ? slip.stakeShieldEnabled : false,
             });
 
             setPlaceResults(results);
@@ -90,7 +109,6 @@ export function useBetSlip() {
                 setLastError(results[0]?.error ?? "All bets failed.");
             }
 
-            // Refresh balance after placement
             if (successCount > 0) {
                 refetchBalance();
             }
@@ -104,10 +122,6 @@ export function useBetSlip() {
             setPlacing(false);
         }
     }, [
-        selections,
-        mode,
-        stakePerLeg,
-        stakeShieldEnabled,
         currency,
         balance,
         totalStake,
@@ -117,22 +131,40 @@ export function useBetSlip() {
         refetchBalance,
     ]);
 
-    /** Place bets for a specific compute slip (isolated). */
+    /** Place bets for a specific slip by ID (used when active slip != target slip). */
     const placeBetsForGroup = useCallback(async (groupId: string): Promise<BetPlacementResult[]> => {
-        const group = useSlipStore.getState().computeSlips.find((g) => g.id === groupId);
+        const group = useSlipStore.getState().slips.find((s) => s.id === groupId);
         if (!group || group.selections.length === 0) return [];
 
         const balanceAmount = balance?.amount ?? null;
         const groupTotalStake = calculateTotalStake(group.selections, group.mode, group.stakePerLeg);
-        const errors = validateSlip(group.selections, balanceAmount, groupTotalStake);
+        const errors = validateSlip(group.selections, balanceAmount, groupTotalStake, group.mode);
         if (errors.length > 0) {
-            useSlipStore.getState().setComputeSlipError(groupId, errors.join("; "));
+            useSlipStore.getState().setLastError(errors.join("; "));
             return [];
         }
 
-        useSlipStore.getState().setComputeSlipPlacing(groupId, true);
-        useSlipStore.getState().setComputeSlipError(groupId, null);
-        useSlipStore.getState().setComputeSlipResults(groupId, []);
+        // Switch to the target slip, place, then switch back? No — place directly via set() on the target slip.
+        // We mutate the target slip's transient fields directly.
+        const setPlacingFor = (id: string, v: boolean) => {
+            useSlipStore.setState((st) => ({
+                slips: st.slips.map((s) => (s.id === id ? { ...s, isPlacing: v } : s)),
+            }));
+        };
+        const setErrorFor = (id: string, error: string | null) => {
+            useSlipStore.setState((st) => ({
+                slips: st.slips.map((s) => (s.id === id ? { ...s, lastError: error } : s)),
+            }));
+        };
+        const setResultsFor = (id: string, results: BetPlacementResult[]) => {
+            useSlipStore.setState((st) => ({
+                slips: st.slips.map((s) => (s.id === id ? { ...s, placeResults: results } : s)),
+            }));
+        };
+
+        setPlacingFor(groupId, true);
+        setErrorFor(groupId, null);
+        setResultsFor(groupId, []);
 
         try {
             const results = await executeBetPlacement({
@@ -144,7 +176,7 @@ export function useBetSlip() {
                 stakeShieldEnabled: group.mode === "parlay" ? group.stakeShieldEnabled : false,
             });
 
-            useSlipStore.getState().setComputeSlipResults(groupId, results);
+            setResultsFor(groupId, results);
 
             if (results.some((r) => r.success)) {
                 refetchBalance();
@@ -153,15 +185,15 @@ export function useBetSlip() {
             return results;
         } catch (err) {
             const message = err instanceof Error ? err.message : "Bet placement failed";
-            useSlipStore.getState().setComputeSlipError(groupId, message);
+            setErrorFor(groupId, message);
             return [];
         } finally {
-            useSlipStore.getState().setComputeSlipPlacing(groupId, false);
+            setPlacingFor(groupId, false);
         }
     }, [currency, balance, refetchBalance]);
 
     return {
-        // Manual slip
+        // Active slip
         selections,
         mode,
         stakePerLeg,
@@ -172,19 +204,24 @@ export function useBetSlip() {
         lastError,
         potentialReturn,
         addSelection,
+        addMultipleSelections,
         removeSelection,
         clearSelections,
         setMode,
         setStakePerLeg,
         setStakeShieldEnabled,
+        setPlacing,
+        setPlaceResults,
+        setLastError,
         placeBets,
-        // Compute slip isolation
-        computeSlips,
-        removeComputeSlip,
-        clearComputeSlips,
-        updateComputeSlip,
+        // Multi-slip
+        allSlips,
+        createSlip,
+        deleteSlip,
+        clearSlip,
+        switchSlip,
         placeBetsForGroup,
     };
 }
 
-export type { BetSelection, SlipMode, ComputeSlipEntry };
+export type { BetSelection, SlipMode, SlipData };

@@ -1,6 +1,9 @@
 /**
  * Unit tests for useSlipStore.addMultipleSelections — batch add, duplicate
  * rejection, mixed operations, and state integrity.
+ *
+ * In the new multi-slip architecture, selections live on individual slips.
+ * The active slip's selections are accessed via slips[activeSlipId].
  * @module tests/unit/addMultipleSelections
  */
 
@@ -10,16 +13,38 @@ import { createMockSelection, createMockSelections } from "../fixtures/mock-stak
 import type { BetSelection } from "@/lib/contracts/ui.contract";
 
 // Reset the store between tests so state doesn't leak.
+let activeSlipId: string;
+
 beforeEach(() => {
+    activeSlipId = `test-active-${Date.now()}`;
     useSlipStore.setState({
-        selections: [],
-        computeSlips: [],
-        mode: "singles",
-        stakePerLeg: 1000,
-        placeResults: [],
-        lastError: null,
+        slips: [{
+            id: activeSlipId,
+            name: "Manual Slip",
+            selections: [],
+            mode: "singles",
+            stakePerLeg: 1000,
+            stakeShieldEnabled: false,
+            isPlacing: false,
+            placeResults: [],
+            lastError: null,
+            createdAt: Date.now(),
+        }],
+        activeSlipId,
     });
 });
+
+/** Helper to get the active slip's selections. */
+function getSelections(): BetSelection[] {
+    return useSlipStore.getState().slips.find((s) => s.id === activeSlipId)!.selections;
+}
+
+/** Helper to get a field from the active slip. */
+function getActive<K extends keyof ReturnType<typeof useSlipStore.getState>["slips"][0]>(
+    key: K,
+): ReturnType<typeof useSlipStore.getState>["slips"][0][K] {
+    return useSlipStore.getState().slips.find((s) => s.id === activeSlipId)![key];
+}
 
 // ─── Basic batch add ────────────────────────────────────────────────────────
 
@@ -28,7 +53,7 @@ describe("addMultipleSelections", () => {
         it("adds multiple selections to an empty slip", () => {
             const batch = createMockSelections(3);
             useSlipStore.getState().addMultipleSelections(batch);
-            expect(useSlipStore.getState().selections).toHaveLength(3);
+            expect(getSelections()).toHaveLength(3);
         });
 
         it("adds selections to an existing slip", () => {
@@ -38,7 +63,7 @@ describe("addMultipleSelections", () => {
             const batch = createMockSelections(2);
             useSlipStore.getState().addMultipleSelections(batch);
 
-            expect(useSlipStore.getState().selections).toHaveLength(3);
+            expect(getSelections()).toHaveLength(3);
         });
 
         it("preserves selection order — existing first, then new", () => {
@@ -49,7 +74,7 @@ describe("addMultipleSelections", () => {
             const s2 = createMockSelection({ id: "batch-2", outcomeId: "bo2" });
             useSlipStore.getState().addMultipleSelections([s1, s2]);
 
-            const ids = useSlipStore.getState().selections.map((s) => s.id);
+            const ids = getSelections().map((s) => s.id);
             expect(ids).toEqual(["existing-1", "batch-1", "batch-2"]);
         });
     });
@@ -61,21 +86,21 @@ describe("addMultipleSelections", () => {
             const s1 = createMockSelection({ id: "dup-1", outcomeId: "d1" });
             const s2 = createMockSelection({ id: "dup-2", outcomeId: "d2" });
             useSlipStore.getState().addMultipleSelections([s1, s2]);
-            expect(useSlipStore.getState().selections).toHaveLength(2);
+            expect(getSelections()).toHaveLength(2);
 
             // Try adding s1 again — should be skipped
             useSlipStore.getState().addMultipleSelections([s1]);
-            expect(useSlipStore.getState().selections).toHaveLength(2);
+            expect(getSelections()).toHaveLength(2);
         });
 
         it("handles batch with all duplicates (no-op)", () => {
             const batch = createMockSelections(3);
             useSlipStore.getState().addMultipleSelections(batch);
-            expect(useSlipStore.getState().selections).toHaveLength(3);
+            expect(getSelections()).toHaveLength(3);
 
             // Re-add same batch — nothing should change
             useSlipStore.getState().addMultipleSelections(batch);
-            expect(useSlipStore.getState().selections).toHaveLength(3);
+            expect(getSelections()).toHaveLength(3);
         });
 
         it("adds only non-duplicate selections from a mixed batch", () => {
@@ -87,8 +112,8 @@ describe("addMultipleSelections", () => {
             const s3 = createMockSelection({ id: "new-1", outcomeId: "n1" });
             useSlipStore.getState().addMultipleSelections([s1, s2, s3]);
 
-            expect(useSlipStore.getState().selections).toHaveLength(3);
-            const ids = useSlipStore.getState().selections.map((s) => s.id);
+            expect(getSelections()).toHaveLength(3);
+            const ids = getSelections().map((s) => s.id);
             expect(ids).toContain("new-1");
         });
 
@@ -97,7 +122,7 @@ describe("addMultipleSelections", () => {
             useSlipStore.getState().addMultipleSelections(batch);
             useSlipStore.getState().addMultipleSelections(batch);
 
-            expect(useSlipStore.getState().selections).toHaveLength(4);
+            expect(getSelections()).toHaveLength(4);
         });
     });
 
@@ -106,7 +131,7 @@ describe("addMultipleSelections", () => {
     describe("edge cases", () => {
         it("no-op for empty array", () => {
             useSlipStore.getState().addMultipleSelections([]);
-            expect(useSlipStore.getState().selections).toHaveLength(0);
+            expect(getSelections()).toHaveLength(0);
         });
 
         it("no-op for null/undefined (guard)", () => {
@@ -117,7 +142,7 @@ describe("addMultipleSelections", () => {
             store.addMultipleSelections(null);
             // @ts-expect-error — testing runtime guard
             store.addMultipleSelections(undefined);
-            expect(useSlipStore.getState().selections).toHaveLength(0);
+            expect(getSelections()).toHaveLength(0);
         });
 
         it("filters out selections with missing/empty id", () => {
@@ -126,8 +151,8 @@ describe("addMultipleSelections", () => {
             const invalid = createMockSelection({ id: "valid-2", outcomeId: "v2" });
 
             useSlipStore.getState().addMultipleSelections([noId, valid, invalid]);
-            expect(useSlipStore.getState().selections).toHaveLength(2);
-            expect(useSlipStore.getState().selections.map((s) => s.id)).toEqual(["valid-1", "valid-2"]);
+            expect(getSelections()).toHaveLength(2);
+            expect(getSelections().map((s) => s.id)).toEqual(["valid-1", "valid-2"]);
         });
 
         it("handles large batch (100 selections)", () => {
@@ -135,7 +160,7 @@ describe("addMultipleSelections", () => {
                 createMockSelection({ id: `big-${i}`, outcomeId: `ob-${i}` }),
             );
             useSlipStore.getState().addMultipleSelections(batch);
-            expect(useSlipStore.getState().selections).toHaveLength(100);
+            expect(getSelections()).toHaveLength(100);
         });
 
         it("handles large batch with many duplicates", () => {
@@ -143,7 +168,7 @@ describe("addMultipleSelections", () => {
                 createMockSelection({ id: `bulk-${i}`, outcomeId: `ob-${i}` }),
             );
             useSlipStore.getState().addMultipleSelections(batch);
-            expect(useSlipStore.getState().selections).toHaveLength(50);
+            expect(getSelections()).toHaveLength(50);
 
             // Add same 50 + 50 new
             const batch2 = [
@@ -153,7 +178,7 @@ describe("addMultipleSelections", () => {
                 ),
             ];
             useSlipStore.getState().addMultipleSelections(batch2);
-            expect(useSlipStore.getState().selections).toHaveLength(100);
+            expect(getSelections()).toHaveLength(100);
         });
     });
 
@@ -167,26 +192,26 @@ describe("addMultipleSelections", () => {
             const batch = createMockSelections(3);
             useSlipStore.getState().addMultipleSelections(batch);
 
-            expect(useSlipStore.getState().selections).toHaveLength(4);
+            expect(getSelections()).toHaveLength(4);
         });
 
         it("addMultipleSelections then removeSelection", () => {
             const batch = createMockSelections(3);
             useSlipStore.getState().addMultipleSelections(batch);
-            expect(useSlipStore.getState().selections).toHaveLength(3);
+            expect(getSelections()).toHaveLength(3);
 
             useSlipStore.getState().removeSelection("sel-1");
-            expect(useSlipStore.getState().selections).toHaveLength(2);
-            expect(useSlipStore.getState().selections.find((s) => s.id === "sel-1")).toBeUndefined();
+            expect(getSelections()).toHaveLength(2);
+            expect(getSelections().find((s) => s.id === "sel-1")).toBeUndefined();
         });
 
         it("addMultipleSelections then clearSelections", () => {
             const batch = createMockSelections(5);
             useSlipStore.getState().addMultipleSelections(batch);
-            expect(useSlipStore.getState().selections).toHaveLength(5);
+            expect(getSelections()).toHaveLength(5);
 
             useSlipStore.getState().clearSelections();
-            expect(useSlipStore.getState().selections).toHaveLength(0);
+            expect(getSelections()).toHaveLength(0);
         });
 
         it("interleaved single adds and batch adds", () => {
@@ -199,7 +224,7 @@ describe("addMultipleSelections", () => {
             useSlipStore.getState().addSelection(createMockSelection({ id: "d1", outcomeId: "do1" })); // [a, b, c, d]
             useSlipStore.getState().addMultipleSelections([a, b]);     // duplicates — no-op
 
-            const ids = useSlipStore.getState().selections.map((s) => s.id);
+            const ids = getSelections().map((s) => s.id);
             expect(ids).toEqual(["a1", "b1", "c1", "d1"]);
         });
 
@@ -211,8 +236,8 @@ describe("addMultipleSelections", () => {
             const toggle = createMockSelection({ id: "sel-1", outcomeId: "o1" });
             useSlipStore.getState().addSelection(toggle);
 
-            expect(useSlipStore.getState().selections).toHaveLength(2);
-            expect(useSlipStore.getState().selections.find((s) => s.id === "sel-1")).toBeUndefined();
+            expect(getSelections()).toHaveLength(2);
+            expect(getSelections().find((s) => s.id === "sel-1")).toBeUndefined();
         });
     });
 
@@ -224,7 +249,7 @@ describe("addMultipleSelections", () => {
             const batch = createMockSelections(2);
             useSlipStore.getState().addMultipleSelections(batch);
 
-            expect(useSlipStore.getState().mode).toBe("parlay");
+            expect(getActive("mode")).toBe("parlay");
         });
 
         it("preserves stakePerLeg after batch add", () => {
@@ -232,7 +257,7 @@ describe("addMultipleSelections", () => {
             const batch = createMockSelections(2);
             useSlipStore.getState().addMultipleSelections(batch);
 
-            expect(useSlipStore.getState().stakePerLeg).toBe(5000);
+            expect(getActive("stakePerLeg")).toBe(5000);
         });
 
         it("does not alter placeResults or lastError", () => {
@@ -242,8 +267,8 @@ describe("addMultipleSelections", () => {
             const batch = createMockSelections(2);
             useSlipStore.getState().addMultipleSelections(batch);
 
-            expect(useSlipStore.getState().placeResults).toHaveLength(1);
-            expect(useSlipStore.getState().lastError).toBe("previous error");
+            expect(getActive("placeResults")).toHaveLength(1);
+            expect(getActive("lastError")).toBe("previous error");
         });
 
         it("each selection retains all fields after batch add", () => {
@@ -267,7 +292,7 @@ describe("addMultipleSelections", () => {
             });
 
             useSlipStore.getState().addMultipleSelections([s]);
-            const stored = useSlipStore.getState().selections[0];
+            const stored = getSelections()[0];
 
             expect(stored.id).toBe("integrity-1");
             expect(stored.fixtureSlug).toBe("test-vs-check");
@@ -333,9 +358,9 @@ describe("addMultipleSelections", () => {
             ];
 
             useSlipStore.getState().addMultipleSelections(computeMapped);
-            expect(useSlipStore.getState().selections).toHaveLength(2);
-            expect(useSlipStore.getState().selections[0].marketName).toBe("Match Winner");
-            expect(useSlipStore.getState().selections[1].betTypeLine).toBe("2.5");
+            expect(getSelections()).toHaveLength(2);
+            expect(getSelections()[0].marketName).toBe("Match Winner");
+            expect(getSelections()[1].betTypeLine).toBe("2.5");
         });
 
         it("prevents duplicate outcomeIds from compute pipeline", () => {
@@ -379,7 +404,7 @@ describe("addMultipleSelections", () => {
             // These have different ids ("cp-a", "cp-b"), so both are added.
             // Deduplication is by `id`, not by `outcomeId`.
             useSlipStore.getState().addMultipleSelections(computeMapped);
-            expect(useSlipStore.getState().selections).toHaveLength(2);
+            expect(getSelections()).toHaveLength(2);
         });
     });
 });

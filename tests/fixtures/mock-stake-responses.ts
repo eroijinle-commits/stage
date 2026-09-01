@@ -220,7 +220,7 @@ export const mockPlaceBetResponse = {
             odds: 1.85,
             potentialMultiplier: 1.85,
             outcomes: [
-                { id: "o1", odds: 1.85, name: "Arsenal", marketName: "Match Winner", fixtureName: "Arsenal vs Chelsea" },
+                { id: "o1", odds: 1.85, market: { name: "Match Winner" }, fixtureName: "Arsenal vs Chelsea" },
             ],
             status: "pending",
             createdAt: 1693401600000,

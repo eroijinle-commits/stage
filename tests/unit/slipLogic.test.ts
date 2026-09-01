@@ -180,6 +180,33 @@ describe("validateSlip", () => {
         expect(errors).toHaveLength(0);
     });
 
+    it("allows same-fixture selections in singles mode", () => {
+        const selections = [
+            createMockSelection({ id: "s1", fixtureId: "f1", outcomeId: "o1" }),
+            createMockSelection({ id: "s2", fixtureId: "f1", outcomeId: "o2" }),
+        ];
+        const errors = validateSlip(selections, 10000, 2000, "singles");
+        expect(errors.some((e) => e.includes("same match"))).toBe(false);
+    });
+
+    it("rejects parlay with selections from the same fixture", () => {
+        const selections = [
+            createMockSelection({ id: "s1", fixtureId: "f1", outcomeId: "o1" }),
+            createMockSelection({ id: "s2", fixtureId: "f1", outcomeId: "o2" }),
+        ];
+        const errors = validateSlip(selections, 10000, 1000, "parlay");
+        expect(errors.some((e) => e.includes("same match"))).toBe(true);
+    });
+
+    it("allows parlay with selections from different fixtures", () => {
+        const selections = [
+            createMockSelection({ id: "s1", fixtureId: "f1", outcomeId: "o1" }),
+            createMockSelection({ id: "s2", fixtureId: "f2", outcomeId: "o2" }),
+        ];
+        const errors = validateSlip(selections, 10000, 1000, "parlay");
+        expect(errors).toHaveLength(0);
+    });
+
     it("validates exact balance match", () => {
         const selections = createMockSelections(1);
         const errors = validateSlip(selections, 1000, 1000);

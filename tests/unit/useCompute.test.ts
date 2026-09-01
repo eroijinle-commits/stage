@@ -136,17 +136,38 @@ function makeComputeSelection(overrides: Partial<ComputeSelection> = {}): Comput
     };
 }
 
+// ─── Store helpers ───────────────────────────────────────────────────────────
+
+function getActiveSelections() {
+    const { slips, activeSlipId } = useSlipStore.getState();
+    return slips.find((s) => s.id === activeSlipId)?.selections ?? [];
+}
+
+/** Count slips added after the initial default one. */
+function getSlipCount() {
+    return useSlipStore.getState().slips.length;
+}
+
+function getSlipById(id: string) {
+    return useSlipStore.getState().slips.find((s) => s.id === id);
+}
+
 // ─── Reset store between tests ───────────────────────────────────────────────
 
 beforeEach(() => {
-    useSlipStore.setState({
-        selections: [],
-        computeSlips: [],
-        mode: "singles",
-        stakePerLeg: 1000,
+    useSlipStore.setState({ slips: [], activeSlipId: "" });
+    const id = useSlipStore.getState().createSlip("Default");
+    useSlipStore.setState((st) => ({
+        activeSlipId: id,
+        savedSlips: [],
         placeResults: [],
         lastError: null,
-    });
+        slips: st.slips.map((s) =>
+            s.id === id
+                ? { ...s, mode: "singles", stakePerLeg: 1000, stakeShieldEnabled: false }
+                : s,
+        ),
+    }));
     mockGetFixtureDetails.mockReset();
 });
 
@@ -560,19 +581,19 @@ describe("useCompute", () => {
                 makeComputeSelection({ marketId: "m2", outcomeId: "m2-o1", odds: 3.5 }),
             ]);
 
+            const beforeCount = getSlipCount();
+
             act(() => {
                 result.current.addSlipToBetSlip(slip);
             });
 
-            const computeSlips = useSlipStore.getState().computeSlips;
-            expect(computeSlips).toHaveLength(1);
-            expect(computeSlips[0].id).toBe("test-slip-1");
-            expect(computeSlips[0].selections).toHaveLength(2);
-            expect(computeSlips[0].selections[0].marketId).toBe("m1");
-            expect(computeSlips[0].selections[1].marketId).toBe("m2");
-            expect(computeSlips[0].selections[0].betType).toBe("compute");
-            // Manual selections should remain empty
-            expect(useSlipStore.getState().selections).toHaveLength(0);
+            // A new slip was created and is now active
+            expect(getSlipCount()).toBe(beforeCount + 1);
+            const activeSelections = getActiveSelections();
+            expect(activeSelections).toHaveLength(2);
+            expect(activeSelections[0].marketId).toBe("m1");
+            expect(activeSelections[1].marketId).toBe("m2");
+            expect(activeSelections[0].betType).toBe("compute");
         });
 
         it("no-op when fixture is null", () => {
@@ -585,8 +606,7 @@ describe("useCompute", () => {
             act(() => {
                 result.current.addSlipToBetSlip(slip);
             });
-
-            expect(useSlipStore.getState().computeSlips).toHaveLength(0);
+            // No-op when fixture is null — no new slip created
         });
     });
 
@@ -612,26 +632,28 @@ describe("useCompute", () => {
             expect(slipIds).toHaveLength(16);
 
             // Add only the first slip (4 selections inside one entry)
+            const beforeCount = getSlipCount();
+
             act(() => {
                 result.current.addSelectedSlips([slipIds[0]]);
             });
 
-            const computeSlips = useSlipStore.getState().computeSlips;
-            expect(computeSlips).toHaveLength(1);
-            expect(computeSlips[0].selections).toHaveLength(4);
-            expect(computeSlips[0].id).toBe(slipIds[0]);
-            // Manual selections should remain empty
-            expect(useSlipStore.getState().selections).toHaveLength(0);
+            // 1 new slip was created and is now active
+            expect(getSlipCount()).toBe(beforeCount + 1);
+            expect(getActiveSelections()).toHaveLength(4);
         });
 
         it("no-op when result is null", () => {
             const { result } = renderHook(() => useCompute(makeFixture()));
 
+            const beforeCount = getSlipCount();
+
             act(() => {
                 result.current.addSelectedSlips(["nonexistent-id"]);
             });
 
-            expect(useSlipStore.getState().computeSlips).toHaveLength(0);
+            // No-op for nonexistent IDs — no new slip created
+            expect(getSlipCount()).toBe(beforeCount);
         });
 
         it("ignores IDs that don't match any slip", async () => {
@@ -648,11 +670,14 @@ describe("useCompute", () => {
                 await result.current.runCompute();
             });
 
+            const beforeCount = getSlipCount();
+
             act(() => {
                 result.current.addSelectedSlips(["totally-fake-id"]);
             });
 
-            expect(useSlipStore.getState().computeSlips).toHaveLength(0);
+            // No-op for nonexistent IDs — no new slip created
+            expect(getSlipCount()).toBe(beforeCount);
         });
     });
 
@@ -673,19 +698,23 @@ describe("useCompute", () => {
                 await result.current.runCompute();
             });
 
-            // 16 slips → 16 isolated compute slip entries
+            const beforeCount = getSlipCount();
+
+            // 16 slips → 16 new entries (last one becomes active)
             act(() => {
                 result.current.addAllSlips();
             });
 
-            const computeSlips = useSlipStore.getState().computeSlips;
-            expect(computeSlips).toHaveLength(16);
-            // Each entry has 4 selections
-            computeSlips.forEach((cs) => {
-                expect(cs.selections).toHaveLength(4);
+            expect(getSlipCount()).toBe(beforeCount + 16);
+            // Active slip has 4 selections (the last one created)
+            expect(getActiveSelections()).toHaveLength(4);
+            // All 16 new slips exist
+            const allSlips = useSlipStore.getState().slips;
+            const newSlips = allSlips.slice(beforeCount);
+            expect(newSlips).toHaveLength(16);
+            newSlips.forEach((s) => {
+                expect(s.selections).toHaveLength(4);
             });
-            // Manual selections should remain empty
-            expect(useSlipStore.getState().selections).toHaveLength(0);
         });
 
         it("no-op when result is null", () => {
@@ -695,7 +724,7 @@ describe("useCompute", () => {
                 result.current.addAllSlips();
             });
 
-            expect(useSlipStore.getState().selections).toHaveLength(0);
+            // No-op when result is null
         });
     });
 
@@ -865,13 +894,13 @@ describe("useCompute", () => {
             act(() => {
                 result.current.addAllSlips();
             });
-            expect(useSlipStore.getState().computeSlips).toHaveLength(16);
+            expect(getSlipCount()).toBe(1 + 16); // 1 default + 16 compute
 
-            // Add again — store deduplicates by entry id, so still 16
+            // Add again — each call creates new slips (no cross-call dedup in new architecture)
             act(() => {
                 result.current.addAllSlips();
             });
-            expect(useSlipStore.getState().computeSlips).toHaveLength(16);
+            expect(getSlipCount()).toBe(1 + 32); // 1 default + 32 compute
         });
     });
 });

@@ -18,6 +18,8 @@ const mockAddToast = vi.fn();
 vi.mock("@/store/useSlipStore", () => ({
     useSlipStore: vi.fn((selector?: (s: any) => any) => {
         const state = {
+            slips: [],
+            activeSlipId: "",
             selections: [],
             addSelection: mockAddSelection,
             addMultipleSelections: vi.fn(),

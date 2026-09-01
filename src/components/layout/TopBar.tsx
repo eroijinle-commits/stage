@@ -17,7 +17,7 @@ const NAV = [
 
 export default function TopBar({ activePage, onNavigate }: TopBarProps) {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
-  const selectionCount = useSlipStore((s) => s.selections.length);
+  const selectionCount = useSlipStore((s) => s.slips.reduce((acc, slip) => acc + slip.selections.length, 0));
   const apiToken = useSettingsStore((s) => s.apiToken);
   const currency = useSettingsStore((s) => s.currency);
   const { balance, isLoading, error } = useBalance();

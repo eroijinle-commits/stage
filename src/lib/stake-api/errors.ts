@@ -42,6 +42,11 @@ export function classifyError(error: unknown): StakeApiErrorType {
         return "marketDeactivated";
     }
 
+    // Stake rejects parlays/multi-bets that combine outcomes from the same fixture
+    if (msg.includes("multiple markets from same event") || msg.includes("duplicatefixtures")) {
+        return "duplicateFixtures";
+    }
+
     return "unknown";
 }
 
@@ -57,6 +62,7 @@ export function getUserFriendlyMessage(errorType: StakeApiErrorType): string {
         marketDeactivated: "This market is no longer available.",
         rateLimited: "Too many requests. Please wait a moment and try again.",
         networkError: "Network error — check your connection and try again.",
+        duplicateFixtures: "Parlays cannot combine outcomes from the same match. Switch to Singles mode or remove selections from the same match.",
         unknown: "An unexpected error occurred. Please try again.",
     };
     return messages[errorType];

@@ -356,6 +356,11 @@ describe("Error classification", () => {
         expect(classifyError(new Error("price changed"))).toBe("oddsChanged");
     });
 
+    it("classifies duplicate fixture errors", () => {
+        expect(classifyError(new Error("Multi bet cannot contain multiple markets from same event"))).toBe("duplicateFixtures");
+        expect(classifyError(new Error("duplicateFixtures"))).toBe("duplicateFixtures");
+    });
+
     it("classifies market suspended errors", () => {
         expect(classifyError(new Error("market suspended"))).toBe("marketSuspended");
         expect(classifyError(new Error("temporarily unavailable"))).toBe("marketSuspended");

@@ -98,16 +98,18 @@ describe("Bet Placement Flow Integration", () => {
     describe("Parlay bet placement", () => {
         it("validates and places a parlay bet", async () => {
             const selections = createMockSelections(3);
-            selections.forEach((s) => {
+            selections.forEach((s, i) => {
                 s.odds = 1.5 + Math.random();
                 s.active = true;
+                // Parlays must combine selections from different fixtures
+                s.fixtureId = `f${i + 1}`;
             });
 
             // Validate
             const totalStake = calculateTotalStake(selections, "parlay", 1000);
             expect(totalStake).toBe(1000); // Single stake for parlay
 
-            const errors = validateSlip(selections, 50000, totalStake);
+            const errors = validateSlip(selections, 50000, totalStake, "parlay");
             expect(errors).toHaveLength(0);
 
             // Calculate potential return
@@ -160,7 +162,11 @@ describe("Bet Placement Flow Integration", () => {
 
         it("reports failure on parlay when API call fails", async () => {
             const selections = createMockSelections(2);
-            selections.forEach((s) => (s.odds = 2.0));
+            selections.forEach((s, i) => {
+                s.odds = 2.0;
+                // Parlays must combine selections from different fixtures
+                s.fixtureId = `f${i + 1}`;
+            });
 
             vi.mocked(placeBetMutation).mockRejectedValue(
                 new Error("Odds have changed"),

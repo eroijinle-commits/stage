@@ -3,7 +3,6 @@ import { Shield, ChevronRight, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui";
 import { getShieldFeeRate } from "@/lib/state/slipLogic";
 import type { SlipMode } from "@/lib/contracts/db.contract";
-import type { ComputeSlipEntry, SavedSlip } from "@/store/useSlipStore";
 
 interface ManualSummary {
     mode: SlipMode;

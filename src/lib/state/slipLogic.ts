@@ -87,6 +87,7 @@ export function validateSlip(
     selections: BetSelection[],
     balance: number | null,
     totalStake: number,
+    mode: SlipMode = "singles",
 ): string[] {
     const errors: string[] = [];
 
@@ -122,6 +123,17 @@ export function validateSlip(
         errors.push("Duplicate selections detected. Remove duplicates before placing bets.");
     }
 
+    // Parlays cannot combine outcomes from the same fixture
+    if (mode === "parlay") {
+        const fixtureIds = selections.map((s) => s.fixtureId);
+        const uniqueFixtures = new Set(fixtureIds);
+        if (uniqueFixtures.size !== fixtureIds.length) {
+            errors.push(
+                "Parlays cannot combine selections from the same match. Switch to Singles mode or remove duplicate matches.",
+            );
+        }
+    }
+
     // Check for odds changes (odds <= 0 is invalid)
     const badOdds = selections.filter((s) => s.odds <= 0);
     if (badOdds.length > 0) {
@@ -140,6 +152,7 @@ export function canPlaceBet(
     selections: BetSelection[],
     balance: number | null,
     totalStake: number,
+    mode: SlipMode = "singles",
 ): boolean {
-    return validateSlip(selections, balance, totalStake).length === 0;
+    return validateSlip(selections, balance, totalStake, mode).length === 0;
 }

@@ -48,7 +48,7 @@ export async function executeBetPlacement(
             ? stakePerLeg
             : selections.reduce((acc, s) => acc + stakePerLeg, 0);
 
-    const errors = validateSlip(selections, balance, totalStake);
+    const errors = validateSlip(selections, balance, totalStake, mode);
     if (errors.length > 0) {
         return selections.map((s) => ({
             selectionId: s.id,

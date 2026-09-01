@@ -1,14 +1,13 @@
 import { useUIStore } from "@/store/useUIStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useBetSlip } from "@/hooks/useBetSlip";
-import { useSlipStore } from "@/store/useSlipStore";
+import { useSlipStore, type SlipData } from "@/store/useSlipStore";
 import { cn } from "@/lib/utils/cn";
 import { getShieldFeeRate, calculatePotentialReturn, calculateTotalStake } from "@/lib/state/slipLogic";
 import { X, Trash2, Share2, Save, FolderOpen, ChevronDown, ChevronUp, Copy, Check, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui";
 import SlipItem from "@/components/slip/SlipItem";
-import { useState, useCallback } from "react";
-import type { ComputeSlipEntry } from "@/store/useSlipStore";
+import { useState, useCallback, useMemo } from "react";
 import type { SlipMode } from "@/lib/contracts/db.contract";
 
 // ─── Compute Slip Card ──────────────────────────────────────────────────────
@@ -19,13 +18,23 @@ function ComputeSlipCard({
   onRemove,
   onPlaceBets,
 }: {
-  slip: ComputeSlipEntry;
+  slip: SlipData;
   currency: string;
   onRemove: () => void;
   onPlaceBets: (id: string) => void;
 }) {
-  const updateComputeSlip = useSlipStore((s) => s.updateComputeSlip);
   const [expanded, setExpanded] = useState(true);
+
+  // Compute slips built from a single fixture cannot be parlayed because
+  // Stake rejects multi-bets that combine outcomes from the same event.
+  const sameFixtureSelectionCount = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of slip.selections) {
+      counts.set(s.fixtureId, (counts.get(s.fixtureId) ?? 0) + 1);
+    }
+    return Math.max(...counts.values(), 0);
+  }, [slip.selections]);
+  const canParlay = sameFixtureSelectionCount <= 1;
 
   const totalOdds = slip.selections.reduce((acc, s) => acc * s.odds, 1);
   const potentialReturn = calculatePotentialReturn(
@@ -63,32 +72,49 @@ function ComputeSlipCard({
         <>
           {/* Mode toggle */}
           <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border">
-            {(["singles", "parlay"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => {
-                  updateComputeSlip(slip.id, {
-                    mode: m,
-                    stakeShieldEnabled: m !== "parlay" ? false : slip.stakeShieldEnabled,
-                  });
-                }}
-                className={cn(
-                  "flex-1 py-0.5 text-[10px] font-mono rounded transition-colors capitalize",
-                  slip.mode === m
-                    ? "bg-primary/10 text-primary border border-primary/30"
-                    : "text-muted-foreground hover:bg-muted border border-transparent",
-                )}
-              >
-                {m}
-              </button>
-            ))}
+            {(["singles", "parlay"] as const).map((m) => {
+              const disabled = m === "parlay" && !canParlay;
+              return (
+                <button
+                  key={m}
+                  disabled={disabled}
+                  onClick={() => {
+                    if (disabled) return;
+                    useSlipStore.setState((st) => ({
+                      slips: st.slips.map((s) =>
+                        s.id === slip.id
+                          ? { ...s, mode: m, stakeShieldEnabled: m !== "parlay" ? false : s.stakeShieldEnabled }
+                          : s,
+                      ),
+                    }));
+                  }}
+                  title={disabled ? "Parlays cannot combine selections from the same match" : undefined}
+                  className={cn(
+                    "flex-1 py-0.5 text-[10px] font-mono rounded transition-colors capitalize",
+                    slip.mode === m
+                      ? "bg-primary/10 text-primary border border-primary/30"
+                      : disabled
+                        ? "text-muted-foreground/40 border border-transparent cursor-not-allowed"
+                        : "text-muted-foreground hover:bg-muted border border-transparent",
+                  )}
+                >
+                  {m}
+                </button>
+              );
+            })}
           </div>
 
           {/* Stake Shield for parlay with 3+ legs */}
           {slip.mode === "parlay" && slip.selections.length >= 3 && (
             <div className="px-3 py-1.5 border-b border-border">
               <button
-                onClick={() => updateComputeSlip(slip.id, { stakeShieldEnabled: !slip.stakeShieldEnabled })}
+                onClick={() =>
+                  useSlipStore.setState((st) => ({
+                    slips: st.slips.map((s) =>
+                      s.id === slip.id ? { ...s, stakeShieldEnabled: !s.stakeShieldEnabled } : s,
+                    ),
+                  }))
+                }
                 className={cn(
                   "w-full flex items-center justify-between py-1 px-2 rounded text-[10px] font-mono transition-colors",
                   slip.stakeShieldEnabled
@@ -121,7 +147,7 @@ function ComputeSlipCard({
                 <SlipItem
                   key={s.id}
                   selection={s}
-                  onRemove={() => {}}
+                  onRemove={() => { }}
                   mode={slip.mode}
                   result={result}
                 />
@@ -146,7 +172,14 @@ function ComputeSlipCard({
               <input
                 type="number"
                 value={slip.stakePerLeg}
-                onChange={(e) => updateComputeSlip(slip.id, { stakePerLeg: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value) || 0;
+                  useSlipStore.setState((st) => ({
+                    slips: st.slips.map((s) =>
+                      s.id === slip.id ? { ...s, stakePerLeg: val } : s,
+                    ),
+                  }));
+                }}
                 className="w-full bg-secondary border border-border rounded px-2 py-1 text-[10px] font-mono text-right focus:outline-none focus:border-ring"
               />
             )}
@@ -178,10 +211,13 @@ function ComputeSlipCard({
                 {slip.isPlacing ? "Placing..." : "Place Bet"}
               </Button>
             ) : (
-              <div className="text-[10px] font-mono text-bet-won text-center py-1">
-                {slip.placeResults.filter((r) => r.success).length > 0
+              <div className={cn(
+                "text-[10px] font-mono text-center py-1",
+                slip.placeResults.some((r) => r.success) ? "text-bet-won" : "text-bet-lost",
+              )}>
+                {slip.placeResults.some((r) => r.success)
                   ? `Placed · ${slip.placeResults.filter((r) => r.success).length} bet(s) successful`
-                  : "Bet placement completed"}
+                  : "Bet placement failed"}
               </div>
             )}
           </div>
@@ -213,18 +249,18 @@ export default function BetSlipDrawer() {
     removeSelection,
     clearSelections,
     placeBets,
-    // Compute slip isolation
-    computeSlips,
-    removeComputeSlip,
-    clearComputeSlips,
+    // Multi-slip
+    allSlips,
+    deleteSlip,
+    clearSlip,
     placeBetsForGroup,
   } = useBetSlip();
 
   const shareSlip = useSlipStore((s) => s.shareSlip);
   const saveSlip = useSlipStore((s) => s.saveSlip);
-  const loadSlip = useSlipStore((s) => s.loadSlip);
-  const deleteSlip = useSlipStore((s) => s.deleteSlip);
   const savedSlips = useSlipStore((s) => s.savedSlips);
+  const loadSlip = useSlipStore((s) => s.loadSlip);
+  const deleteSavedSlip = useSlipStore((s) => s.deleteSavedSlip);
 
   const [stakes, setStakes] = useState<Record<string, number>>({});
   const [showSaveInput, setShowSaveInput] = useState(false);
@@ -248,7 +284,7 @@ export default function BetSlipDrawer() {
 
   const placed = placeResults.length > 0;
 
-  const totalCount = selections.length + computeSlips.reduce((acc, cs) => acc + cs.selections.length, 0);
+  const totalCount = allSlips.reduce((acc, s) => acc + s.selections.length, 0);
 
   const handleShare = useCallback(() => {
     const data = shareSlip();
@@ -272,7 +308,7 @@ export default function BetSlipDrawer() {
     setShowSaveInput(false);
   }, [saveName, saveSlip]);
 
-  const hasContent = selections.length > 0 || computeSlips.length > 0;
+  const hasContent = selections.length > 0 || allSlips.some((s) => s.selections.length > 0 && s.id !== allSlips[0]?.id);
 
   return (
     <>
@@ -316,7 +352,13 @@ export default function BetSlipDrawer() {
             )}
             {hasContent && (
               <button
-                onClick={() => { clearSelections(); clearComputeSlips(); }}
+                onClick={() => {
+                  clearSelections();
+                  // Clear all non-empty slips
+                  allSlips.forEach((s) => {
+                    if (s.selections.length > 0) clearSlip(s.id);
+                  });
+                }}
                 className="text-muted-foreground hover:text-bet-lost transition-colors p-1"
               >
                 <Trash2 size={13} />
@@ -372,7 +414,7 @@ export default function BetSlipDrawer() {
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => { loadSlip(slip.id); setShowSavedSlips(false); }} className="text-primary hover:text-primary/80 transition-colors px-1">Load</button>
-                      <button onClick={() => deleteSlip(slip.id)} className="text-bet-lost/60 hover:text-bet-lost transition-colors px-1">Del</button>
+                      <button onClick={() => deleteSavedSlip(slip.id)} className="text-bet-lost/60 hover:text-bet-lost transition-colors px-1">Del</button>
                     </div>
                   </div>
                 ))}
@@ -527,15 +569,19 @@ export default function BetSlipDrawer() {
             )}
 
             {/* ── Compute Slips Section ───────────────────────────────── */}
-            {computeSlips.length > 0 && (
+            {allSlips.filter((s) => s.selections.length > 0 && s.id !== allSlips[0]?.id).length > 0 && (
               <div className="space-y-2">
                 {selections.length > 0 && (
                   <div className="flex items-center justify-between px-1 pt-2 border-t border-border">
                     <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
-                      Compute Slips ({computeSlips.length})
+                      Compute Slips ({allSlips.filter((s) => s.selections.length > 0 && s.id !== allSlips[0]?.id).length})
                     </span>
                     <button
-                      onClick={clearComputeSlips}
+                      onClick={() => {
+                        allSlips.forEach((s) => {
+                          if (s.selections.length > 0 && s.id !== allSlips[0]?.id) clearSlip(s.id);
+                        });
+                      }}
                       className="text-[10px] font-mono text-muted-foreground hover:text-bet-lost transition-colors"
                     >
                       Clear All
@@ -543,15 +589,17 @@ export default function BetSlipDrawer() {
                   </div>
                 )}
 
-                {computeSlips.map((slip) => (
-                  <ComputeSlipCard
-                    key={slip.id}
-                    slip={slip}
-                    currency={currency}
-                    onRemove={() => removeComputeSlip(slip.id)}
-                    onPlaceBets={placeBetsForGroup}
-                  />
-                ))}
+                {allSlips
+                  .filter((s) => s.selections.length > 0 && s.id !== allSlips[0]?.id)
+                  .map((slip) => (
+                    <ComputeSlipCard
+                      key={slip.id}
+                      slip={slip}
+                      currency={currency}
+                      onRemove={() => deleteSlip(slip.id)}
+                      onPlaceBets={placeBetsForGroup}
+                    />
+                  ))}
               </div>
             )}
           </div>

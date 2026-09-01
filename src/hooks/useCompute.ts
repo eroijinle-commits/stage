@@ -16,13 +16,14 @@ import type {
 import { SLIP_OPTIONS, marketsNeeded } from "@/lib/compute/types";
 import {
     flattenAllMarkets,
+    mergeMarketsByName,
     filterByOutcomeCount,
     selectTopMarkets,
 } from "@/lib/compute/marketFilter";
 import { generateAllPermutations } from "@/lib/compute/cartesian";
 import { getFixtureDetailsQuery } from "@/lib/stake-api/queries";
 import { useSlipStore } from "@/store/useSlipStore";
-import type { ComputeSlipEntry } from "@/store/useSlipStore";
+import type { SlipData } from "@/store/useSlipStore";
 import type { StakeGroupWithMarkets } from "@/lib/contracts/api.contract";
 
 // ─── Default config ──────────────────────────────────────────────────────────
@@ -109,8 +110,7 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
     // Raw market groups from the last successful API fetch.
     const [marketGroups, setMarketGroups] = useState<StakeGroupWithMarkets[]>([]);
 
-    const addComputeSlip = useSlipStore((s) => s.addComputeSlip);
-    const addComputeSlips = useSlipStore((s) => s.addComputeSlips);
+    const createSlip = useSlipStore((s) => s.createSlip);
 
     // ─── Available slip count options ──────────────────────────────────────
 
@@ -169,7 +169,8 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
         if (marketGroups.length === 0) return 0;
         const needed = marketsNeeded(config.slipCount, config.maxOutcomes);
         const allMarkets = flattenAllMarkets(marketGroups);
-        const qualifying = filterByOutcomeCount(allMarkets, config.maxOutcomes);
+        const merged = mergeMarketsByName(allMarkets);
+        const qualifying = filterByOutcomeCount(merged, config.maxOutcomes);
         if (qualifying.length < needed) return 0;
         const topN = qualifying.slice(0, needed);
         return topN.reduce((acc, m) => acc * m.outcomeCount, 1);
@@ -229,67 +230,71 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
     /** Clear error state. */
     const clearError = useCallback(() => setError(null), []);
 
-    /** Add a single ComputeSlip as an isolated entry in the bet slip store. */
+    /** Add a single ComputeSlip as a new slip in the store. */
     const addSlipToBetSlip = useCallback(
         (slip: ComputeSlip) => {
             if (!fixture) return;
             const selections = computeSlipToBetSelections(slip, fixture);
-            const entry: ComputeSlipEntry = {
-                id: slip.id,
-                name: `Slip`,
-                selections,
-                mode: "singles",
-                stakePerLeg: 1000,
-                stakeShieldEnabled: false,
-                isPlacing: false,
-                placeResults: [],
-                lastError: null,
-                createdAt: Date.now(),
-            };
-            addComputeSlip(entry);
+            const newId = createSlip(`Slip`);
+            // Populate the newly created slip's selections and switch to it.
+            useSlipStore.setState((st) => ({
+                slips: st.slips.map((s) =>
+                    s.id === newId
+                        ? { ...s, selections, name: "Slip" }
+                        : s,
+                ),
+                activeSlipId: newId,
+            }));
         },
-        [fixture, addComputeSlip],
+        [fixture, createSlip],
     );
 
-    /** Add multiple slips by their IDs as isolated entries. */
+    /** Add multiple slips by their IDs. */
     const addSelectedSlips = useCallback(
         (ids: string[]) => {
             if (!fixture || !result) return;
             const selectedSlips = result.slips.filter((s) => ids.includes(s.id));
-            const entries: ComputeSlipEntry[] = selectedSlips.map((slip) => ({
-                id: slip.id,
-                name: `Slip`,
-                selections: computeSlipToBetSelections(slip, fixture),
-                mode: "singles" as const,
-                stakePerLeg: 1000,
-                stakeShieldEnabled: false,
-                isPlacing: false,
-                placeResults: [],
-                lastError: null,
-                createdAt: Date.now(),
-            }));
-            addComputeSlips(entries);
+            let lastId = "";
+            for (const slip of selectedSlips) {
+                const selections = computeSlipToBetSelections(slip, fixture);
+                const newId = createSlip(`Slip`);
+                useSlipStore.setState((st) => ({
+                    slips: st.slips.map((s) =>
+                        s.id === newId
+                            ? { ...s, selections, name: "Slip" }
+                            : s,
+                    ),
+                }));
+                lastId = newId;
+            }
+            if (lastId) {
+                useSlipStore.setState({ activeSlipId: lastId });
+            }
         },
-        [fixture, result, addComputeSlips],
+        [fixture, result, createSlip],
     );
 
-    /** Add all generated slips as isolated entries. */
+    /** Add all generated slips. */
     const addAllSlips = useCallback(() => {
         if (!fixture || !result) return;
-        const entries: ComputeSlipEntry[] = result.slips.map((slip, i) => ({
-            id: slip.id,
-            name: `Slip ${i + 1}`,
-            selections: computeSlipToBetSelections(slip, fixture),
-            mode: "singles" as const,
-            stakePerLeg: 1000,
-            stakeShieldEnabled: false,
-            isPlacing: false,
-            placeResults: [],
-            lastError: null,
-            createdAt: Date.now(),
-        }));
-        addComputeSlips(entries);
-    }, [fixture, result, addComputeSlips]);
+        let lastId = "";
+        for (let i = 0; i < result.slips.length; i++) {
+            const slip = result.slips[i];
+            const selections = computeSlipToBetSelections(slip, fixture);
+            const newId = createSlip(`Slip ${i + 1}`);
+            useSlipStore.setState((st) => ({
+                slips: st.slips.map((s) =>
+                    s.id === newId
+                        ? { ...s, selections, name: `Slip ${i + 1}` }
+                        : s,
+                ),
+            }));
+            lastId = newId;
+        }
+        if (lastId) {
+            useSlipStore.setState({ activeSlipId: lastId });
+        }
+    }, [fixture, result, createSlip]);
 
     return {
         config,

@@ -50,6 +50,7 @@ export type StakeApiErrorType =
     | "marketDeactivated"
     | "rateLimited"
     | "networkError"
+    | "duplicateFixtures"
     | "unknown";
 
 export class StakeApiError extends Error {

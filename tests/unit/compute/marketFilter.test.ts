@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
     flattenAllMarkets,
+    mergeMarketsByName,
     filterByOutcomeCount,
     selectTopMarkets,
 } from "@/lib/compute/marketFilter";
@@ -89,6 +90,94 @@ describe("flattenAllMarkets", () => {
         const result = flattenAllMarkets([g1, g2]);
         expect(result).toHaveLength(3);
         expect(result.map((m) => m.id)).toEqual(["m1", "m2", "m3"]);
+    });
+});
+
+// ─── mergeMarketsByName ────────────────────────────────────────────────────
+describe("mergeMarketsByName", () => {
+    it("returns empty array for empty input", () => {
+        expect(mergeMarketsByName([])).toEqual([]);
+    });
+
+    it("passes through markets with unique names", () => {
+        const m1 = makeMarket("m1", "Match Winner", [makeOutcome("o1", 2.0)]);
+        const m2 = makeMarket("m2", "Total Goals", [makeOutcome("o2", 3.0)]);
+        const result = mergeMarketsByName([m1, m2]);
+        expect(result).toHaveLength(2);
+        expect(result[0].id).toBe("m1");
+        expect(result[1].id).toBe("m2");
+    });
+
+    it("merges two markets with the same name into one with combined outcomes", () => {
+        const m1 = makeMarket("m1", "2nd Half Total", [
+            makeOutcome("o1", 1.8),
+            makeOutcome("o2", 2.0),
+        ]);
+        const m2 = makeMarket("m2", "2nd Half Total", [
+            makeOutcome("o3", 1.5),
+            makeOutcome("o4", 2.5),
+        ]);
+        const result = mergeMarketsByName([m1, m2]);
+        expect(result).toHaveLength(1);
+        expect(result[0].name).toBe("2nd Half Total");
+        expect(result[0].outcomes).toHaveLength(4);
+        expect(result[0].id).toBe("m1"); // first market's id
+    });
+
+    it("merges three markets with the same name", () => {
+        const m1 = makeMarket("m1", "Total", [makeOutcome("o1", 1.8), makeOutcome("o2", 2.0)]);
+        const m2 = makeMarket("m2", "Total", [makeOutcome("o3", 1.5), makeOutcome("o4", 2.5)]);
+        const m3 = makeMarket("m3", "Total", [makeOutcome("o5", 1.3), makeOutcome("o6", 3.0)]);
+        const result = mergeMarketsByName([m1, m2, m3]);
+        expect(result).toHaveLength(1);
+        expect(result[0].outcomes).toHaveLength(6);
+    });
+
+    it("keeps different-named markets separate while merging same-named ones", () => {
+        const m1 = makeMarket("m1", "Match Winner", [makeOutcome("o1", 2.0)]);
+        const m2 = makeMarket("m2", "Total", [makeOutcome("o2", 1.8), makeOutcome("o3", 2.0)]);
+        const m3 = makeMarket("m3", "Total", [makeOutcome("o4", 1.5), makeOutcome("o5", 2.5)]);
+        const result = mergeMarketsByName([m1, m2, m3]);
+        expect(result).toHaveLength(2);
+        const winner = result.find((m) => m.name === "Match Winner");
+        const total = result.find((m) => m.name === "Total");
+        expect(winner).toBeDefined();
+        expect(winner!.outcomes).toHaveLength(1);
+        expect(total).toBeDefined();
+        expect(total!.outcomes).toHaveLength(4);
+    });
+
+    it("preserves first market's id, extId, provider on merged result", () => {
+        const m1 = makeMarket("m1", "Total", [makeOutcome("o1", 1.8)]);
+        m1.extId = "ext-first";
+        m1.provider = "provider-a";
+        const m2 = makeMarket("m2", "Total", [makeOutcome("o2", 2.0)]);
+        m2.extId = "ext-second";
+        m2.provider = "provider-b";
+        const result = mergeMarketsByName([m1, m2]);
+        expect(result[0].id).toBe("m1");
+        expect(result[0].extId).toBe("ext-first");
+        expect(result[0].provider).toBe("provider-a");
+    });
+
+    it("trims whitespace when grouping names", () => {
+        const m1 = makeMarket("m1", "  Total  ", [makeOutcome("o1", 1.8)]);
+        const m2 = makeMarket("m2", "Total", [makeOutcome("o2", 2.0)]);
+        const result = mergeMarketsByName([m1, m2]);
+        expect(result).toHaveLength(1);
+        expect(result[0].outcomes).toHaveLength(2);
+    });
+
+    it("merges same-named markets across different groups", () => {
+        const m1 = makeMarket("m1", "Match Winner", [makeOutcome("o1", 2.0), makeOutcome("o2", 3.0)]);
+        const m2 = makeMarket("m2", "Match Winner", [makeOutcome("o3", 1.8), makeOutcome("o4", 4.0)]);
+        const g1 = makeGroup("Group A", "Group A", [m1]);
+        const g2 = makeGroup("Group B", "Group B", [m2]);
+        const allMarkets = flattenAllMarkets([g1, g2]);
+        const result = mergeMarketsByName(allMarkets);
+        expect(result).toHaveLength(1);
+        expect(result[0].name).toBe("Match Winner");
+        expect(result[0].outcomes).toHaveLength(4);
     });
 });
 
@@ -262,5 +351,59 @@ describe("selectTopMarkets", () => {
         // slipCount=16, maxOutcomes=2 → needed = 4, but only 2 markets
         const config: ComputeConfig = { maxOutcomes: 2, slipCount: 16 };
         expect(() => selectTopMarkets([g1, g2], config)).toThrow("Not enough qualifying markets");
+    });
+
+    it("excludes merged markets that exceed maxOutcomes", () => {
+        // 3 markets with same name, each with 2 outcomes → merged = 6 outcomes → excluded
+        const m1 = makeMarket("m1", "2nd Half Total", [makeOutcome("o1", 1.8), makeOutcome("o2", 2.0)]);
+        const m2 = makeMarket("m2", "2nd Half Total", [makeOutcome("o3", 1.5), makeOutcome("o4", 2.5)]);
+        const m3 = makeMarket("m3", "2nd Half Total", [makeOutcome("o5", 1.3), makeOutcome("o6", 3.0)]);
+        const g = makeGroup("G", "G", [m1, m2, m3]);
+
+        const config: ComputeConfig = { maxOutcomes: 2, slipCount: 16 };
+        expect(() => selectTopMarkets([g], config)).toThrow("Not enough qualifying markets");
+    });
+
+    it("still qualifies unique-named markets when same-named ones are merged out", () => {
+        // 2 markets same name (merged → 4 outcomes, excluded) + 4 unique markets (qualify)
+        const dup1 = makeMarket("d1", "Total", [makeOutcome("o1", 1.8), makeOutcome("o2", 2.0)]);
+        const dup2 = makeMarket("d2", "Total", [makeOutcome("o3", 1.5), makeOutcome("o4", 2.5)]);
+        const u1 = makeMarket("u1", "Winner A", [makeOutcome("o5", 2.0), makeOutcome("o6", 3.0)]);
+        const u2 = makeMarket("u2", "Winner B", [makeOutcome("o7", 2.5), makeOutcome("o8", 3.5)]);
+        const u3 = makeMarket("u3", "Winner C", [makeOutcome("o9", 1.8), makeOutcome("o10", 2.8)]);
+        const u4 = makeMarket("u4", "Winner D", [makeOutcome("o11", 4.0), makeOutcome("o12", 5.0)]);
+        const g = makeGroup("G", "G", [dup1, dup2, u1, u2, u3, u4]);
+
+        const config: ComputeConfig = { maxOutcomes: 2, slipCount: 16 };
+        const result = selectTopMarkets([g], config);
+        expect(result).toHaveLength(4);
+        // None of the selected markets should be "Total"
+        expect(result.every((r) => r.market.name !== "Total")).toBe(true);
+    });
+
+    it("merges same-named markets across different groups and excludes when exceeding maxOutcomes", () => {
+        // "Total" appears in Group A and Group B, each with 2 outcomes
+        const m1 = makeMarket("m1", "Total", [makeOutcome("o1", 1.8), makeOutcome("o2", 2.0)]);
+        const m2 = makeMarket("m2", "Total", [makeOutcome("o3", 1.5), makeOutcome("o4", 2.5)]);
+        const g1 = makeGroup("Group A", "Group A", [m1]);
+        const g2 = makeGroup("Group B", "Group B", [m2]);
+
+        const config: ComputeConfig = { maxOutcomes: 2, slipCount: 16 };
+        expect(() => selectTopMarkets([g1, g2], config)).toThrow("Not enough qualifying markets");
+    });
+
+    it("selects only one when same-named market across groups has <= maxOutcomes total", () => {
+        // "Total" in Group A (2 outcomes) + "Total" in Group B (1 outcome) = 3 outcomes
+        // With maxOutcomes=3, slipCount=3 → needed=1 market → merged market qualifies
+        const m1 = makeMarket("m1", "Total", [makeOutcome("o1", 1.8), makeOutcome("o2", 2.0)]);
+        const m2 = makeMarket("m2", "Total", [makeOutcome("o3", 3.0)]);
+        const g1 = makeGroup("Group A", "Group A", [m1]);
+        const g2 = makeGroup("Group B", "Group B", [m2]);
+
+        const config: ComputeConfig = { maxOutcomes: 3, slipCount: 3 };
+        const result = selectTopMarkets([g1, g2], config);
+        expect(result).toHaveLength(1);
+        expect(result[0].market.name).toBe("Total");
+        expect(result[0].outcomeCount).toBe(3);
     });
 });

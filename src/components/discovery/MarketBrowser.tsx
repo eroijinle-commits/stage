@@ -27,7 +27,9 @@ export default function MarketBrowser({ open, onClose, fixture }: MarketBrowserP
     const [error, setError] = useState<string | null>(null);
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
     const addSelection = useSlipStore((s) => s.addSelection);
-    const selectionIds = useSlipStore((s) => s.selections.map((x) => x.id).join(","));
+    const selectionIds = useSlipStore((s) =>
+        s.slips.flatMap((slip) => slip.selections.map((x) => x.id)).join(","),
+    );
     const slipIds = useMemo(() => new Set(selectionIds ? selectionIds.split(",") : []), [selectionIds]);
     const addToast = useUIStore((s) => s.addToast);
 

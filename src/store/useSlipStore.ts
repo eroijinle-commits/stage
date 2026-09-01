@@ -4,6 +4,21 @@ import { BetSelection } from "@/lib/contracts/ui.contract";
 import { SlipMode } from "@/lib/contracts/db.contract";
 import { BetPlacementResult } from "@/lib/state/betPlacement";
 
+/** A single betting slip. Every slip — manual, compute, saved — is first-class. */
+export interface SlipData {
+  id: string;
+  name: string;
+  selections: BetSelection[];
+  mode: SlipMode;
+  stakePerLeg: number;
+  stakeShieldEnabled: boolean;
+  isPlacing: boolean;
+  placeResults: BetPlacementResult[];
+  lastError: string | null;
+  createdAt: number;
+}
+
+/** Legacy saved-slip snapshot. Only kept for localStorage migration. */
 export interface SavedSlip {
   id: string;
   name: string;
@@ -19,7 +34,7 @@ export interface SlipShareData {
   stageLink: string;
 }
 
-/** An isolated compute slip with its own mode, stake, and placement state. */
+/** Legacy compute-slip entry. Only kept for localStorage migration. */
 export interface ComputeSlipEntry {
   id: string;
   name: string;
@@ -34,31 +49,18 @@ export interface ComputeSlipEntry {
 }
 
 interface SlipStore {
-  selections: BetSelection[];
-  mode: SlipMode;
-  stakePerLeg: number;
-  stakeShieldEnabled: boolean;
-  isPlacing: boolean;
-  placeResults: Array<{
-    selectionId: string;
-    success: boolean;
-    betId?: string;
-    error?: string;
-    placedAt: number;
-  }>;
-  lastError: string | null;
+  slips: SlipData[];
+  activeSlipId: string;
 
-  // ── Compute slip isolation ────────────────────────────────────────────
-  computeSlips: ComputeSlipEntry[];
-  addComputeSlip: (entry: ComputeSlipEntry) => void;
-  addComputeSlips: (entries: ComputeSlipEntry[]) => void;
-  removeComputeSlip: (id: string) => void;
-  clearComputeSlips: () => void;
-  updateComputeSlip: (id: string, patch: Partial<Pick<ComputeSlipEntry, "mode" | "stakePerLeg" | "stakeShieldEnabled">>) => void;
-  setComputeSlipPlacing: (id: string, v: boolean) => void;
-  setComputeSlipResults: (id: string, results: BetPlacementResult[]) => void;
-  setComputeSlipError: (id: string, error: string | null) => void;
+  // ── Slip lifecycle ──────────────────────────────────────────────────────
+  createSlip: (name?: string) => string;
+  switchSlip: (id: string) => void;
+  deleteSlip: (id: string) => void;
+  renameSlip: (id: string, name: string) => void;
+  duplicateSlip: (id: string) => void;
+  clearSlip: (id: string) => void;
 
+  // ── Per-slip mutations (applied to active slip) ───────────────────────
   addSelection: (s: BetSelection) => void;
   addMultipleSelections: (selections: BetSelection[]) => void;
   removeSelection: (id: string) => void;
@@ -67,126 +69,252 @@ interface SlipStore {
   setStakePerLeg: (stake: number) => void;
   setStakeShieldEnabled: (v: boolean) => void;
   setPlacing: (v: boolean) => void;
-  setPlaceResults: (r: SlipStore["placeResults"]) => void;
+  setPlaceResults: (r: BetPlacementResult[]) => void;
   setLastError: (e: string | null) => void;
   updateOdds: (id: string, odds: number) => void;
-  // Share: returns Stake code + link + Stage restore link
+
+  // ── Share / Restore ─────────────────────────────────────────────────────
   shareSlip: () => SlipShareData | null;
-  // Restore a slip from a base64-encoded code
-  restoreSlip: (payload: string) => void;
-  // Save/load named snapshots
+  restoreSlip: (encoded: string) => void;
+
+  // ── Legacy compat (saved slips are now slips) ─────────────────────────
   savedSlips: SavedSlip[];
   saveSlip: (name: string) => void;
   loadSlip: (id: string) => void;
-  deleteSlip: (id: string) => void;
+  deleteSavedSlip: (id: string) => void;
 }
 
 // Tracks whether the store has been rehydrated from localStorage.
-// Components should check this before assuming state is empty.
 let _slipRehydrated = false;
 let _slipResolve: (() => void) | null = null;
 export const slipHydrated = new Promise<void>((resolve) => {
   _slipResolve = resolve;
 });
 
+let _slipIdCounter = 0;
+
+function createDefaultSlip(): SlipData {
+  _slipIdCounter += 1;
+  return {
+    id: `slip-${Date.now()}-${_slipIdCounter}`,
+    name: "Slip 1",
+    selections: [],
+    mode: "singles",
+    stakePerLeg: 1000,
+    stakeShieldEnabled: false,
+    isPlacing: false,
+    placeResults: [],
+    lastError: null,
+    createdAt: Date.now(),
+  };
+}
+
+function createEmptySlip(name?: string, index = 1): SlipData {
+  _slipIdCounter += 1;
+  return {
+    id: `slip-${Date.now()}-${_slipIdCounter}`,
+    name: name?.trim() || `Slip ${index}`,
+    selections: [],
+    mode: "singles",
+    stakePerLeg: 1000,
+    stakeShieldEnabled: false,
+    isPlacing: false,
+    placeResults: [],
+    lastError: null,
+    createdAt: Date.now(),
+  };
+}
+
+function cloneSlip(slip: SlipData, index: number): SlipData {
+  _slipIdCounter += 1;
+  return {
+    ...slip,
+    id: `slip-${Date.now()}-${_slipIdCounter}`,
+    name: `${slip.name} (copy)`,
+    selections: slip.selections.map((s) => ({ ...s })),
+    isPlacing: false,
+    placeResults: [],
+    lastError: null,
+    createdAt: Date.now(),
+  };
+}
+
 export const useSlipStore = create<SlipStore>()(
   persist(
     (set, get) => ({
-      selections: [],
-      mode: "singles",
-      stakePerLeg: 1000,
-      stakeShieldEnabled: false,
-      isPlacing: false,
-      placeResults: [],
-      lastError: null,
+      slips: [createDefaultSlip()],
+      activeSlipId: "",
+      createSlip: (name) => {
+        const nextIndex = get().slips.length + 1;
+        const slip = createEmptySlip(name, nextIndex);
+        set((st) => ({ slips: [...st.slips, slip], activeSlipId: slip.id }));
+        return slip.id;
+      },
 
-      // ── Compute slip isolation ──────────────────────────────────────
-      computeSlips: [],
-      addComputeSlip: (entry) =>
+      switchSlip: (id) => {
+        const exists = get().slips.some((s) => s.id === id);
+        if (exists) set({ activeSlipId: id });
+      },
+
+      deleteSlip: (id) => {
         set((st) => {
-          const exists = st.computeSlips.some((g) => g.id === entry.id);
-          if (exists) return {};
-          return { computeSlips: [...st.computeSlips, entry] };
-        }),
-      addComputeSlips: (entries) =>
-        set((st) => {
-          if (!entries || entries.length === 0) return {};
-          const existingIds = new Set(st.computeSlips.map((g) => g.id));
-          const toAdd = entries.filter((e) => e && e.id && !existingIds.has(e.id));
-          if (toAdd.length === 0) return {};
-          return { computeSlips: [...st.computeSlips, ...toAdd] };
-        }),
-      removeComputeSlip: (id) =>
-        set((st) => ({ computeSlips: st.computeSlips.filter((g) => g.id !== id) })),
-      clearComputeSlips: () => set({ computeSlips: [] }),
-      updateComputeSlip: (id, patch) =>
+          if (st.slips.length <= 1) return {}; // keep at least one slip
+          const nextSlips = st.slips.filter((s) => s.id !== id);
+          const nextActive = st.activeSlipId === id
+            ? nextSlips[0]?.id ?? ""
+            : st.activeSlipId;
+          return { slips: nextSlips, activeSlipId: nextActive };
+        });
+      },
+
+      renameSlip: (id, name) => {
+        const trimmed = name.trim();
         set((st) => ({
-          computeSlips: st.computeSlips.map((g) =>
-            g.id === id ? { ...g, ...patch } : g,
-          ),
-        })),
-      setComputeSlipPlacing: (id, v) =>
+          slips: st.slips.map((s) => (s.id === id ? { ...s, name: trimmed || s.name } : s)),
+        }));
+      },
+
+      duplicateSlip: (id) => {
+        const original = get().slips.find((s) => s.id === id);
+        if (!original) return;
+        const copy = cloneSlip(original, get().slips.length + 1);
+        set((st) => ({ slips: [...st.slips, copy], activeSlipId: copy.id }));
+      },
+
+      clearSlip: (id) => {
         set((st) => ({
-          computeSlips: st.computeSlips.map((g) =>
-            g.id === id ? { ...g, isPlacing: v } : g,
+          slips: st.slips.map((s) =>
+            s.id === id
+              ? { ...s, selections: [], placeResults: [], lastError: null, isPlacing: false }
+              : s,
           ),
-        })),
-      setComputeSlipResults: (id, results) =>
+        }));
+      },
+
+      addSelection: (s) => {
         set((st) => ({
-          computeSlips: st.computeSlips.map((g) =>
-            g.id === id ? { ...g, placeResults: results } : g,
-          ),
-        })),
-      setComputeSlipError: (id, error) =>
+          slips: st.slips.map((slip) => {
+            if (slip.id !== st.activeSlipId) return slip;
+            const exists = slip.selections.find((x) => x.id === s.id);
+            if (exists) {
+              return {
+                ...slip,
+                selections: slip.selections.filter((x) => x.id !== s.id),
+              };
+            }
+            return { ...slip, selections: [...slip.selections, s] };
+          }),
+        }));
+      },
+
+      addMultipleSelections: (newSelections) => {
+        if (!newSelections || newSelections.length === 0) return;
         set((st) => ({
-          computeSlips: st.computeSlips.map((g) =>
-            g.id === id ? { ...g, lastError: error } : g,
-          ),
-        })),
-      addSelection: (s) =>
-        set((st) => {
-          const exists = st.selections.find((x) => x.id === s.id);
-          if (exists) return { selections: st.selections.filter((x) => x.id !== s.id) };
-          return { selections: [...st.selections, s] };
-        }),
-      addMultipleSelections: (newSelections) =>
-        set((st) => {
-          if (!newSelections || newSelections.length === 0) return {};
-          const existingIds = new Set(st.selections.map((x) => x.id));
-          const toAdd = newSelections.filter((s) => s && s.id && !existingIds.has(s.id));
-          if (toAdd.length === 0) return {};
-          return { selections: [...st.selections, ...toAdd] };
-        }),
-      removeSelection: (id) =>
-        set((st) => ({ selections: st.selections.filter((x) => x.id !== id) })),
-      clearSelections: () =>
-        set({ selections: [], placeResults: [], lastError: null }),
-      setMode: (mode) => set({ mode }),
-      setStakePerLeg: (stakePerLeg) => set({ stakePerLeg }),
-      setStakeShieldEnabled: (stakeShieldEnabled) => set({ stakeShieldEnabled }),
-      setPlacing: (isPlacing) => set({ isPlacing }),
-      setPlaceResults: (placeResults) => set({ placeResults }),
-      setLastError: (lastError) => set({ lastError }),
-      updateOdds: (id, odds) =>
+          slips: st.slips.map((slip) => {
+            if (slip.id !== st.activeSlipId) return slip;
+            const existingIds = new Set(slip.selections.map((x) => x.id));
+            const toAdd = newSelections.filter((s) => s && s.id && !existingIds.has(s.id));
+            if (toAdd.length === 0) return slip;
+            return { ...slip, selections: [...slip.selections, ...toAdd] };
+          }),
+        }));
+      },
+
+      removeSelection: (id) => {
         set((st) => ({
-          selections: st.selections.map((s) =>
-            s.id === id ? { ...s, odds } : s,
+          slips: st.slips.map((slip) =>
+            slip.id === st.activeSlipId
+              ? { ...slip, selections: slip.selections.filter((x) => x.id !== id) }
+              : slip,
           ),
-        })),
+        }));
+      },
+
+      clearSelections: () => {
+        set((st) => ({
+          slips: st.slips.map((slip) =>
+            slip.id === st.activeSlipId
+              ? { ...slip, selections: [], placeResults: [], lastError: null }
+              : slip,
+          ),
+        }));
+      },
+
+      setMode: (mode) => {
+        set((st) => ({
+          slips: st.slips.map((slip) =>
+            slip.id === st.activeSlipId ? { ...slip, mode } : slip,
+          ),
+        }));
+      },
+
+      setStakePerLeg: (stakePerLeg) => {
+        set((st) => ({
+          slips: st.slips.map((slip) =>
+            slip.id === st.activeSlipId ? { ...slip, stakePerLeg } : slip,
+          ),
+        }));
+      },
+
+      setStakeShieldEnabled: (stakeShieldEnabled) => {
+        set((st) => ({
+          slips: st.slips.map((slip) =>
+            slip.id === st.activeSlipId ? { ...slip, stakeShieldEnabled } : slip,
+          ),
+        }));
+      },
+
+      setPlacing: (isPlacing) => {
+        set((st) => ({
+          slips: st.slips.map((slip) =>
+            slip.id === st.activeSlipId ? { ...slip, isPlacing } : slip,
+          ),
+        }));
+      },
+
+      setPlaceResults: (placeResults) => {
+        set((st) => ({
+          slips: st.slips.map((slip) =>
+            slip.id === st.activeSlipId ? { ...slip, placeResults } : slip,
+          ),
+        }));
+      },
+
+      setLastError: (lastError) => {
+        set((st) => ({
+          slips: st.slips.map((slip) =>
+            slip.id === st.activeSlipId ? { ...slip, lastError } : slip,
+          ),
+        }));
+      },
+
+      updateOdds: (id, odds) => {
+        set((st) => ({
+          slips: st.slips.map((slip) =>
+            slip.id === st.activeSlipId
+              ? {
+                ...slip,
+                selections: slip.selections.map((s) =>
+                  s.id === id ? { ...s, odds } : s,
+                ),
+              }
+              : slip,
+          ),
+        }));
+      },
+
       shareSlip: () => {
-        const { selections, mode, stakePerLeg } = get();
-        if (selections.length === 0) return null;
+        const active = get().slips.find((s) => s.id === get().activeSlipId);
+        if (!active || active.selections.length === 0) return null;
 
-        const first = selections[0];
-        // Reliable Stake link: the fixture page URL we already computed.
+        const first = active.selections[0];
         const stakeLink = first.stakeUrl ?? "";
 
-        // Build Stage restore payload (compact base64 of the full slip)
         const payload = {
           v: 1,
-          mode,
-          stakePerLeg,
-          selections: selections.map((s) => ({
+          mode: active.mode,
+          stakePerLeg: active.stakePerLeg,
+          selections: active.selections.map((s) => ({
             id: s.id,
             fixtureSlug: s.fixtureSlug,
             fixtureName: s.fixtureName,
@@ -209,12 +337,12 @@ export const useSlipStore = create<SlipStore>()(
         const stageLink = `${typeof window !== "undefined" ? window.location.origin : ""}/?slip=${base64}`;
 
         return {
-          // Numeric event ID extracted from fixture slug for reference only
           code: first.fixtureSlug?.split("-")[0] ?? "",
           link: stakeLink,
           stageLink,
         };
       },
+
       restoreSlip: (encoded: string) => {
         try {
           const json = atob(encoded);
@@ -225,66 +353,137 @@ export const useSlipStore = create<SlipStore>()(
             selections: BetSelection[];
           };
           if (!payload.selections || payload.selections.length === 0) return;
-          set({
+
+          const newSlip: SlipData = {
+            id: `slip-${Date.now()}-${++_slipIdCounter}`,
+            name: "Restored slip",
             selections: payload.selections,
             mode: payload.mode ?? "singles",
             stakePerLeg: payload.stakePerLeg ?? 1000,
+            stakeShieldEnabled: false,
+            isPlacing: false,
             placeResults: [],
             lastError: null,
-          });
+            createdAt: Date.now(),
+          };
+
+          set((st) => ({
+            slips: [...st.slips, newSlip],
+            activeSlipId: newSlip.id,
+          }));
         } catch {
           // ignore malformed payloads
         }
       },
+
       savedSlips: [],
       saveSlip: (name: string) => {
-        const { selections, mode, stakePerLeg, savedSlips } = get();
-        if (selections.length === 0) return;
-        const slip: SavedSlip = {
-          id: `slip-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          name,
-          selections: [...selections],
-          mode,
-          stakePerLeg,
-          createdAt: Date.now(),
+        const active = get().slips.find((s) => s.id === get().activeSlipId);
+        if (!active || active.selections.length === 0) return;
+        const saved: SlipData = {
+          ...cloneSlip(active, get().slips.length + 1),
+          name: name.trim() || `${active.name} (saved)`,
         };
-        set({ savedSlips: [...savedSlips, slip] });
+        set((st) => ({
+          slips: [...st.slips, saved],
+          activeSlipId: saved.id,
+        }));
       },
+
       loadSlip: (id: string) => {
-        const slip = get().savedSlips.find((s) => s.id === id);
-        if (slip) {
-          set({
-            selections: [...slip.selections],
-            mode: slip.mode,
-            stakePerLeg: slip.stakePerLeg,
-            placeResults: [],
-            lastError: null,
-          });
-        }
+        get().switchSlip(id);
       },
-      deleteSlip: (id: string) => {
-        set((st) => ({ savedSlips: st.savedSlips.filter((s) => s.id !== id) }));
+
+      deleteSavedSlip: (id: string) => {
+        get().deleteSlip(id);
       },
     }),
     {
       name: "stake-slip-storage",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        selections: state.selections,
-        mode: state.mode,
-        stakePerLeg: state.stakePerLeg,
-        savedSlips: state.savedSlips,
-        computeSlips: state.computeSlips.map((cs) => ({
-          ...cs,
+        slips: state.slips.map((slip) => ({
+          ...slip,
           isPlacing: false,
           placeResults: [],
           lastError: null,
         })),
+        activeSlipId: state.activeSlipId,
+        savedSlips: [],
       }),
       onRehydrateStorage: () => {
-        return (_state, _error) => {
+        return (state, _error) => {
           _slipRehydrated = true;
           _slipResolve?.();
+
+          if (!state) return;
+
+          // Migrate old format (selections / computeSlips / savedSlips) into unified slips.
+          const anyState = state as any;
+          const hasLegacyShape =
+            Array.isArray(anyState.selections) ||
+            Array.isArray(anyState.computeSlips) ||
+            Array.isArray(anyState.savedSlips);
+
+          if (!hasLegacyShape || (anyState.slips && anyState.slips.length > 0)) {
+            if (!state.activeSlipId && state.slips.length > 0) {
+              useSlipStore.setState({ activeSlipId: state.slips[0].id });
+            }
+            return;
+          }
+
+          const migrated: SlipData[] = [];
+
+          if (anyState.selections?.length > 0) {
+            migrated.push({
+              id: `manual-${Date.now()}`,
+              name: "Manual",
+              selections: anyState.selections,
+              mode: anyState.mode ?? "singles",
+              stakePerLeg: anyState.stakePerLeg ?? 1000,
+              stakeShieldEnabled: anyState.stakeShieldEnabled ?? false,
+              isPlacing: false,
+              placeResults: [],
+              lastError: null,
+              createdAt: Date.now(),
+            });
+          }
+
+          for (const cs of anyState.computeSlips ?? []) {
+            migrated.push({
+              id: cs.id,
+              name: cs.name || "Slip",
+              selections: cs.selections ?? [],
+              mode: cs.mode ?? "singles",
+              stakePerLeg: cs.stakePerLeg ?? 1000,
+              stakeShieldEnabled: cs.stakeShieldEnabled ?? false,
+              isPlacing: false,
+              placeResults: [],
+              lastError: null,
+              createdAt: cs.createdAt ?? Date.now(),
+            });
+          }
+
+          for (const ss of anyState.savedSlips ?? []) {
+            migrated.push({
+              id: ss.id,
+              name: ss.name || "Saved slip",
+              selections: ss.selections ?? [],
+              mode: ss.mode ?? "singles",
+              stakePerLeg: ss.stakePerLeg ?? 1000,
+              stakeShieldEnabled: false,
+              isPlacing: false,
+              placeResults: [],
+              lastError: null,
+              createdAt: ss.createdAt ?? Date.now(),
+            });
+          }
+
+          if (migrated.length === 0) {
+            migrated.push(createDefaultSlip());
+          }
+
+          useSlipStore.setState({ slips: migrated, activeSlipId: migrated[0].id, savedSlips: [] });
         };
       },
     },

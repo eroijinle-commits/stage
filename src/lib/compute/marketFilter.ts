@@ -21,6 +21,42 @@ export function flattenAllMarkets(
 }
 
 /**
+ * Merge markets that share the same name into a single logical market.
+ * Operates across ALL groups — if "Match Winner" appears in Group A and Group B,
+ * they are merged into one market. Markets with unique names pass through unchanged.
+ * Multi-market groups produce one synthetic StakeMarket with all outcomes combined.
+ */
+export function mergeMarketsByName(markets: StakeMarket[]): StakeMarket[] {
+    const groups = new Map<string, StakeMarket[]>();
+    for (const market of markets) {
+        const key = market.name.trim();
+        const existing = groups.get(key);
+        if (existing) {
+            existing.push(market);
+        } else {
+            groups.set(key, [market]);
+        }
+    }
+
+    const result: StakeMarket[] = [];
+    for (const group of groups.values()) {
+        if (group.length === 1) {
+            result.push(group[0]);
+        } else {
+            result.push({
+                id: group[0].id,
+                name: group[0].name,
+                status: "active",
+                extId: group[0].extId,
+                provider: group[0].provider,
+                outcomes: group.flatMap((m) => m.outcomes),
+            });
+        }
+    }
+    return result;
+}
+
+/**
  * Filter markets to those with at most `maxOutcomes` active outcomes,
  * then rank by highest active outcome odds descending.
  * Returns RankedMarket[] sorted by highestOdds desc.
@@ -44,7 +80,7 @@ export function filterByOutcomeCount(
 }
 
 /**
- * Full pipeline: flatten → filter → rank → take top N.
+ * Full pipeline: flatten → merge by name → filter → rank → take top N.
  * Throws if fewer qualifying markets are available than needed.
  */
 export function selectTopMarkets(
@@ -52,7 +88,8 @@ export function selectTopMarkets(
     config: ComputeConfig,
 ): RankedMarket[] {
     const allMarkets = flattenAllMarkets(groups);
-    const ranked = filterByOutcomeCount(allMarkets, config.maxOutcomes);
+    const merged = mergeMarketsByName(allMarkets);
+    const ranked = filterByOutcomeCount(merged, config.maxOutcomes);
     const needed = marketsNeeded(config.slipCount, config.maxOutcomes);
 
     if (ranked.length < needed) {

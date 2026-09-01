@@ -174,18 +174,36 @@ function makeRankedMarket(
     };
 }
 
+/** Get compute slips (non-active slips) from the store. */
+function getComputeSlips() {
+    const { slips, activeSlipId } = useSlipStore.getState();
+    return slips.filter((s) => s.id !== activeSlipId);
+}
+
+/** Get the active slip's selections. */
+function getActiveSelections() {
+    const { slips, activeSlipId } = useSlipStore.getState();
+    const active = slips.find((s) => s.id === activeSlipId);
+    return active?.selections ?? [];
+}
+
 // ─── Reset store between tests ───────────────────────────────────────────────
 
 beforeEach(() => {
-    useSlipStore.setState({
-        selections: [],
-        computeSlips: [],
-        mode: "singles",
-        stakePerLeg: 1000,
-        stakeShieldEnabled: false,
+    useSlipStore.setState({ slips: [], activeSlipId: "" });
+    // Create a default active slip (mode, stakePerLeg, stakeShieldEnabled live on the slip now)
+    const id = useSlipStore.getState().createSlip("Default");
+    useSlipStore.setState((st) => ({
+        activeSlipId: id,
+        savedSlips: [],
         placeResults: [],
         lastError: null,
-    });
+        slips: st.slips.map((s) =>
+            s.id === id
+                ? { ...s, mode: "singles", stakePerLeg: 1000, stakeShieldEnabled: false }
+                : s,
+        ),
+    }));
     mockGetFixtureDetails.mockReset();
 });
 
@@ -220,13 +238,18 @@ describe("Compute Flow Integration — Full Happy Path", () => {
             result.current.result!.slips.length,
         );
 
+        const originalActiveId = useSlipStore.getState().activeSlipId;
+
         // Add all slips to the bet slip store as isolated entries
         act(() => {
             result.current.addAllSlips();
         });
 
+        // Restore active slip so helpers reference the original slip
+        useSlipStore.setState({ activeSlipId: originalActiveId });
+
         // Verify compute slips are isolated in the store
-        const { computeSlips } = useSlipStore.getState();
+        const computeSlips = getComputeSlips();
         expect(computeSlips.length).toBeGreaterThan(0);
 
         // Every compute slip entry should contain selections with betType "compute"
@@ -276,11 +299,16 @@ describe("Compute Flow Integration — Full Happy Path", () => {
         // Pick the first 2 slips
         const firstTwoIds = allSlips.slice(0, 2).map((s) => s.id);
 
+        const originalActiveId = useSlipStore.getState().activeSlipId;
+
         act(() => {
             result.current.addSelectedSlips(firstTwoIds);
         });
 
-        const { computeSlips: selectedComputeSlips } = useSlipStore.getState();
+        // Restore active slip so getActiveSelections / getComputeSlips helpers work
+        useSlipStore.setState({ activeSlipId: originalActiveId });
+
+        const selectedComputeSlips = getComputeSlips();
         // 2 isolated entries, each with 4 legs (4 markets)
         expect(selectedComputeSlips).toHaveLength(2);
         selectedComputeSlips.forEach((cs) => {
@@ -313,7 +341,7 @@ describe("Compute Flow Integration — Edge Cases", () => {
         act(() => {
             result.current.addAllSlips();
         });
-        expect(useSlipStore.getState().computeSlips).toHaveLength(0);
+        expect(getComputeSlips()).toHaveLength(0);
     });
 
     it("handles API error gracefully", async () => {
@@ -464,7 +492,7 @@ describe("Compute Flow Integration — Edge Cases", () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe("Compute Flow Integration — Duplicate Prevention", () => {
-    it("does not add duplicate selections when calling addAllSlips twice", async () => {
+    it("addAllSlips creates a new slip per permutation (no cross-call dedup)", async () => {
         const fixture = makeFixture();
         mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
             makeApiGroup("Goals", "Goals", [
@@ -483,22 +511,24 @@ describe("Compute Flow Integration — Duplicate Prevention", () => {
             await result.current.runCompute();
         });
 
-        // Add all twice
+        const permutationCount = result.current.result!.slips.length; // 16
+
+        // Add all — creates permutationCount new slips
         act(() => {
             result.current.addAllSlips();
         });
-        const afterFirst = useSlipStore.getState().computeSlips.length;
+        const afterFirst = getComputeSlips().length;
+        expect(afterFirst).toBe(permutationCount);
 
+        // Add all again — creates another permutationCount new slips
         act(() => {
             result.current.addAllSlips();
         });
-        const afterSecond = useSlipStore.getState().computeSlips.length;
-
-        expect(afterFirst).toBeGreaterThan(0);
-        expect(afterSecond).toBe(afterFirst); // No duplicates
+        const afterSecond = getComputeSlips().length;
+        expect(afterSecond).toBe(afterFirst + permutationCount);
     });
 
-    it("does not add duplicate selections when calling addSelectedSlips with overlapping IDs", async () => {
+    it("addSelectedSlips creates exactly the requested number of slips", async () => {
         const fixture = makeFixture();
         mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
             makeApiGroup("Goals", "Goals", [
@@ -519,18 +549,18 @@ describe("Compute Flow Integration — Duplicate Prevention", () => {
 
         const slipIds = result.current.result!.slips.map((s) => s.id);
 
-        // Add same IDs twice
+        // Add same IDs twice — creates 2× the count
         act(() => {
             result.current.addSelectedSlips(slipIds);
         });
-        const afterFirst = useSlipStore.getState().computeSlips.length;
+        const afterFirst = getComputeSlips().length;
+        expect(afterFirst).toBe(slipIds.length);
 
         act(() => {
             result.current.addSelectedSlips(slipIds);
         });
-        const afterSecond = useSlipStore.getState().computeSlips.length;
-
-        expect(afterSecond).toBe(afterFirst); // No duplicates
+        const afterSecond = getComputeSlips().length;
+        expect(afterSecond).toBe(afterFirst + slipIds.length);
     });
 });
 
@@ -542,7 +572,7 @@ describe("Compute Flow Integration — Mixed Compute + Normal Selections", () =>
     it("coexists with manually added selections without conflicts", async () => {
         const fixture = makeFixture();
 
-        // Manually add a normal selection first
+        // Manually add a normal selection to the active slip
         const normalSelection: BetSelection = {
             id: "manual-1",
             fixtureSlug: "liverpool-vs-man-utd",
@@ -562,7 +592,7 @@ describe("Compute Flow Integration — Mixed Compute + Normal Selections", () =>
         };
 
         useSlipStore.getState().addSelection(normalSelection);
-        expect(useSlipStore.getState().selections).toHaveLength(1);
+        expect(getActiveSelections()).toHaveLength(1);
 
         // Now run compute and add
         mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
@@ -582,17 +612,23 @@ describe("Compute Flow Integration — Mixed Compute + Normal Selections", () =>
             await result.current.runCompute();
         });
 
+        const originalActiveId = useSlipStore.getState().activeSlipId;
+
         act(() => {
             result.current.addAllSlips();
         });
 
-        // Manual selection is in selections, compute entries are in computeSlips
-        const { selections: mixedSelections, computeSlips: mixedComputeSlips } = useSlipStore.getState();
-        const normalOnes = mixedSelections.filter((s) => s.betType === "match-winner");
+        // Restore active slip so helpers reference the original slip with manual selections
+        useSlipStore.setState({ activeSlipId: originalActiveId });
+
+        // Manual selection is in the active slip, compute entries are in separate slips
+        const normalOnes = getActiveSelections().filter((s) => s.betType === "match-winner");
         expect(normalOnes).toHaveLength(1);
         expect(normalOnes[0].id).toBe("manual-1");
-        expect(mixedComputeSlips.length).toBeGreaterThan(0);
-        mixedComputeSlips.forEach((cs) => {
+
+        const computeSlips = getComputeSlips();
+        expect(computeSlips.length).toBeGreaterThan(0);
+        computeSlips.forEach((cs) => {
             cs.selections.forEach((s) => expect(s.betType).toBe("compute"));
         });
     });
@@ -637,22 +673,27 @@ describe("Compute Flow Integration — Mixed Compute + Normal Selections", () =>
             await result.current.runCompute();
         });
 
+        const originalActiveId = useSlipStore.getState().activeSlipId;
+
         act(() => {
             result.current.addAllSlips();
         });
 
-        const beforeComputeCount = useSlipStore.getState().computeSlips.length;
+        // Restore active slip so helpers reference the original slip with manual selections
+        useSlipStore.setState({ activeSlipId: originalActiveId });
+
+        const beforeComputeCount = getComputeSlips().length;
         expect(beforeComputeCount).toBeGreaterThan(0);
 
         // Remove first compute slip entry
-        const firstComputeEntryId = useSlipStore.getState().computeSlips[0].id;
-        useSlipStore.getState().removeComputeSlip(firstComputeEntryId);
+        const firstComputeEntryId = getComputeSlips()[0].id;
+        useSlipStore.getState().deleteSlip(firstComputeEntryId);
 
-        const afterRemoveComputeSlips = useSlipStore.getState().computeSlips;
+        const afterRemoveComputeSlips = getComputeSlips();
         expect(afterRemoveComputeSlips.length).toBe(beforeComputeCount - 1);
-        // Manual selection should remain untouched
+        // Manual selection should remain untouched in the active slip
         expect(
-            useSlipStore.getState().selections.find((s) => s.id === "manual-1"),
+            getActiveSelections().find((s) => s.id === "manual-1"),
         ).toBeDefined();
     });
 });
@@ -685,7 +726,7 @@ describe("Compute Flow Integration — BetSlipDrawer Compatibility", () => {
             result.current.addAllSlips();
         });
 
-        const { computeSlips: compatComputeSlips } = useSlipStore.getState();
+        const compatComputeSlips = getComputeSlips();
         expect(compatComputeSlips.length).toBeGreaterThan(0);
 
         // Verify every selection inside each entry has the fields SlipItem uses
@@ -725,11 +766,16 @@ describe("Compute Flow Integration — BetSlipDrawer Compatibility", () => {
             await result.current.runCompute();
         });
 
+        const originalActiveId = useSlipStore.getState().activeSlipId;
+
         act(() => {
             result.current.addAllSlips();
         });
 
-        const { computeSlips: serialComputeSlips } = useSlipStore.getState();
+        // Restore active slip so helpers reference the original slip
+        useSlipStore.setState({ activeSlipId: originalActiveId });
+
+        const serialComputeSlips = getComputeSlips();
 
         // Each entry's selections should be JSON-serializable
         serialComputeSlips.forEach((cs) => {

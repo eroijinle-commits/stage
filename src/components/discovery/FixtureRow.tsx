@@ -154,7 +154,9 @@ function formatFixtureTime(startTime: string): { date: string; time: string; isT
 }
 
 export default function FixtureRow({ fixture, selected, onSelect, onViewMarkets, onAddSelection }: FixtureRowProps) {
-  const selectionIds = useSlipStore((s) => s.selections.map((x) => x.id).join(","));
+  const selectionIds = useSlipStore((s) =>
+    s.slips.flatMap((slip) => slip.selections.map((x) => x.id)).join(","),
+  );
   const slipIds = useMemo(() => new Set(selectionIds ? selectionIds.split(",") : []), [selectionIds]);
 
   const { date, time, isToday, isTomorrow } = formatFixtureTime(fixture.startTime);
