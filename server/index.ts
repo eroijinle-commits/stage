@@ -5,6 +5,8 @@ import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { getServerDb } from "./db";
 import * as schema from "../src/lib/db/schema";
 import { encryptToken, decryptToken, isEncrypted } from "./crypto";
+import { sendErrorToDiscord } from "./discord-webhook";
+import type { ErrorReportPayload, ErrorReportResponse } from "../src/lib/contracts/error.contract";
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
@@ -86,6 +88,24 @@ app.use("/api/graphql", async (req, res) => {
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
+});
+
+// ─── Error Reporting ───
+
+app.post("/api/errors/report", async (req, res) => {
+  const payload = req.body as ErrorReportPayload;
+
+  // Basic validation — reject empty or malformed payloads
+  if (!payload || typeof payload.message !== "string" || !payload.message) {
+    res.status(400).json({ ok: false, reason: "disabled" } satisfies ErrorReportResponse);
+    return;
+  }
+
+  // Ensure source is set correctly for frontend reports
+  if (!payload.source) payload.source = "frontend";
+
+  const result = await sendErrorToDiscord(payload);
+  res.json({ ok: result !== "disabled", reason: result } satisfies ErrorReportResponse);
 });
 
 // ─── Settings ───
@@ -388,6 +408,29 @@ app.delete("/api/presets/:id", async (req, res) => {
   await db.delete(schema.stakingPresets).where(eq(schema.stakingPresets.id, Number(req.params.id)));
   res.json({ ok: true });
 });
+
+// ─── Express Error Middleware ───
+// Catches unhandled errors in server-side route handlers,
+// reports them to Discord, and returns a 500 response.
+
+app.use(
+  async (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error("[server] Unhandled error:", err);
+
+    // Report to Discord (fire-and-forget, don't block the response)
+    sendErrorToDiscord({
+      message: err.message,
+      stack: err.stack,
+      source: "backend",
+      captureMethod: "expressMiddleware",
+      severity: "error",
+      timestamp: new Date().toISOString(),
+    }).catch(() => {});
+
+    if (res.headersSent) return;
+    res.status(500).json({ error: "Internal server error" });
+  },
+);
 
 // ─── Start ───
 
