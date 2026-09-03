@@ -99,11 +99,11 @@ export default function SlipPage() {
     return mode === "singles"
       ? selections.reduce((acc, s) => acc + stakePerLeg * s.odds, 0)
       : (() => {
-          let r = stakePerLeg * selections.reduce((acc, s) => acc * s.odds, 1);
-          if (stakeShieldEnabled && selections.length >= 3)
-            r *= 1 - getShieldFeeRate(selections.length);
-          return Math.round(r * 100) / 100;
-        })();
+        let r = stakePerLeg * selections.reduce((acc, s) => acc * s.odds, 1);
+        if (stakeShieldEnabled && selections.length >= 3)
+          r *= 1 - getShieldFeeRate(selections.length);
+        return Math.round(r * 100) / 100;
+      })();
   }, [mode, selections, stakePerLeg, stakeShieldEnabled]);
 
   const activeProfit = activeDisplayReturn - activeManualTotalStake;
@@ -279,17 +279,22 @@ export default function SlipPage() {
       </div>
 
       {activeSlipSelectionCount > 0 && (
-        <BottomBar
-          selectionCount={activeSlipSelectionCount}
-          currency={currency}
-          totalStake={activeManualTotalStake}
-          displayReturn={activeDisplayReturn}
-          potentialProfit={activeProfit}
-          isPlacing={isPlacing}
-          placed={placed}
-          onPlaceBets={placeBets}
-          onClear={clearSelections}
-        />
+        <div onClick={(e) => console.log("[SlipPage] BottomBar area clicked", e.target)}>
+          <BottomBar
+            selectionCount={activeSlipSelectionCount}
+            currency={currency}
+            totalStake={activeManualTotalStake}
+            displayReturn={activeDisplayReturn}
+            potentialProfit={activeProfit}
+            isPlacing={isPlacing}
+            placed={placed}
+            onPlaceBets={() => {
+              console.log("[SlipPage] onPlaceBets called directly");
+              placeBets();
+            }}
+            onClear={clearSelections}
+          />
+        </div>
       )}
     </div>
   );
