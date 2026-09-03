@@ -95,21 +95,26 @@ export async function executeBetPlacement(
         rawData: JSON.stringify(apiResult),
       });
 
-      const result: BetPlacementResult = {
-        selectionId: selections[0].id, // parlay uses first selection as key
-        success: true,
-        betId: apiResult.id,
-        placedAt: Date.now(),
-      };
-      results.push(result);
+      const placedAt = Date.now();
+      for (const sel of selections) {
+        results.push({
+          selectionId: sel.id,
+          success: true,
+          betId: apiResult.id,
+          placedAt,
+        });
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Bet placement failed";
-      results.push({
-        selectionId: selections[0].id,
-        success: false,
-        error: message,
-        placedAt: Date.now(),
-      });
+      const placedAt = Date.now();
+      for (const sel of selections) {
+        results.push({
+          selectionId: sel.id,
+          success: false,
+          error: message,
+          placedAt,
+        });
+      }
     }
   } else {
     // Singles — place each selection sequentially

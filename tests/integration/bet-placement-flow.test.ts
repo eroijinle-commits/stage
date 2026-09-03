@@ -125,8 +125,11 @@ describe("Bet Placement Flow Integration", () => {
         balance: 50000,
       });
 
-      expect(results).toHaveLength(1);
-      expect(results[0].success).toBe(true);
+      expect(results).toHaveLength(3);
+      expect(results.every((r) => r.success)).toBe(true);
+      // All parlay results share the same betId
+      const betIds = new Set(results.map((r) => r.betId));
+      expect(betIds.size).toBe(1);
     });
   });
 
@@ -176,8 +179,10 @@ describe("Bet Placement Flow Integration", () => {
         balance: 50000,
       });
 
-      expect(results).toHaveLength(1);
-      expect(results[0].success).toBe(false);
+      // All selections get a failure result
+      expect(results).toHaveLength(2);
+      expect(results.every((r) => !r.success)).toBe(true);
+      expect(results.every((r) => r.error === "Odds have changed")).toBe(true);
     });
   });
 
