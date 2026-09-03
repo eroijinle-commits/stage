@@ -15,7 +15,7 @@ export default function BetArchitectPage({
   selectedTournamentSlugs?: string[];
 }) {
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-y-auto">
       <BetArchitectPanel />
     </div>
   );

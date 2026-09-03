@@ -84,6 +84,17 @@ export default function StrategyTabs({
         ))}
       </div>
 
+      {/* Slip count */}
+      {slips.length > 0 && (
+        <div className="flex items-center justify-between mt-3 mb-1">
+          <span className="text-[10px] font-mono text-muted-foreground">
+            {filtered.length} slip{filtered.length !== 1 ? "s" : ""}
+            {activeTab !== "All" ? ` (${activeTab})` : ""} generated
+          </span>
+          <span className="text-[10px] font-mono text-muted-foreground">{slips.length} total</span>
+        </div>
+      )}
+
       {/* Slips list */}
       <div className="mt-3 space-y-2">
         {filtered.length === 0 && !isGenerating && (
