@@ -20,67 +20,96 @@ function capitalize(s: string) {
 }
 
 /**
- * Displays a single fixture leg with all available outcomes.
- * The selected outcome is highlighted; others are shown dimmed.
+ * Displays a single fixture leg with clear visual hierarchy:
+ * - Fixture name prominently displayed
+ * - Market name as context
+ * - All available odds shown in a row, with the selected one clearly highlighted
+ * - Selected outcome gets a checkmark and primary color treatment
  */
 function FixtureLegRow({ leg }: { leg: PoolFixture }) {
   const colorClass = getFixtureColor(leg.fixtureId);
-  const textColorClass = getFixtureTextColor(leg.fixtureId);
   const dotClass = getFixtureDot(leg.fixtureId);
-  const hasAllOutcomes = leg.allOutcomes && leg.allOutcomes.length > 1;
+  const allOutcomes = leg.allOutcomes ?? [];
+  const hasMultipleOutcomes = allOutcomes.length > 1;
 
   return (
     <div
       className={cn(
-        "border-l-2 pl-2 py-1.5 rounded-r-sm",
+        "border-l-[3px] pl-3 py-2 rounded-r",
         colorClass,
       )}
     >
-      {/* Fixture name + league */}
-      <div className="flex items-center gap-1.5 mb-1">
-        <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", dotClass)} />
-        <span className="text-[10px] font-mono font-medium text-foreground truncate">
+      {/* Row 1: Fixture name */}
+      <div className="flex items-center gap-2 mb-0.5">
+        <span className={cn("w-2 h-2 rounded-full shrink-0", dotClass)} />
+        <span className="text-[11px] font-mono font-bold text-foreground leading-tight">
           {leg.fixtureName}
         </span>
       </div>
 
-      {/* Market label */}
-      <div className="text-[9px] font-mono text-muted-foreground/70 ml-3 mb-1 truncate">
+      {/* Row 2: Market name */}
+      <div className="text-[10px] font-mono text-muted-foreground ml-4 mb-1.5">
         {leg.market || leg.marketName}
       </div>
 
-      {/* All outcomes as pills */}
-      {hasAllOutcomes ? (
-        <div className="flex flex-wrap gap-1 ml-3">
-          {leg.allOutcomes!.map((outcome) => {
+      {/* Row 3: All odds displayed clearly */}
+      {hasMultipleOutcomes ? (
+        <div className="ml-4 grid gap-1" style={{ gridTemplateColumns: `repeat(${allOutcomes.length}, minmax(0, 1fr))` }}>
+          {allOutcomes.map((outcome) => {
             const isSelected = outcome.name === leg.outcomeName && outcome.odds === leg.odds;
             return (
-              <span
+              <div
                 key={`${outcome.name}-${outcome.odds}`}
                 className={cn(
-                  "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono tabular-nums border",
+                  "flex flex-col items-center px-2 py-1.5 rounded border text-center",
                   isSelected
-                    ? "border-primary/50 bg-primary/15 text-primary font-semibold"
-                    : "border-border/50 bg-secondary/30 text-muted-foreground/60",
+                    ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                    : "border-border/40 bg-secondary/20",
                 )}
               >
-                <span className="truncate max-w-[80px]">{outcome.name}</span>
-                <span>{outcome.odds.toFixed(2)}</span>
-              </span>
+                <span
+                  className={cn(
+                    "text-[10px] font-mono leading-tight truncate w-full",
+                    isSelected ? "text-primary font-bold" : "text-muted-foreground/60",
+                  )}
+                >
+                  {outcome.name}
+                </span>
+                <span
+                  className={cn(
+                    "text-xs font-mono font-bold tabular-nums leading-tight",
+                    isSelected ? "text-primary" : "text-muted-foreground/50",
+                  )}
+                >
+                  {outcome.odds.toFixed(2)}
+                </span>
+                {isSelected && (
+                  <span className="text-[8px] font-mono text-primary mt-0.5">✓ PICK</span>
+                )}
+              </div>
             );
           })}
         </div>
       ) : (
-        /* Fallback: just show the selected outcome */
-        <div className="flex items-center justify-between ml-3">
-          <span className={cn("text-[10px] font-mono font-medium", textColorClass)}>
-            {leg.outcomeName || leg.selection}
-          </span>
-          <span className="text-[10px] font-mono font-semibold text-foreground tabular-nums">
-            {leg.odds.toFixed(2)}
-          </span>
+        /* Single outcome or fallback — show selected clearly */
+        <div className="ml-4 flex items-center gap-3">
+          <div className="flex items-center gap-2 px-2 py-1.5 rounded border border-primary bg-primary/10 ring-1 ring-primary/30">
+            <span className="text-[11px] font-mono font-bold text-primary">
+              {leg.outcomeName || leg.selection}
+            </span>
+            <span className="text-xs font-mono font-bold text-primary tabular-nums">
+              {leg.odds.toFixed(2)}
+            </span>
+            <span className="text-[8px] font-mono text-primary">✓ PICK</span>
+          </div>
         </div>
       )}
+
+      {/* Row 4: League / sport context */}
+      <div className="text-[9px] font-mono text-muted-foreground/40 ml-4 mt-1">
+        {leg.league || leg.tournamentName}
+        {leg.sport ? ` · ${leg.sport}` : ""}
+      </div>
     </div>
   );
 }
