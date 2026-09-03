@@ -15,6 +15,7 @@ const NAV = [
   { id: "history", label: "History" },
   { id: "analytics", label: "Analytics" },
   { id: "settings", label: "Settings" },
+  { id: "betarchitect", label: "BetArchitect" },
   { id: "slip", label: "Slip" },
 ];
 

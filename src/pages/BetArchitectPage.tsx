@@ -80,7 +80,6 @@ function useEnrichPoolFixtures() {
     }
 
     if (allNeed.length === 0) return;
-    console.log(`[BetArchitect enrich] ${allNeed.length} fixtures need enrichment:`, allNeed.map(n => n.id));
 
     let cancelled = false;
 
@@ -93,11 +92,7 @@ function useEnrichPoolFixtures() {
           if (cancelled) break;
 
           const allOutcomes = extractOutcomes(details);
-          if (!allOutcomes) {
-            console.warn(`[BetArchitect enrich] No outcomes for ${id} (${slug})`);
-            continue;
-          }
-          console.log(`[BetArchitect enrich] Enriched ${id}: ${allOutcomes.length} outcomes`);
+          if (!allOutcomes) continue;
 
           // Update pool fixture
           useSlipStore.setState((st) => ({
@@ -139,8 +134,8 @@ function useEnrichPoolFixtures() {
               ),
             })),
           }));
-        } catch (err) {
-          console.warn(`[BetArchitect enrich] Failed to enrich ${id}:`, err);
+        } catch {
+          // Best-effort enrichment — skip on failure
         }
       }
     })();

@@ -3,7 +3,7 @@ import { useUIStore } from "@/store/useUIStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { cn } from "@/lib/utils/cn";
 import { getSportIndex } from "@/lib/stake-api";
-import { Trophy, Globe, Tv, Dumbbell, ChevronRight, X, Loader2, Layers } from "lucide-react";
+import { Trophy, Globe, Tv, Dumbbell, ChevronRight, X, Loader2 } from "lucide-react";
 
 const SPORTS = [
   { id: "soccer", label: "Soccer", icon: Trophy },
@@ -76,19 +76,6 @@ export default function SideNav({
         collapsed ? "w-0" : "w-48",
       )}
     >
-      {/* Tools section */}
-      <div className="p-2 border-b border-border">
-        <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider px-2 py-1">
-          Tools
-        </p>
-        <button
-          onClick={() => onNavigate?.("betarchitect")}
-          className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <Layers size={12} />
-          <span>BetArchitect</span>
-        </button>
-      </div>
       <div className="p-2 border-b border-border">
         <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider px-2 py-1">
           Sports
