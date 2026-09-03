@@ -4,8 +4,8 @@ SEGMENT 1: UI FOUNDATION & DESIGN SYSTEM — IMPLEMENTATION PROMPT
 
 AGENT ROLE: Senior Frontend Engineer — Design System & UI Architecture
 PRIORITY: HIGHEST (All other segments depend on this)
-PHILOSOPHY: UI-First, Data-Second. Build with complete mock data. 
-            Backend segments plug in later by replacing hooks.
+PHILOSOPHY: UI-First, Data-Second. Build with complete mock data.
+Backend segments plug in later by replacing hooks.
 
 ───────────────────────────────────────────────────────────────────────────────
 SECTION 0: PROJECT SETUP (Create these config files first)
@@ -13,142 +13,142 @@ SECTION 0: PROJECT SETUP (Create these config files first)
 
 FILE: package.json
 {
-  "name": "stakebet-batch",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "test": "vitest",
-    "test:ui": "vitest --ui",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx lib/db/seed.ts"
-  },
-  "dependencies": {
-    "next": "^14.2.0",
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0",
-    "@neondatabase/serverless": "^0.9.0",
-    "drizzle-orm": "^0.31.0",
-    "zustand": "^4.5.0",
-    "@tanstack/react-query": "^5.40.0",
-    "react-hook-form": "^7.51.0",
-    "@hookform/resolvers": "^3.4.0",
-    "zod": "^3.23.0",
-    "recharts": "^2.12.0",
-    "lucide-react": "^0.378.0",
-    "clsx": "^2.1.0",
-    "tailwind-merge": "^2.3.0",
-    "date-fns": "^3.6.0",
-    "framer-motion": "^11.0.0",
-    "sonner": "^1.4.0",
-    "@radix-ui/react-dialog": "^1.0.0",
-    "@radix-ui/react-dropdown-menu": "^2.0.0",
-    "@radix-ui/react-select": "^2.0.0",
-    "@radix-ui/react-tabs": "^1.0.0",
-    "@radix-ui/react-tooltip": "^1.0.0",
-    "@radix-ui/react-popover": "^1.0.0",
-    "@radix-ui/react-slider": "^1.0.0",
-    "@radix-ui/react-switch": "^1.0.0",
-    "@radix-ui/react-accordion": "^1.0.0"
-  },
-  "devDependencies": {
-    "typescript": "^5.4.0",
-    "@types/node": "^20.0.0",
-    "@types/react": "^18.3.0",
-    "@types/react-dom": "^18.3.0",
-    "tailwindcss": "^3.4.0",
-    "postcss": "^8.4.0",
-    "autoprefixer": "^10.4.0",
-    "eslint": "^8.0.0",
-    "eslint-config-next": "^14.2.0",
-    "vitest": "^1.6.0",
-    "@testing-library/react": "^15.0.0",
-    "@testing-library/jest-dom": "^6.4.0",
-    "jsdom": "^24.0.0",
-    "drizzle-kit": "^0.22.0",
-    "tsx": "^4.11.0"
-  }
+"name": "stakebet-batch",
+"version": "1.0.0",
+"private": true,
+"scripts": {
+"dev": "next dev",
+"build": "next build",
+"start": "next start",
+"lint": "next lint",
+"test": "vitest",
+"test:ui": "vitest --ui",
+"db:generate": "drizzle-kit generate",
+"db:migrate": "drizzle-kit migrate",
+"db:push": "drizzle-kit push",
+"db:studio": "drizzle-kit studio",
+"db:seed": "tsx lib/db/seed.ts"
+},
+"dependencies": {
+"next": "^14.2.0",
+"react": "^18.3.0",
+"react-dom": "^18.3.0",
+"@neondatabase/serverless": "^0.9.0",
+"drizzle-orm": "^0.31.0",
+"zustand": "^4.5.0",
+"@tanstack/react-query": "^5.40.0",
+"react-hook-form": "^7.51.0",
+"@hookform/resolvers": "^3.4.0",
+"zod": "^3.23.0",
+"recharts": "^2.12.0",
+"lucide-react": "^0.378.0",
+"clsx": "^2.1.0",
+"tailwind-merge": "^2.3.0",
+"date-fns": "^3.6.0",
+"framer-motion": "^11.0.0",
+"sonner": "^1.4.0",
+"@radix-ui/react-dialog": "^1.0.0",
+"@radix-ui/react-dropdown-menu": "^2.0.0",
+"@radix-ui/react-select": "^2.0.0",
+"@radix-ui/react-tabs": "^1.0.0",
+"@radix-ui/react-tooltip": "^1.0.0",
+"@radix-ui/react-popover": "^1.0.0",
+"@radix-ui/react-slider": "^1.0.0",
+"@radix-ui/react-switch": "^1.0.0",
+"@radix-ui/react-accordion": "^1.0.0"
+},
+"devDependencies": {
+"typescript": "^5.4.0",
+"@types/node": "^20.0.0",
+"@types/react": "^18.3.0",
+"@types/react-dom": "^18.3.0",
+"tailwindcss": "^3.4.0",
+"postcss": "^8.4.0",
+"autoprefixer": "^10.4.0",
+"eslint": "^8.0.0",
+"eslint-config-next": "^14.2.0",
+"vitest": "^1.6.0",
+"@testing-library/react": "^15.0.0",
+"@testing-library/jest-dom": "^6.4.0",
+"jsdom": "^24.0.0",
+"drizzle-kit": "^0.22.0",
+"tsx": "^4.11.0"
+}
 }
 
 FILE: tsconfig.json
 {
-  "compilerOptions": {
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
-    "plugins": [{ "name": "next" }],
-    "paths": {
-      "@/*": ["./*"],
-      "@/components/*": ["./components/*"],
-      "@/hooks/*": ["./hooks/*"],
-      "@/lib/*": ["./lib/*"],
-      "@/types/*": ["./types/*"],
-      "@/utils/*": ["./lib/utils/*"]
-    }
-  },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+"compilerOptions": {
+"lib": ["dom", "dom.iterable", "esnext"],
+"allowJs": true,
+"skipLibCheck": true,
+"strict": true,
+"noEmit": true,
+"esModuleInterop": true,
+"module": "esnext",
+"moduleResolution": "bundler",
+"resolveJsonModule": true,
+"isolatedModules": true,
+"jsx": "preserve",
+"incremental": true,
+"plugins": [{ "name": "next" }],
+"paths": {
+"@/_": ["./_"],
+"@/components/_": ["./components/_"],
+"@/hooks/_": ["./hooks/_"],
+"@/lib/_": ["./lib/_"],
+"@/types/_": ["./types/_"],
+"@/utils/_": ["./lib/utils/_"]
+}
+},
+"include": ["next-env.d.ts", "**/\*.ts", "**/_.tsx", ".next/types/\**/_.ts"],
+"exclude": ["node_modules"]
 }
 
 FILE: tailwind.config.ts
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  content: [
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
-  ],
-  darkMode: "class",
-  theme: {
-    extend: {
-      colors: {
-        odds: { up: "#22c55e", down: "#ef4444", stable: "#3b82f6" },
-        market: { active: "#3b82f6", suspended: "#6b7280", locked: "#f59e0b" },
-        bet: { won: "#22c55e", lost: "#ef4444", pending: "#f59e0b", cancelled: "#6b7280", cashout: "#8b5cf6" },
-        brand: {
-          50: "#ecfdf5", 100: "#d1fae5", 200: "#a7f3d0", 300: "#6ee7b7",
-          400: "#34d399", 500: "#10b981", 600: "#059669", 700: "#047857",
-          800: "#065f46", 900: "#064e3b", 950: "#022c22",
-        },
-      },
-      fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "monospace"],
-      },
-      animation: {
-        "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-        "slide-in-right": "slideInRight 0.3s ease-out",
-        "slide-out-right": "slideOutRight 0.3s ease-in",
-        "fade-in": "fadeIn 0.2s ease-out",
-        "scale-in": "scaleIn 0.2s ease-out",
-        "bounce-subtle": "bounceSubtle 0.5s ease-in-out",
-      },
-      keyframes: {
-        slideInRight: { "0%": { transform: "translateX(100%)", opacity: "0" }, "100%": { transform: "translateX(0)", opacity: "1" } },
-        slideOutRight: { "0%": { transform: "translateX(0)", opacity: "1" }, "100%": { transform: "translateX(100%)", opacity: "0" } },
-        fadeIn: { "0%": { opacity: "0" }, "100%": { opacity: "1" } },
-        scaleIn: { "0%": { transform: "scale(0.95)", opacity: "0" }, "100%": { transform: "scale(1)", opacity: "1" } },
-        bounceSubtle: { "0%, 100%": { transform: "translateY(0)" }, "50%": { transform: "translateY(-4px)" } },
-      },
-    },
-  },
-  plugins: [],
+content: [
+"./pages/**/\*.{js,ts,jsx,tsx,mdx}",
+"./components/**/_.{js,ts,jsx,tsx,mdx}",
+"./app/\**/_.{js,ts,jsx,tsx,mdx}",
+],
+darkMode: "class",
+theme: {
+extend: {
+colors: {
+odds: { up: "#22c55e", down: "#ef4444", stable: "#3b82f6" },
+market: { active: "#3b82f6", suspended: "#6b7280", locked: "#f59e0b" },
+bet: { won: "#22c55e", lost: "#ef4444", pending: "#f59e0b", cancelled: "#6b7280", cashout: "#8b5cf6" },
+brand: {
+50: "#ecfdf5", 100: "#d1fae5", 200: "#a7f3d0", 300: "#6ee7b7",
+400: "#34d399", 500: "#10b981", 600: "#059669", 700: "#047857",
+800: "#065f46", 900: "#064e3b", 950: "#022c22",
+},
+},
+fontFamily: {
+sans: ["Inter", "system-ui", "sans-serif"],
+mono: ["JetBrains Mono", "monospace"],
+},
+animation: {
+"pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+"slide-in-right": "slideInRight 0.3s ease-out",
+"slide-out-right": "slideOutRight 0.3s ease-in",
+"fade-in": "fadeIn 0.2s ease-out",
+"scale-in": "scaleIn 0.2s ease-out",
+"bounce-subtle": "bounceSubtle 0.5s ease-in-out",
+},
+keyframes: {
+slideInRight: { "0%": { transform: "translateX(100%)", opacity: "0" }, "100%": { transform: "translateX(0)", opacity: "1" } },
+slideOutRight: { "0%": { transform: "translateX(0)", opacity: "1" }, "100%": { transform: "translateX(100%)", opacity: "0" } },
+fadeIn: { "0%": { opacity: "0" }, "100%": { opacity: "1" } },
+scaleIn: { "0%": { transform: "scale(0.95)", opacity: "0" }, "100%": { transform: "scale(1)", opacity: "1" } },
+bounceSubtle: { "0%, 100%": { transform: "translateY(0)" }, "50%": { transform: "translateY(-4px)" } },
+},
+},
+},
+plugins: [],
 };
 
 export default config;
@@ -159,18 +159,18 @@ module.exports = { plugins: { tailwindcss: {}, autoprefixer: {} } };
 FILE: next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  images: { domains: ["stake.com", "cdn.sportradar.com"] },
+reactStrictMode: true,
+images: { domains: ["stake.com", "cdn.sportradar.com"] },
 };
 module.exports = nextConfig;
 
 FILE: drizzle.config.ts
 import { defineConfig } from "drizzle-kit";
 export default defineConfig({
-  schema: "./lib/db/schema.ts",
-  out: "./lib/db/migrations",
-  dialect: "postgresql",
-  dbCredentials: { url: process.env.DATABASE_URL! },
+schema: "./lib/db/schema.ts",
+out: "./lib/db/migrations",
+dialect: "postgresql",
+dbCredentials: { url: process.env.DATABASE_URL! },
 });
 
 FILE: .env.example
@@ -290,6 +290,7 @@ SECTION 2: DESIGN SYSTEM COMPONENTS (components/ui/)
 ───────────────────────────────────────────────────────────────────────────────
 
 Build EVERY component. Each must:
+
 1. Accept props defined in lib/contracts/ui.contract.ts
 2. Be fully typed with TypeScript
 3. Support dark mode (default)
@@ -298,6 +299,7 @@ Build EVERY component. Each must:
 6. Export from components/ui/index.ts
 
 CRITICAL COMPONENTS (build first):
+
 1. Button — All variants, loading spinner, disabled state
 2. Input / NumberInput — With increment/decrement, currency formatting
 3. Select / MultiSelect — Custom dropdown, searchable, multi-select with chips
@@ -318,6 +320,7 @@ SECTION 3-12: [All other sections from original prompt]
 ───────────────────────────────────────────────────────────────────────────────
 
 [See full prompt in saved file for complete sections 3-12 covering:
+
 - Layout Components (AppShell, TopBar, SideNav, BetSlipDrawer, CommandPalette)
 - Discovery Components (SearchFilterBar, ResultsTable, MarketBrowser, etc.)
 - Slip Components (SlipItem, ModeToggle, StakeInput, PlaceButton, etc.)
@@ -331,6 +334,7 @@ SECTION 3-12: [All other sections from original prompt]
 - Plug-in Interface for Other Segments]
 
 CONSTRAINTS:
+
 - TypeScript: zero `any` types
 - Tailwind: no inline styles, no arbitrary values without justification
 - Components: max 200 lines per file (split if larger)

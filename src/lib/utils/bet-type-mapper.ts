@@ -227,7 +227,14 @@ export function hasLines(betTypeId: string): boolean {
 export function getGroupForBetType(betTypeId: string): string {
   const bt = getBetTypeById(betTypeId);
   if (!bt) return "main";
-  const map: Record<string, string> = { match: "main", goals: "main", corners: "corners", cards: "cards", players: "main", specials: "specials" };
+  const map: Record<string, string> = {
+    match: "main",
+    goals: "main",
+    corners: "corners",
+    cards: "cards",
+    players: "main",
+    specials: "specials",
+  };
   return map[bt.category] ?? "main";
 }
 

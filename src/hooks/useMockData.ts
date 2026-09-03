@@ -3,11 +3,21 @@ import { BetHistoryRow } from "@/lib/contracts/ui.contract";
 import { BetStatus } from "@/lib/contracts/db.contract";
 
 const TEAMS = [
-  ["Arsenal", "Chelsea"], ["Man City", "Liverpool"], ["Barcelona", "Real Madrid"],
-  ["PSG", "Lyon"], ["Bayern Munich", "Borussia Dortmund"], ["Juventus", "AC Milan"],
-  ["Ajax", "PSV"], ["Porto", "Benfica"], ["Napoli", "Inter Milan"], ["Atletico Madrid", "Sevilla"],
-  ["Tottenham", "West Ham"], ["Rangers", "Celtic"], ["Fenerbahce", "Galatasaray"],
-  ["Boca Juniors", "River Plate"], ["Flamengo", "Palmeiras"],
+  ["Arsenal", "Chelsea"],
+  ["Man City", "Liverpool"],
+  ["Barcelona", "Real Madrid"],
+  ["PSG", "Lyon"],
+  ["Bayern Munich", "Borussia Dortmund"],
+  ["Juventus", "AC Milan"],
+  ["Ajax", "PSV"],
+  ["Porto", "Benfica"],
+  ["Napoli", "Inter Milan"],
+  ["Atletico Madrid", "Sevilla"],
+  ["Tottenham", "West Ham"],
+  ["Rangers", "Celtic"],
+  ["Fenerbahce", "Galatasaray"],
+  ["Boca Juniors", "River Plate"],
+  ["Flamengo", "Palmeiras"],
 ];
 
 const TOURNAMENTS = [
@@ -34,40 +44,40 @@ function randomDate(daysAgo: number) {
 
 function buildRawFixtures() {
   return Array.from({ length: 40 }, (_, i) => {
-      const [home, away] = TEAMS[i % TEAMS.length];
-      const tournament = TOURNAMENTS[i % TOURNAMENTS.length];
-      const isLive = i < 4;
-      const slug = `${home.toLowerCase().replace(/\s/g, "-")}-vs-${away.toLowerCase().replace(/\s/g, "-")}-${i}`;
-      return {
-        id: `fixture-${i}`,
-        name: `${home} vs ${away}`,
-        slug,
-        startTime: randomDate(isLive ? 0 : -3),
-        status: isLive ? "live" : "upcoming",
-        isLive,
-        homeScore: isLive ? Math.floor(Math.random() * 3) : undefined,
-        awayScore: isLive ? Math.floor(Math.random() * 3) : undefined,
-        tournament,
-        competitors: [{ name: home }, { name: away }],
-        previewMarkets: [
-          {
-            name: "1X2",
-            outcomes: [
-              { name: "1", odds: randomOdds(1.4, 3.5), active: true },
-              { name: "X", odds: randomOdds(2.8, 4.2), active: true },
-              { name: "2", odds: randomOdds(1.4, 3.5), active: true },
-            ],
-          },
-          {
-            name: "BTTS",
-            outcomes: [
-              { name: "Yes", odds: randomOdds(1.6, 2.2), active: true },
-              { name: "No", odds: randomOdds(1.6, 2.2), active: true },
-            ],
-          },
-        ],
-      };
-    });
+    const [home, away] = TEAMS[i % TEAMS.length];
+    const tournament = TOURNAMENTS[i % TOURNAMENTS.length];
+    const isLive = i < 4;
+    const slug = `${home.toLowerCase().replace(/\s/g, "-")}-vs-${away.toLowerCase().replace(/\s/g, "-")}-${i}`;
+    return {
+      id: `fixture-${i}`,
+      name: `${home} vs ${away}`,
+      slug,
+      startTime: randomDate(isLive ? 0 : -3),
+      status: isLive ? "live" : "upcoming",
+      isLive,
+      homeScore: isLive ? Math.floor(Math.random() * 3) : undefined,
+      awayScore: isLive ? Math.floor(Math.random() * 3) : undefined,
+      tournament,
+      competitors: [{ name: home }, { name: away }],
+      previewMarkets: [
+        {
+          name: "1X2",
+          outcomes: [
+            { name: "1", odds: randomOdds(1.4, 3.5), active: true },
+            { name: "X", odds: randomOdds(2.8, 4.2), active: true },
+            { name: "2", odds: randomOdds(1.4, 3.5), active: true },
+          ],
+        },
+        {
+          name: "BTTS",
+          outcomes: [
+            { name: "Yes", odds: randomOdds(1.6, 2.2), active: true },
+            { name: "No", odds: randomOdds(1.6, 2.2), active: true },
+          ],
+        },
+      ],
+    };
+  });
 }
 
 export function useMockFixturesRaw() {
@@ -87,7 +97,8 @@ export function useMockBetHistory(): BetHistoryRow[] {
       const status = STATUSES[i % STATUSES.length];
       const odds = randomOdds(1.5, 5.5);
       const stake = [500, 1000, 2000, 5000, 10000][i % 5];
-      const profit = status === "won" ? Math.round(stake * (odds - 1)) : status === "lost" ? -stake : null;
+      const profit =
+        status === "won" ? Math.round(stake * (odds - 1)) : status === "lost" ? -stake : null;
       return {
         id: `bet-${i}`,
         date: randomDate(60),

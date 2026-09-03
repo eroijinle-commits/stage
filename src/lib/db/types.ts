@@ -1,13 +1,13 @@
 // Re-export contract types for convenience
 export type {
-    BetRecord,
-    BetOutcomeRecord,
-    SavedFilter,
-    StakingPreset,
-    AppSetting,
-    BetStatus,
-    BetType,
-    StakingMode,
+  BetRecord,
+  BetOutcomeRecord,
+  SavedFilter,
+  StakingPreset,
+  AppSetting,
+  BetStatus,
+  BetType,
+  StakingMode,
 } from "../contracts/db.contract";
 
 // Drizzle inferred table types

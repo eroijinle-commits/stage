@@ -36,7 +36,13 @@ const SPORT_OPTIONS = [
   { slug: "league-of-legends", label: "League of Legends" },
 ];
 
-export default function SearchFilterBar({ filters, onChange, activeBetType, lineOddsPreview, tournaments }: SearchFilterBarProps) {
+export default function SearchFilterBar({
+  filters,
+  onChange,
+  activeBetType,
+  lineOddsPreview,
+  tournaments,
+}: SearchFilterBarProps) {
   const { filters: savedFilters, createFilter, deleteFilter } = useSavedFilters();
   const [datePreset, setDatePreset] = useState<DatePreset | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -50,13 +56,16 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
   const [localSearch, setLocalSearch] = useState(filters.searchQuery);
 
   // Debounced search
-  const handleSearchChange = useCallback((value: string) => {
-    setLocalSearch(value);
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    searchDebounceRef.current = setTimeout(() => {
-      onChange({ searchQuery: value });
-    }, 300);
-  }, [onChange]);
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setLocalSearch(value);
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = setTimeout(() => {
+        onChange({ searchQuery: value });
+      }, 300);
+    },
+    [onChange],
+  );
 
   useEffect(() => {
     return () => {
@@ -65,18 +74,21 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
   }, []);
 
   // Date preset handler
-  const handleDatePreset = useCallback((preset: DatePreset) => {
-    if (preset === "custom") {
-      setDatePreset("custom");
-      setShowDatePicker(true);
-      return;
-    }
-    setDatePreset(preset);
-    const range = getDateRangeForPreset(preset);
-    if (range) {
-      onChange({ dateFrom: range.dateFrom, dateTo: range.dateTo });
-    }
-  }, [onChange]);
+  const handleDatePreset = useCallback(
+    (preset: DatePreset) => {
+      if (preset === "custom") {
+        setDatePreset("custom");
+        setShowDatePicker(true);
+        return;
+      }
+      setDatePreset(preset);
+      const range = getDateRangeForPreset(preset);
+      if (range) {
+        onChange({ dateFrom: range.dateFrom, dateTo: range.dateTo });
+      }
+    },
+    [onChange],
+  );
 
   // Custom date apply
   const handleCustomDateApply = useCallback(() => {
@@ -103,21 +115,24 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
   }, [filterName, filters, createFilter]);
 
   // Load saved filter
-  const handleLoadFilter = useCallback((saved: typeof savedFilters[0]) => {
-    onChange({
-      sport: saved.sport ?? filters.sport,
-      group: saved.group ?? filters.group,
-      tournamentSlugs: saved.tournamentSlugs,
-      dateFrom: saved.dateFrom,
-      dateTo: saved.dateTo,
-      betType: saved.marketTemplate ?? filters.betType,
-    });
-    // Update date preset indicator
-    if (saved.dateFrom && saved.dateTo) {
-      setDatePreset("custom");
-    }
-    setShowLoadFilter(false);
-  }, [onChange, filters.sport, filters.group, filters.betType]);
+  const handleLoadFilter = useCallback(
+    (saved: (typeof savedFilters)[0]) => {
+      onChange({
+        sport: saved.sport ?? filters.sport,
+        group: saved.group ?? filters.group,
+        tournamentSlugs: saved.tournamentSlugs,
+        dateFrom: saved.dateFrom,
+        dateTo: saved.dateTo,
+        betType: saved.marketTemplate ?? filters.betType,
+      });
+      // Update date preset indicator
+      if (saved.dateFrom && saved.dateTo) {
+        setDatePreset("custom");
+      }
+      setShowLoadFilter(false);
+    },
+    [onChange, filters.sport, filters.group, filters.betType],
+  );
 
   // Tournament multi-select options
   const tournamentOptions = tournaments.map((t) => ({
@@ -140,20 +155,30 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
   }, [onChange]);
 
   // Check if any filters are active (beyond sport/group)
-  const hasActiveFilters = !!filters.searchQuery || filters.dateFrom !== null || filters.dateTo !== null || filters.tournamentSlugs.length > 0;
+  const hasActiveFilters =
+    !!filters.searchQuery ||
+    filters.dateFrom !== null ||
+    filters.dateTo !== null ||
+    filters.tournamentSlugs.length > 0;
 
   return (
     <div className="px-4 py-3 border-b border-border space-y-3 shrink-0">
       {/* Row 1: Sport, Bet Type, Search */}
       <div className="flex items-end gap-3 flex-wrap">
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Sport</label>
+          <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+            Sport
+          </label>
           <select
             value={filters.sport}
             onChange={(e) => onChange({ sport: e.target.value })}
             className="bg-secondary border border-border rounded px-2.5 py-1.5 text-sm font-mono text-foreground focus:outline-none focus:border-ring"
           >
-            {SPORT_OPTIONS.map((s) => <option key={s.slug} value={s.slug}>{s.label}</option>)}
+            {SPORT_OPTIONS.map((s) => (
+              <option key={s.slug} value={s.slug}>
+                {s.label}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -175,10 +200,20 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
 
         {/* Saved filter actions */}
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="sm" icon={<Bookmark size={12} />} onClick={() => setShowLoadFilter(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<Bookmark size={12} />}
+            onClick={() => setShowLoadFilter(true)}
+          >
             Load
           </Button>
-          <Button variant="ghost" size="sm" icon={<BookmarkPlus size={12} />} onClick={() => setShowSaveFilter(true)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<BookmarkPlus size={12} />}
+            onClick={() => setShowSaveFilter(true)}
+          >
             Save
           </Button>
         </div>
@@ -256,7 +291,12 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
 
       {/* Custom Date Picker Modal */}
       {showDatePicker && (
-        <Modal open={showDatePicker} onClose={() => setShowDatePicker(false)} title="Custom Date Range" size="sm">
+        <Modal
+          open={showDatePicker}
+          onClose={() => setShowDatePicker(false)}
+          title="Custom Date Range"
+          size="sm"
+        >
           <div className="space-y-3">
             <div className="flex gap-3">
               <div className="flex-1">
@@ -279,8 +319,12 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setShowDatePicker(false)}>Cancel</Button>
-              <Button variant="primary" size="sm" onClick={handleCustomDateApply}>Apply</Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowDatePicker(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" onClick={handleCustomDateApply}>
+                Apply
+              </Button>
             </div>
           </div>
         </Modal>
@@ -288,7 +332,12 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
 
       {/* Save Filter Modal */}
       {showSaveFilter && (
-        <Modal open={showSaveFilter} onClose={() => setShowSaveFilter(false)} title="Save Filter" size="sm">
+        <Modal
+          open={showSaveFilter}
+          onClose={() => setShowSaveFilter(false)}
+          title="Save Filter"
+          size="sm"
+        >
           <div className="space-y-3">
             <Input
               value={filterName}
@@ -297,8 +346,17 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
               label="Filter Name"
             />
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setShowSaveFilter(false)}>Cancel</Button>
-              <Button variant="primary" size="sm" onClick={handleSaveFilter} disabled={!filterName.trim()}>Save</Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowSaveFilter(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSaveFilter}
+                disabled={!filterName.trim()}
+              >
+                Save
+              </Button>
             </div>
           </div>
         </Modal>
@@ -306,13 +364,23 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
 
       {/* Load Filter Modal */}
       {showLoadFilter && (
-        <Modal open={showLoadFilter} onClose={() => setShowLoadFilter(false)} title="Load Saved Filter" size="sm">
+        <Modal
+          open={showLoadFilter}
+          onClose={() => setShowLoadFilter(false)}
+          title="Load Saved Filter"
+          size="sm"
+        >
           <div className="space-y-2 max-h-60 overflow-y-auto">
             {savedFilters.length === 0 && (
-              <p className="text-xs font-mono text-muted-foreground text-center py-4">No saved filters yet</p>
+              <p className="text-xs font-mono text-muted-foreground text-center py-4">
+                No saved filters yet
+              </p>
             )}
             {savedFilters.map((sf) => (
-              <div key={sf.id} className="flex items-center justify-between px-3 py-2 rounded hover:bg-muted transition-colors">
+              <div
+                key={sf.id}
+                className="flex items-center justify-between px-3 py-2 rounded hover:bg-muted transition-colors"
+              >
                 <button
                   type="button"
                   onClick={() => handleLoadFilter(sf)}
@@ -324,7 +392,10 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
                   </span>
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); deleteFilter(sf.id); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteFilter(sf.id);
+                  }}
                   className="text-muted-foreground hover:text-bet-lost transition-colors ml-2"
                   aria-label={`Delete filter: ${sf.name}`}
                 >
@@ -338,7 +409,12 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
 
       {/* Tournament Multi-Select Modal */}
       {showTournamentPicker && (
-        <Modal open={showTournamentPicker} onClose={() => setShowTournamentPicker(false)} title="Filter by League" size="md">
+        <Modal
+          open={showTournamentPicker}
+          onClose={() => setShowTournamentPicker(false)}
+          title="Filter by League"
+          size="md"
+        >
           <div className="space-y-3">
             <MultiSelect
               options={tournamentOptions}
@@ -348,7 +424,9 @@ export default function SearchFilterBar({ filters, onChange, activeBetType, line
               maxSelected={10}
             />
             <div className="flex justify-end">
-              <Button variant="primary" size="sm" onClick={() => setShowTournamentPicker(false)}>Done</Button>
+              <Button variant="primary" size="sm" onClick={() => setShowTournamentPicker(false)}>
+                Done
+              </Button>
             </div>
           </div>
         </Modal>

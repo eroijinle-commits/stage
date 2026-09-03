@@ -106,12 +106,8 @@
           "name": "bet_outcomes_bet_id_bets_id_fk",
           "tableFrom": "bet_outcomes",
           "tableTo": "bets",
-          "columnsFrom": [
-            "bet_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["bet_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

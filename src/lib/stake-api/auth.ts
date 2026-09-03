@@ -14,7 +14,7 @@ const TOKEN_REGEX = /^[a-zA-Z0-9\-_]{20,}$/;
  * Accepts alphanumeric strings, hyphens, and underscores with min length 20.
  */
 export function isValidTokenFormat(token: string): boolean {
-    return TOKEN_REGEX.test(token);
+  return TOKEN_REGEX.test(token);
 }
 
 /**
@@ -25,7 +25,7 @@ export function isValidTokenFormat(token: string): boolean {
  * @returns Balance data by currency
  */
 export async function getBalance(available = true, vault = false): Promise<BalanceResponse> {
-    const query = `
+  const query = `
     query StakeBalances {
       user {
         balances {
@@ -42,27 +42,27 @@ export async function getBalance(available = true, vault = false): Promise<Balan
     }
   `;
 
-    const data = await executeQuery<{
-        user: {
-            balances: Array<{
-                available: { amount: number; currency: string };
-                vault: { amount: number; currency: string };
-            }>;
-        };
-    }>({
-        query,
-        operationName: "StakeBalances",
-        operationType: "query",
-    });
+  const data = await executeQuery<{
+    user: {
+      balances: Array<{
+        available: { amount: number; currency: string };
+        vault: { amount: number; currency: string };
+      }>;
+    };
+  }>({
+    query,
+    operationName: "StakeBalances",
+    operationType: "query",
+  });
 
-    const balances = data.user.balances.map((b) => ({
-        currency: b.available.currency,
-        available: String(b.available.amount),
-        vault: vault ? String(b.vault.amount) : "0",
-        activeBonus: "0",
-    }));
+  const balances = data.user.balances.map((b) => ({
+    currency: b.available.currency,
+    available: String(b.available.amount),
+    vault: vault ? String(b.vault.amount) : "0",
+    activeBonus: "0",
+  }));
 
-    return { balances };
+  return { balances };
 }
 
 /**
@@ -70,23 +70,23 @@ export async function getBalance(available = true, vault = false): Promise<Balan
  * Returns true if the API is reachable and the token is valid.
  */
 export async function testConnection(): Promise<boolean> {
-    return testConnectionQuery();
+  return testConnectionQuery();
 }
 
 /**
  * Store the API token securely in localStorage.
  */
 export function saveToken(token: string | null): void {
-    setToken(token);
+  setToken(token);
 }
 
 /**
  * Retrieve the stored API token.
  */
 export function getStoredToken(): string | null {
-    try {
-        return localStorage.getItem("stake-api-token");
-    } catch {
-        return null;
-    }
+  try {
+    return localStorage.getItem("stake-api-token");
+  } catch {
+    return null;
+  }
 }

@@ -8,11 +8,29 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { DiscoveryFilters, DiscoveryFixture, BetTypeInfo } from "@/lib/contracts/ui.contract";
-import { getBetTypeById, getGroupForBetType, getLinesForBetType, getPopularBetTypes, extractLine, BET_TYPES, getBetTypesForSport } from "@/lib/utils/bet-type-mapper";
-import { getSportIndex, getFixtureDetailsQuery, type SportIndexData, type FixtureDetailsData } from "@/lib/stake-api/queries";
+import {
+  getBetTypeById,
+  getGroupForBetType,
+  getLinesForBetType,
+  getPopularBetTypes,
+  extractLine,
+  BET_TYPES,
+  getBetTypesForSport,
+} from "@/lib/utils/bet-type-mapper";
+import {
+  getSportIndex,
+  getFixtureDetailsQuery,
+  type SportIndexData,
+  type FixtureDetailsData,
+} from "@/lib/stake-api/queries";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { classifyError, getUserFriendlyMessage } from "@/lib/stake-api/errors";
-import type { StakeFixture, StakeMarket, StakeMarketOutcome, StakeGroupWithMarkets } from "@/lib/contracts/api.contract";
+import type {
+  StakeFixture,
+  StakeMarket,
+  StakeMarketOutcome,
+  StakeGroupWithMarkets,
+} from "@/lib/contracts/api.contract";
 import { PAGE_SIZE } from "@/components/discovery/types";
 
 // ─── Default Filters ────────────────────────────────────────────────────────
@@ -103,14 +121,16 @@ function mapFixtureToDiscovery(
 ): DiscoveryFixture {
   const data = fixture.data;
   const isMatch = data?.__typename === "SportFixtureDataMatch";
-  const competitors = isMatch && "competitors" in data
-    ? data.competitors.map((c) => ({ name: c.name, iconPath: c.iconPath }))
-    : [];
-  const startTime = isMatch && "startTime" in data
-    ? data.startTime
-    : data?.__typename === "SportFixtureDataOutright" && "startTime" in data
+  const competitors =
+    isMatch && "competitors" in data
+      ? data.competitors.map((c) => ({ name: c.name, iconPath: c.iconPath }))
+      : [];
+  const startTime =
+    isMatch && "startTime" in data
       ? data.startTime
-      : "";
+      : data?.__typename === "SportFixtureDataOutright" && "startTime" in data
+        ? data.startTime
+        : "";
 
   const isLive = fixture.status === "in_progress" || fixture.status === "live";
   const eventStatus = fixture.eventStatus;
@@ -130,9 +150,10 @@ function mapFixtureToDiscovery(
   const sportSlug = fixture.tournament?.category?.sport?.slug;
   const catSlug = fixture.tournament?.category?.slug;
   const tourSlug = fixture.tournament?.slug;
-  const stakeUrl = (sportSlug && catSlug && tourSlug && fixture.slug)
-    ? `https://stake.com/sports/${sportSlug}/${catSlug}/${tourSlug}/${fixture.slug}`
-    : undefined;
+  const stakeUrl =
+    sportSlug && catSlug && tourSlug && fixture.slug
+      ? `https://stake.com/sports/${sportSlug}/${catSlug}/${tourSlug}/${fixture.slug}`
+      : undefined;
 
   return {
     id: fixture.id,
@@ -153,7 +174,9 @@ function mapFixtureToDiscovery(
     },
     competitors,
     previewMarkets,
-    betTypeInfo: betType ? computeBetTypeInfo(fixtureWithMarkets, betType, betTypeLine, cachedGroups) : undefined,
+    betTypeInfo: betType
+      ? computeBetTypeInfo(fixtureWithMarkets, betType, betTypeLine, cachedGroups)
+      : undefined,
     sport: sportSlug,
     stakeUrl,
   };
@@ -171,7 +194,12 @@ function computeBetTypeInfo(
   if (!betType) return { betTypeName: "", line: betTypeLine, available: false };
 
   // Match against group names (from API hierarchy), not market names
-  const matchingOutcomes = findMatchingOutcomes(fixture, betType.templates, betTypeLine, cachedGroups);
+  const matchingOutcomes = findMatchingOutcomes(
+    fixture,
+    betType.templates,
+    betTypeLine,
+    cachedGroups,
+  );
 
   if (matchingOutcomes.length > 0) {
     return buildBetTypeInfoFromOutcomes(betTypeId, betType, betTypeLine, matchingOutcomes);
@@ -239,9 +267,7 @@ function findMatchingOutcomes(
 
     const marketName = market.name.toLowerCase();
 
-    const templateMatch = templates.some(
-      (t) => marketName.includes(t.toLowerCase()),
-    );
+    const templateMatch = templates.some((t) => marketName.includes(t.toLowerCase()));
     if (!templateMatch) continue;
 
     if (line) {
@@ -271,8 +297,18 @@ function buildBetTypeInfoFromOutcomes(
       return {
         betTypeName: betType.name,
         line,
-        overOutcome: { id: overOutcome.id, name: overOutcome.name, odds: overOutcome.odds, active: overOutcome.active },
-        underOutcome: { id: underOutcome.id, name: underOutcome.name, odds: underOutcome.odds, active: underOutcome.active },
+        overOutcome: {
+          id: overOutcome.id,
+          name: overOutcome.name,
+          odds: overOutcome.odds,
+          active: overOutcome.active,
+        },
+        underOutcome: {
+          id: underOutcome.id,
+          name: underOutcome.name,
+          odds: underOutcome.odds,
+          active: underOutcome.active,
+        },
         available: true,
       };
     }
@@ -283,7 +319,12 @@ function buildBetTypeInfoFromOutcomes(
       return {
         betTypeName: betType.name,
         line,
-        allOutcomes: activeOutcomes.map((o) => ({ id: o.id, name: o.name, odds: o.odds, active: o.active })),
+        allOutcomes: activeOutcomes.map((o) => ({
+          id: o.id,
+          name: o.name,
+          odds: o.odds,
+          active: o.active,
+        })),
         available: true,
       };
     }
@@ -309,13 +350,17 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
   const [rawFixtures, setRawFixtures] = useState<StakeFixture[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tournaments, setTournaments] = useState<Array<{ name: string; slug: string; category: { name: string } }>>([]);
+  const [tournaments, setTournaments] = useState<
+    Array<{ name: string; slug: string; category: { name: string } }>
+  >([]);
   const [page, setPage] = useState(1);
   const [fixtureDetails, setFixtureDetails] = useState<FixtureDetailsData | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [detailsError, setDetailsError] = useState<string | null>(null);
   // Cache of markets + group hierarchy fetched via fixture details, keyed by fixture ID
-  const [marketsCache, setMarketsCache] = useState<Map<string, { markets: StakeMarket[]; groups: StakeGroupWithMarkets[] }>>(new Map());
+  const [marketsCache, setMarketsCache] = useState<
+    Map<string, { markets: StakeMarket[]; groups: StakeGroupWithMarkets[] }>
+  >(new Map());
   const abortRef = useRef<AbortController | null>(null);
   const detailsAbortRef = useRef<AbortController | null>(null);
   const detailFetchAbortRef = useRef<AbortController | null>(null);
@@ -484,9 +529,7 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
 
     // Tournament filter
     if (filters.tournamentSlugs.length) {
-      list = list.filter((f) =>
-        filters.tournamentSlugs.includes(f.tournament.name),
-      );
+      list = list.filter((f) => filters.tournamentSlugs.includes(f.tournament.name));
     }
 
     // Bet type filter: show all fixtures; FixtureRow displays "Not Available" for
@@ -583,7 +626,7 @@ export function useDiscovery(initialSport?: string, externalTournamentSlugs?: st
 
   // ─── Derived bet type data ──────────────────────────────────────────────
 
-  const activeBetType = filters.betType ? getBetTypeById(filters.betType) ?? null : null;
+  const activeBetType = filters.betType ? (getBetTypeById(filters.betType) ?? null) : null;
   const popularBetTypes = getPopularBetTypes();
 
   // ─── Fixture detail loading ─────────────────────────────────────────────

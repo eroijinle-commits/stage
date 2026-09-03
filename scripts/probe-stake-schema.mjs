@@ -11,40 +11,40 @@
  */
 
 (async () => {
-    "use strict";
+  "use strict";
 
-    const ENDPOINT = "https://stake.com/_api/graphql";
-    const HEADERS = {
-        "Content-Type": "application/json",
-        "x-language": "en",
-        "x-operation-type": "query",
-    };
+  const ENDPOINT = "https://stake.com/_api/graphql";
+  const HEADERS = {
+    "Content-Type": "application/json",
+    "x-language": "en",
+    "x-operation-type": "query",
+  };
 
-    // Add auth token if available
-    const token = localStorage.getItem("stake-api-token");
-    if (token) HEADERS["x-access-token"] = token;
+  // Add auth token if available
+  const token = localStorage.getItem("stake-api-token");
+  if (token) HEADERS["x-access-token"] = token;
 
-    // ── All 7 queries your app uses ───────────────────────────────────────
+  // ── All 7 queries your app uses ───────────────────────────────────────
 
-    const probes = [
-        {
-            name: "1. SportList",
-            operationType: "query",
-            operationName: "SportList",
-            query: `query SportList {
+  const probes = [
+    {
+      name: "1. SportList",
+      operationType: "query",
+      operationName: "SportList",
+      query: `query SportList {
         sportList {
           id
           name
           slug
         }
       }`,
-            variables: {},
-        },
-        {
-            name: "2. StakeBalances",
-            operationType: "query",
-            operationName: "StakeBalances",
-            query: `query StakeBalances {
+      variables: {},
+    },
+    {
+      name: "2. StakeBalances",
+      operationType: "query",
+      operationName: "StakeBalances",
+      query: `query StakeBalances {
         user {
           balances {
             available {
@@ -58,14 +58,14 @@
           }
         }
       }`,
-            variables: {},
-        },
-        {
-            name: "3. SportDiscovery (needs sportId)",
-            operationType: "query",
-            operationName: "SportDiscovery",
-            // Uses a dummy sportId — will test field structure even if ID is wrong
-            query: `query SportDiscovery($sportId: String!) {
+      variables: {},
+    },
+    {
+      name: "3. SportDiscovery (needs sportId)",
+      operationType: "query",
+      operationName: "SportDiscovery",
+      // Uses a dummy sportId — will test field structure even if ID is wrong
+      query: `query SportDiscovery($sportId: String!) {
         sport(sportId: $sportId) {
           id
           name
@@ -141,14 +141,14 @@
           }
         }
       }`,
-            variables: { sportId: "1" }, // soccer = "1" typically
-        },
-        {
-            name: "4. FixturePage_SlugFixture (needs real slug)",
-            operationType: "query",
-            operationName: "FixturePage_SlugFixture",
-            // Uses a known fixture slug from your scraped data
-            query: `query FixturePage_SlugFixture($fixture: String!, $groups: [String!]!) {
+      variables: { sportId: "1" }, // soccer = "1" typically
+    },
+    {
+      name: "4. FixturePage_SlugFixture (needs real slug)",
+      operationType: "query",
+      operationName: "FixturePage_SlugFixture",
+      // Uses a known fixture slug from your scraped data
+      query: `query FixturePage_SlugFixture($fixture: String!, $groups: [String!]!) {
         slugFixture(fixture: $fixture) {
           id
           name
@@ -261,13 +261,13 @@
           }
         }
       }`,
-            variables: { fixture: "46818366-leeds-united-brentford", groups: ["main"] },
-        },
-        {
-            name: "5. StakeBetHistory",
-            operationType: "query",
-            operationName: "StakeBetHistory",
-            query: `query StakeBetHistory($limit: Int!, $offset: Int!, $status: [SportBetStatusEnum!]) {
+      variables: { fixture: "46818366-leeds-united-brentford", groups: ["main"] },
+    },
+    {
+      name: "5. StakeBetHistory",
+      operationType: "query",
+      operationName: "StakeBetHistory",
+      query: `query StakeBetHistory($limit: Int!, $offset: Int!, $status: [SportBetStatusEnum!]) {
         user {
           sportBetHistory(limit: $limit, offset: $offset, status: $status) {
             id
@@ -299,13 +299,13 @@
           sportBetCount(status: $status)
         }
       }`,
-            variables: { limit: 5, offset: 0, status: null },
-        },
-        {
-            name: "6. StakeActiveBetCount",
-            operationType: "query",
-            operationName: "StakeActiveBetCount",
-            query: `query StakeActiveBetCount {
+      variables: { limit: 5, offset: 0, status: null },
+    },
+    {
+      name: "6. StakeActiveBetCount",
+      operationType: "query",
+      operationName: "StakeActiveBetCount",
+      query: `query StakeActiveBetCount {
         user {
           activeBetCount
           activeBetsByType {
@@ -314,16 +314,16 @@
           }
         }
       }`,
-            variables: {},
-        },
-        {
-            name: "7. SportBet mutation (PROBE ONLY — sends minimal test)",
-            operationType: "mutation",
-            operationName: "SportBetSlip",
-            // This is a PROBE — it tests the query structure without actually placing a bet
-            // by using invalid outcome IDs that will fail at the business logic layer
-            // (not the GraphQL layer), proving the query structure is valid.
-            query: `mutation SportBetSlip(
+      variables: {},
+    },
+    {
+      name: "7. SportBet mutation (PROBE ONLY — sends minimal test)",
+      operationType: "mutation",
+      operationName: "SportBetSlip",
+      // This is a PROBE — it tests the query structure without actually placing a bet
+      // by using invalid outcome IDs that will fail at the business logic layer
+      // (not the GraphQL layer), proving the query structure is valid.
+      query: `mutation SportBetSlip(
         $outcomeIds: [String!]!,
         $amount: Float!,
         $currency: CurrencyEnum!,
@@ -361,106 +361,114 @@
           createdAt
         }
       }`,
-            variables: {
-                outcomeIds: ["probe-test-000"],
-                amount: 0.01,
-                currency: "NGN",
-                betType: "sports",
-                oddsChange: "higher",
-                stakeShieldEnabled: false,
-            },
-        },
-    ];
+      variables: {
+        outcomeIds: ["probe-test-000"],
+        amount: 0.01,
+        currency: "NGN",
+        betType: "sports",
+        oddsChange: "higher",
+        stakeShieldEnabled: false,
+      },
+    },
+  ];
 
-    // ── Run probes ────────────────────────────────────────────────────────
+  // ── Run probes ────────────────────────────────────────────────────────
 
-    console.log("═".repeat(60));
-    console.log("  Stake GraphQL Schema Probe");
-    console.log("═".repeat(60));
-    console.log("");
+  console.log("═".repeat(60));
+  console.log("  Stake GraphQL Schema Probe");
+  console.log("═".repeat(60));
+  console.log("");
 
-    const results = [];
+  const results = [];
 
-    for (const probe of probes) {
-        console.log(`⏳ Testing: ${probe.name}...`);
+  for (const probe of probes) {
+    console.log(`⏳ Testing: ${probe.name}...`);
 
-        try {
-            const headers = { ...HEADERS, "x-operation-type": probe.operationType };
-            const res = await fetch(ENDPOINT, {
-                method: "POST",
-                headers,
-                body: JSON.stringify({
-                    query: probe.query,
-                    variables: probe.variables,
-                    operationName: probe.operationName,
-                }),
-            });
+    try {
+      const headers = { ...HEADERS, "x-operation-type": probe.operationType };
+      const res = await fetch(ENDPOINT, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          query: probe.query,
+          variables: probe.variables,
+          operationName: probe.operationName,
+        }),
+      });
 
-            const body = await res.json();
+      const body = await res.json();
 
-            if (body.errors && body.errors.length > 0) {
-                const errMsgs = body.errors.map((e) => e.message).join("; ");
-                // Check if it's a GraphQL field error (schema issue) vs business logic error
-                const isSchemaError = errMsgs.includes("Cannot query field") ||
-                    errMsgs.includes("cannot be fetched") ||
-                    errMsgs.includes("Unknown field");
-                const isAuthError = res.status === 401 || errMsgs.includes("unauthorized") || errMsgs.includes("Not authenticated");
-                const isBusinessLogic = !isSchemaError && !isAuthError && res.status === 200;
+      if (body.errors && body.errors.length > 0) {
+        const errMsgs = body.errors.map((e) => e.message).join("; ");
+        // Check if it's a GraphQL field error (schema issue) vs business logic error
+        const isSchemaError =
+          errMsgs.includes("Cannot query field") ||
+          errMsgs.includes("cannot be fetched") ||
+          errMsgs.includes("Unknown field");
+        const isAuthError =
+          res.status === 401 ||
+          errMsgs.includes("unauthorized") ||
+          errMsgs.includes("Not authenticated");
+        const isBusinessLogic = !isSchemaError && !isAuthError && res.status === 200;
 
-                results.push({
-                    name: probe.name,
-                    status: isAuthError ? "⚠️ AUTH" : isBusinessLogic ? "✅ OK (logic err)" : "❌ SCHEMA ERROR",
-                    httpStatus: res.status,
-                    errors: errMsgs.slice(0, 200),
-                    data: body.data ? JSON.stringify(body.data).slice(0, 150) : null,
-                });
+        results.push({
+          name: probe.name,
+          status: isAuthError
+            ? "⚠️ AUTH"
+            : isBusinessLogic
+              ? "✅ OK (logic err)"
+              : "❌ SCHEMA ERROR",
+          httpStatus: res.status,
+          errors: errMsgs.slice(0, 200),
+          data: body.data ? JSON.stringify(body.data).slice(0, 150) : null,
+        });
 
-                if (isSchemaError) {
-                    console.error(`  ❌ SCHEMA ERROR: ${errMsgs}`);
-                } else if (isAuthError) {
-                    console.warn(`  ⚠️  AUTH REQUIRED: ${errMsgs}`);
-                } else {
-                    console.log(`  ✅ Query valid (business logic rejection is expected)`);
-                    if (body.errors) console.log(`     Logic errors: ${errMsgs.slice(0, 150)}`);
-                }
-            } else {
-                results.push({
-                    name: probe.name,
-                    status: "✅ OK",
-                    httpStatus: res.status,
-                    errors: null,
-                    data: body.data ? JSON.stringify(body.data).slice(0, 150) : null,
-                });
-                console.log(`  ✅ Success!`);
-                if (body.data) console.log(`     Data: ${JSON.stringify(body.data).slice(0, 150)}`);
-            }
-        } catch (err) {
-            results.push({
-                name: probe.name,
-                status: "💥 FETCH ERROR",
-                httpStatus: null,
-                errors: err.message,
-                data: null,
-            });
-            console.error(`  💥 Error: ${err.message}`);
+        if (isSchemaError) {
+          console.error(`  ❌ SCHEMA ERROR: ${errMsgs}`);
+        } else if (isAuthError) {
+          console.warn(`  ⚠️  AUTH REQUIRED: ${errMsgs}`);
+        } else {
+          console.log(`  ✅ Query valid (business logic rejection is expected)`);
+          if (body.errors) console.log(`     Logic errors: ${errMsgs.slice(0, 150)}`);
         }
+      } else {
+        results.push({
+          name: probe.name,
+          status: "✅ OK",
+          httpStatus: res.status,
+          errors: null,
+          data: body.data ? JSON.stringify(body.data).slice(0, 150) : null,
+        });
+        console.log(`  ✅ Success!`);
+        if (body.data) console.log(`     Data: ${JSON.stringify(body.data).slice(0, 150)}`);
+      }
+    } catch (err) {
+      results.push({
+        name: probe.name,
+        status: "💥 FETCH ERROR",
+        httpStatus: null,
+        errors: err.message,
+        data: null,
+      });
+      console.error(`  💥 Error: ${err.message}`);
     }
+  }
 
-    // ── Summary table ─────────────────────────────────────────────────────
+  // ── Summary table ─────────────────────────────────────────────────────
 
-    console.log("");
-    console.log("═".repeat(60));
-    console.log("  RESULTS SUMMARY");
-    console.log("═".repeat(60));
-    console.table(results);
+  console.log("");
+  console.log("═".repeat(60));
+  console.log("  RESULTS SUMMARY");
+  console.log("═".repeat(60));
+  console.table(results);
 
-    // Copy results to clipboard
-    const json = JSON.stringify(results, null, 2);
-    if (navigator.clipboard) {
-        await navigator.clipboard.writeText(json);
-        console.log("\n✓ Results copied to clipboard — paste them back in the chat");
-    }
+  // Copy results to clipboard
+  const json = JSON.stringify(results, null, 2);
+  if (navigator.clipboard) {
+    await navigator.clipboard.writeText(json);
+    console.log("\n✓ Results copied to clipboard — paste them back in the chat");
+  }
 
-    window.__stakeProbeResults = results;
-    console.log("✓ Also stored in window.__stakeProbeResults");
+  window.__stakeProbeResults = results;
+  console.log("✓ Also stored in window.__stakeProbeResults");
 })();

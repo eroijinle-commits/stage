@@ -3,8 +3,23 @@ import { useSettingsStore } from "@/store/useSettingsStore";
 import { useBetSlip } from "@/hooks/useBetSlip";
 import { useSlipStore, type SlipData } from "@/store/useSlipStore";
 import { cn } from "@/lib/utils/cn";
-import { getShieldFeeRate, calculatePotentialReturn, calculateTotalStake } from "@/lib/state/slipLogic";
-import { X, Trash2, Share2, Save, FolderOpen, ChevronDown, ChevronUp, Copy, Check, ChevronRight } from "lucide-react";
+import {
+  getShieldFeeRate,
+  calculatePotentialReturn,
+  calculateTotalStake,
+} from "@/lib/state/slipLogic";
+import {
+  X,
+  Trash2,
+  Share2,
+  Save,
+  FolderOpen,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Check,
+  ChevronRight,
+} from "lucide-react";
 import { Button } from "@/components/ui";
 import SlipItem from "@/components/slip/SlipItem";
 import { useState, useCallback, useMemo } from "react";
@@ -83,12 +98,18 @@ function ComputeSlipCard({
                     useSlipStore.setState((st) => ({
                       slips: st.slips.map((s) =>
                         s.id === slip.id
-                          ? { ...s, mode: m, stakeShieldEnabled: m !== "parlay" ? false : s.stakeShieldEnabled }
+                          ? {
+                              ...s,
+                              mode: m,
+                              stakeShieldEnabled: m !== "parlay" ? false : s.stakeShieldEnabled,
+                            }
                           : s,
                       ),
                     }));
                   }}
-                  title={disabled ? "Parlays cannot combine selections from the same match" : undefined}
+                  title={
+                    disabled ? "Parlays cannot combine selections from the same match" : undefined
+                  }
                   className={cn(
                     "flex-1 py-0.5 text-[10px] font-mono rounded transition-colors capitalize",
                     slip.mode === m
@@ -126,14 +147,18 @@ function ComputeSlipCard({
                   <span>🛡️</span>
                   <span>Stake Shield</span>
                 </span>
-                <span className={cn(
-                  "w-6 h-3.5 rounded-full transition-colors relative",
-                  slip.stakeShieldEnabled ? "bg-primary" : "bg-muted",
-                )}>
-                  <span className={cn(
-                    "absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-transform",
-                    slip.stakeShieldEnabled ? "translate-x-3" : "translate-x-0.5",
-                  )} />
+                <span
+                  className={cn(
+                    "w-6 h-3.5 rounded-full transition-colors relative",
+                    slip.stakeShieldEnabled ? "bg-primary" : "bg-muted",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white transition-transform",
+                      slip.stakeShieldEnabled ? "translate-x-3" : "translate-x-0.5",
+                    )}
+                  />
                 </span>
               </button>
             </div>
@@ -147,7 +172,7 @@ function ComputeSlipCard({
                 <SlipItem
                   key={s.id}
                   selection={s}
-                  onRemove={() => { }}
+                  onRemove={() => {}}
                   mode={slip.mode}
                   result={result}
                 />
@@ -175,9 +200,7 @@ function ComputeSlipCard({
                 onChange={(e) => {
                   const val = parseFloat(e.target.value) || 0;
                   useSlipStore.setState((st) => ({
-                    slips: st.slips.map((s) =>
-                      s.id === slip.id ? { ...s, stakePerLeg: val } : s,
-                    ),
+                    slips: st.slips.map((s) => (s.id === slip.id ? { ...s, stakePerLeg: val } : s)),
                   }));
                 }}
                 className="w-full bg-secondary border border-border rounded px-2 py-1 text-[10px] font-mono text-right focus:outline-none focus:border-ring"
@@ -192,7 +215,11 @@ function ComputeSlipCard({
             <div className="flex items-center justify-between text-xs font-mono font-semibold">
               <span className="text-muted-foreground">Potential Return</span>
               <span className="text-primary tabular-nums">
-                {currency} {potentialReturn.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {currency}{" "}
+                {potentialReturn.toLocaleString("en-NG", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
             </div>
             {slip.lastError && (
@@ -211,10 +238,12 @@ function ComputeSlipCard({
                 {slip.isPlacing ? "Placing..." : "Place Bet"}
               </Button>
             ) : (
-              <div className={cn(
-                "text-[10px] font-mono text-center py-1",
-                slip.placeResults.some((r) => r.success) ? "text-bet-won" : "text-bet-lost",
-              )}>
+              <div
+                className={cn(
+                  "text-[10px] font-mono text-center py-1",
+                  slip.placeResults.some((r) => r.success) ? "text-bet-won" : "text-bet-lost",
+                )}
+              >
                 {slip.placeResults.some((r) => r.success)
                   ? `Placed · ${slip.placeResults.filter((r) => r.success).length} bet(s) successful`
                   : "Bet placement failed"}
@@ -276,10 +305,7 @@ export default function BetSlipDrawer() {
 
   const displayReturn =
     mode === "singles"
-      ? selections.reduce(
-        (acc, s) => acc + (stakes[s.id] ?? stakePerLeg) * s.odds,
-        0,
-      )
+      ? selections.reduce((acc, s) => acc + (stakes[s.id] ?? stakePerLeg) * s.odds, 0)
       : potentialReturn;
 
   const placed = placeResults.length > 0;
@@ -293,12 +319,15 @@ export default function BetSlipDrawer() {
     const text = data.link
       ? `${data.code}\nStake fixture: ${data.link}\nRestore in Stage: ${data.stageLink}`
       : data.stageLink;
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {
-      prompt("Copy this slip:", text);
-    });
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        prompt("Copy this slip:", text);
+      });
   }, [shareSlip]);
 
   const handleSave = useCallback(() => {
@@ -308,15 +337,14 @@ export default function BetSlipDrawer() {
     setShowSaveInput(false);
   }, [saveName, saveSlip]);
 
-  const hasContent = selections.length > 0 || allSlips.some((s) => s.selections.length > 0 && s.id !== allSlips[0]?.id);
+  const hasContent =
+    selections.length > 0 ||
+    allSlips.some((s) => s.selections.length > 0 && s.id !== allSlips[0]?.id);
 
   return (
     <>
       {slipOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-30"
-          onClick={() => toggleSlip(false)}
-        />
+        <div className="fixed inset-0 bg-black/40 z-30" onClick={() => toggleSlip(false)} />
       )}
       <div
         className={cn(
@@ -338,13 +366,15 @@ export default function BetSlipDrawer() {
               <>
                 <button
                   onClick={handleShare}
-                  className="text-muted-foreground hover:text-primary transition-colors p-1" title="Copy bet slip"
+                  className="text-muted-foreground hover:text-primary transition-colors p-1"
+                  title="Copy bet slip"
                 >
                   {copied ? <Check size={13} className="text-bet-won" /> : <Share2 size={13} />}
                 </button>
                 <button
                   onClick={() => setShowSaveInput((v) => !v)}
-                  className="text-muted-foreground hover:text-primary transition-colors p-1" title="Save slip"
+                  className="text-muted-foreground hover:text-primary transition-colors p-1"
+                  title="Save slip"
                 >
                   <Save size={13} />
                 </button>
@@ -407,14 +437,33 @@ export default function BetSlipDrawer() {
             {showSavedSlips && (
               <div className="px-3 pb-2 space-y-1 max-h-40 overflow-y-auto">
                 {savedSlips.map((slip) => (
-                  <div key={slip.id} className="flex items-center justify-between gap-2 py-1 px-2 rounded bg-secondary/50 text-[10px] font-mono">
+                  <div
+                    key={slip.id}
+                    className="flex items-center justify-between gap-2 py-1 px-2 rounded bg-secondary/50 text-[10px] font-mono"
+                  >
                     <div className="flex-1 min-w-0">
                       <span className="text-foreground truncate block">{slip.name}</span>
-                      <span className="text-muted-foreground">{slip.selections.length} leg{slip.selections.length !== 1 ? "s" : ""} · {slip.mode}</span>
+                      <span className="text-muted-foreground">
+                        {slip.selections.length} leg{slip.selections.length !== 1 ? "s" : ""} ·{" "}
+                        {slip.mode}
+                      </span>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => { loadSlip(slip.id); setShowSavedSlips(false); }} className="text-primary hover:text-primary/80 transition-colors px-1">Load</button>
-                      <button onClick={() => deleteSavedSlip(slip.id)} className="text-bet-lost/60 hover:text-bet-lost transition-colors px-1">Del</button>
+                      <button
+                        onClick={() => {
+                          loadSlip(slip.id);
+                          setShowSavedSlips(false);
+                        }}
+                        className="text-primary hover:text-primary/80 transition-colors px-1"
+                      >
+                        Load
+                      </button>
+                      <button
+                        onClick={() => deleteSavedSlip(slip.id)}
+                        className="text-bet-lost/60 hover:text-bet-lost transition-colors px-1"
+                      >
+                        Del
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -433,7 +482,9 @@ export default function BetSlipDrawer() {
             {selections.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center gap-1 px-1">
-                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Manual Slip</span>
+                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+                    Manual Slip
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-1">
@@ -471,19 +522,25 @@ export default function BetSlipDrawer() {
                         <span>🛡️</span>
                         <span>Stake Shield</span>
                       </span>
-                      <span className={cn(
-                        "w-7 h-4 rounded-full transition-colors relative",
-                        stakeShieldEnabled ? "bg-primary" : "bg-muted",
-                      )}>
-                        <span className={cn(
-                          "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform",
-                          stakeShieldEnabled ? "translate-x-3.5" : "translate-x-0.5",
-                        )} />
+                      <span
+                        className={cn(
+                          "w-7 h-4 rounded-full transition-colors relative",
+                          stakeShieldEnabled ? "bg-primary" : "bg-muted",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform",
+                            stakeShieldEnabled ? "translate-x-3.5" : "translate-x-0.5",
+                          )}
+                        />
                       </span>
                     </button>
                     {stakeShieldEnabled && (
                       <div className="mt-1 px-2.5 text-[10px] font-mono text-muted-foreground">
-                        <span className="text-primary/70">🛡️</span> Fee: {(getShieldFeeRate(selections.length) * 100).toFixed(0)}% — potential return reduced
+                        <span className="text-primary/70">🛡️</span> Fee:{" "}
+                        {(getShieldFeeRate(selections.length) * 100).toFixed(0)}% — potential return
+                        reduced
                       </div>
                     )}
                   </div>
@@ -498,9 +555,7 @@ export default function BetSlipDrawer() {
                         selection={s}
                         onRemove={() => removeSelection(s.id)}
                         stake={stakes[s.id] ?? stakePerLeg}
-                        onStakeChange={(v) =>
-                          setStakes((prev) => ({ ...prev, [s.id]: v }))
-                        }
+                        onStakeChange={(v) => setStakes((prev) => ({ ...prev, [s.id]: v }))}
                         mode={mode}
                         result={result}
                       />
@@ -535,7 +590,11 @@ export default function BetSlipDrawer() {
                   <div className="flex items-center justify-between text-sm font-mono font-semibold">
                     <span className="text-muted-foreground">Potential Return</span>
                     <span className="text-primary tabular-nums">
-                      {currency} {displayReturn.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {currency}{" "}
+                      {displayReturn.toLocaleString("en-NG", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </span>
                   </div>
                   {!placed && lastError && (
@@ -556,11 +615,7 @@ export default function BetSlipDrawer() {
                         : `Place ${selections.length} Bet${selections.length !== 1 ? "s" : ""}`}
                     </Button>
                   ) : (
-                    <Button
-                      variant="outline"
-                      fullWidth
-                      onClick={clearSelections}
-                    >
+                    <Button variant="outline" fullWidth onClick={clearSelections}>
                       Clear Slip
                     </Button>
                   )}
@@ -569,12 +624,18 @@ export default function BetSlipDrawer() {
             )}
 
             {/* ── Compute Slips Section ───────────────────────────────── */}
-            {allSlips.filter((s) => s.selections.length > 0 && s.id !== allSlips[0]?.id).length > 0 && (
+            {allSlips.filter((s) => s.selections.length > 0 && s.id !== allSlips[0]?.id).length >
+              0 && (
               <div className="space-y-2">
                 {selections.length > 0 && (
                   <div className="flex items-center justify-between px-1 pt-2 border-t border-border">
                     <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
-                      Compute Slips ({allSlips.filter((s) => s.selections.length > 0 && s.id !== allSlips[0]?.id).length})
+                      Compute Slips (
+                      {
+                        allSlips.filter((s) => s.selections.length > 0 && s.id !== allSlips[0]?.id)
+                          .length
+                      }
+                      )
                     </span>
                     <button
                       onClick={() => {

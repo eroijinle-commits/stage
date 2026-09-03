@@ -11,185 +11,185 @@
 
 /** All known Stake market group identifiers, grouped by category. */
 export const STAKE_MARKET_GROUPS: string[] = [
-    // ── Match result / outcome ──
-    "main",
-    "result",
-    "doubleChance",
-    "drawNoBet",
-    "threeWayHandicap",
+  // ── Match result / outcome ──
+  "main",
+  "result",
+  "doubleChance",
+  "drawNoBet",
+  "threeWayHandicap",
 
-    // ── Goals / scoring ──
-    "goals",
-    "totalGoals",
-    "totalGoalsOddEven",
-    "bothTeamsToScore",
-    "cleanSheet",
-    "teamTotalGoals",
-    "firstGoal",
-    "lastGoal",
-    "goalScorer",
-    "correctScore",
-    "scorecast",
-    "winningMargin",
-    "highestScoringQuarter",
-    "halfWithMostGoals",
+  // ── Goals / scoring ──
+  "goals",
+  "totalGoals",
+  "totalGoalsOddEven",
+  "bothTeamsToScore",
+  "cleanSheet",
+  "teamTotalGoals",
+  "firstGoal",
+  "lastGoal",
+  "goalScorer",
+  "correctScore",
+  "scorecast",
+  "winningMargin",
+  "highestScoringQuarter",
+  "halfWithMostGoals",
 
-    // ── Handicap / spread ──
-    "handicap",
-    "asianHandicap",
-    "europeanHandicap",
+  // ── Handicap / spread ──
+  "handicap",
+  "asianHandicap",
+  "europeanHandicap",
 
-    // ── Corners ──
-    "corners",
-    "totalCorners",
-    "cornerHandicap",
-    "cornerRace",
-    "firstCorner",
-    "lastCorner",
+  // ── Corners ──
+  "corners",
+  "totalCorners",
+  "cornerHandicap",
+  "cornerRace",
+  "firstCorner",
+  "lastCorner",
 
-    // ── Cards ──
-    "cards",
-    "totalCards",
-    "cardHandicap",
-    "firstCard",
-    "lastCard",
-    "redCard",
-    "yellowCard",
+  // ── Cards ──
+  "cards",
+  "totalCards",
+  "cardHandicap",
+  "firstCard",
+  "lastCard",
+  "redCard",
+  "yellowCard",
 
-    // ── Half / period ──
-    "halfTime",
-    "halfTimeResult",
-    "halfTimeScore",
-    "halfTimeHandicap",
-    "halfTimeTotalGoals",
-    "secondHalf",
-    "firstHalfGoals",
-    "secondHalfGoals",
-    "ht_ft",
-    "period",
+  // ── Half / period ──
+  "halfTime",
+  "halfTimeResult",
+  "halfTimeScore",
+  "halfTimeHandicap",
+  "halfTimeTotalGoals",
+  "secondHalf",
+  "firstHalfGoals",
+  "secondHalfGoals",
+  "ht_ft",
+  "period",
 
-    // ── Player props ──
-    "playerProps",
-    "playerGoals",
-    "playerAssists",
-    "playerCards",
-    "playerCorners",
-    "playerShots",
-    "playerOnTarget",
-    "playerTackles",
-    "playerToScore",
-    "playerToBeBooked",
-    "anytimeScorer",
-    "firstScorer",
-    "lastScorer",
+  // ── Player props ──
+  "playerProps",
+  "playerGoals",
+  "playerAssists",
+  "playerCards",
+  "playerCorners",
+  "playerShots",
+  "playerOnTarget",
+  "playerTackles",
+  "playerToScore",
+  "playerToBeBooked",
+  "anytimeScorer",
+  "firstScorer",
+  "lastScorer",
 
-    // ── Team props ──
-    "teamProps",
-    "teamToScore",
-    "teamTotalGoals",
-    "teamCorners",
-    "teamCards",
-    "teamShots",
-    "teamToScoreFirst",
-    "teamCleanSheet",
-    "teamWinsBothHalves",
-    "teamToScoreInBothHalves",
+  // ── Team props ──
+  "teamProps",
+  "teamToScore",
+  "teamTotalGoals",
+  "teamCorners",
+  "teamCards",
+  "teamShots",
+  "teamToScoreFirst",
+  "teamCleanSheet",
+  "teamWinsBothHalves",
+  "teamToScoreInBothHalves",
 
-    // ── Shots / xG ──
-    "shots",
-    "totalShots",
-    "shotsOnTarget",
-    "shotsOffTarget",
-    "shotsOnTargetHandicap",
+  // ── Shots / xG ──
+  "shots",
+  "totalShots",
+  "shotsOnTarget",
+  "shotsOffTarget",
+  "shotsOnTargetHandicap",
 
-    // ── Throw-ins / offsides / fouls ──
-    "throwIns",
-    "offsides",
-    "fouls",
-    "freeKicks",
+  // ── Throw-ins / offsides / fouls ──
+  "throwIns",
+  "offsides",
+  "fouls",
+  "freeKicks",
 
-    // ── Penalties ──
-    "penalty",
-    "penaltyShootout",
+  // ── Penalties ──
+  "penalty",
+  "penaltyShootout",
 
-    // ── Match events ──
-    "ownGoal",
-    "overtime",
-    "extraTime",
-    "penalty shootout",
+  // ── Match events ──
+  "ownGoal",
+  "overtime",
+  "extraTime",
+  "penalty shootout",
 
-    // ── Outright / tournament ──
-    "outright",
-    "tournamentWinner",
-    "topScorer",
-    "toQualify",
-    "groupWinner",
-    "stageOfElimination",
+  // ── Outright / tournament ──
+  "outright",
+  "tournamentWinner",
+  "topScorer",
+  "toQualify",
+  "groupWinner",
+  "stageOfElimination",
 
-    // ── Esports specific ──
-    "mapWinner",
-    "roundWinner",
-    "totalRounds",
-    "firstBlood",
-    "firstTower",
-    "firstDragon",
-    "handicapMaps",
-    "totalMaps",
-    "mapHandicap",
+  // ── Esports specific ──
+  "mapWinner",
+  "roundWinner",
+  "totalRounds",
+  "firstBlood",
+  "firstTower",
+  "firstDragon",
+  "handicapMaps",
+  "totalMaps",
+  "mapHandicap",
 
-    // ── Basketball specific ──
-    "pointSpread",
-    "totalPoints",
-    "moneyline",
-    "quarterWinner",
-    "halfWinner",
-    "teamTotalPoints",
+  // ── Basketball specific ──
+  "pointSpread",
+  "totalPoints",
+  "moneyline",
+  "quarterWinner",
+  "halfWinner",
+  "teamTotalPoints",
 
-    // ── Tennis specific ──
-    "setWinner",
-    "totalSets",
-    "setHandicap",
-    "gameHandicap",
-    "totalGames",
-    "tieBreak",
-    "firstSetWinner",
+  // ── Tennis specific ──
+  "setWinner",
+  "totalSets",
+  "setHandicap",
+  "gameHandicap",
+  "totalGames",
+  "tieBreak",
+  "firstSetWinner",
 
-    // ── Cricket specific ──
-    "innings",
-    "runs",
-    "wickets",
-    "playerRuns",
-    "manOfTheMatch",
+  // ── Cricket specific ──
+  "innings",
+  "runs",
+  "wickets",
+  "playerRuns",
+  "manOfTheMatch",
 
-    // ── MMA / Boxing ──
-    "methodOfVictory",
-    "roundGroup",
-    "goTheDistance",
-    "knockout",
+  // ── MMA / Boxing ──
+  "methodOfVictory",
+  "roundGroup",
+  "goTheDistance",
+  "knockout",
 
-    // ── US Sports ──
-    "runLine",
-    "puckLine",
-    "totals",
-    "futures",
-    "playerRebounds",
-    "playerAssists",
-    "playerPoints",
-    "teamRebounds",
-    "teamAssists",
-    "teamSteals",
-    "teamBlocks",
+  // ── US Sports ──
+  "runLine",
+  "puckLine",
+  "totals",
+  "futures",
+  "playerRebounds",
+  "playerAssists",
+  "playerPoints",
+  "teamRebounds",
+  "teamAssists",
+  "teamSteals",
+  "teamBlocks",
 
-    // ── Generic / catch-all ──
-    "specials",
-    "combos",
-    "multiples",
-    "boosts",
-    "enhanced",
-    "matchups",
-    "headToHead",
-    "performance",
-    "raceTo",
+  // ── Generic / catch-all ──
+  "specials",
+  "combos",
+  "multiples",
+  "boosts",
+  "enhanced",
+  "matchups",
+  "headToHead",
+  "performance",
+  "raceTo",
 ];
 
 /**
@@ -197,7 +197,7 @@ export const STAKE_MARKET_GROUPS: string[] = [
  * Use when you want to ensure no duplicates before passing to the API.
  */
 export function getUniqueGroups(extra?: string[]): string[] {
-    const base = [...STAKE_MARKET_GROUPS];
-    if (extra) base.push(...extra);
-    return [...new Set(base)];
+  const base = [...STAKE_MARKET_GROUPS];
+  if (extra) base.push(...extra);
+  return [...new Set(base)];
 }

@@ -22,7 +22,7 @@ import type { FixtureDetailsData } from "@/lib/stake-api/queries";
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
 vi.mock("@/lib/stake-api/queries", () => ({
-    getFixtureDetailsQuery: vi.fn(),
+  getFixtureDetailsQuery: vi.fn(),
 }));
 
 import { getFixtureDetailsQuery } from "@/lib/stake-api/queries";
@@ -31,180 +31,172 @@ const mockGetFixtureDetails = vi.mocked(getFixtureDetailsQuery);
 // ─── Test helpers ────────────────────────────────────────────────────────────
 
 function makeFixture(overrides: Partial<DiscoveryFixture> = {}): DiscoveryFixture {
-    return {
-        id: "f1",
-        name: "Arsenal vs Chelsea",
-        slug: "arsenal-vs-chelsea",
-        startTime: "2026-08-30T15:00:00Z",
-        status: "not_started",
-        tournament: {
-            name: "Premier League",
-            slug: "premier-league",
-            category: { name: "England", slug: "england" },
-        },
-        competitors: [{ name: "Arsenal" }, { name: "Chelsea" }],
-        sport: "soccer",
-        stakeUrl: "https://stake.com/sports/soccer/arsenal-vs-chelsea",
-        ...overrides,
-    };
+  return {
+    id: "f1",
+    name: "Arsenal vs Chelsea",
+    slug: "arsenal-vs-chelsea",
+    startTime: "2026-08-30T15:00:00Z",
+    status: "not_started",
+    tournament: {
+      name: "Premier League",
+      slug: "premier-league",
+      category: { name: "England", slug: "england" },
+    },
+    competitors: [{ name: "Arsenal" }, { name: "Chelsea" }],
+    sport: "soccer",
+    stakeUrl: "https://stake.com/sports/soccer/arsenal-vs-chelsea",
+    ...overrides,
+  };
 }
 
 /** Build a minimal StakeFixture from a DiscoveryFixture. */
 function makeStakeFixture(f: DiscoveryFixture): StakeFixture {
-    return {
-        id: f.id,
-        name: f.name,
-        slug: f.slug,
-        status: f.status,
-        data: {
-            __typename: "SportFixtureDataMatch" as const,
-            startTime: f.startTime,
-            isOutright: false,
-            competitors: (f.competitors ?? []).map((c) => ({
-                name: c.name,
-                defaultName: c.name,
-                extId: c.name,
-            })),
-        },
-        tournament: f.tournament
-            ? {
-                id: "t1",
-                name: f.tournament.name,
-                slug: f.tournament.slug ?? "",
-                category: {
-                    id: "c1",
-                    name: f.tournament.category.name,
-                    slug: f.tournament.category.slug ?? "",
-                    sport: { id: "s1", name: f.sport ?? "soccer", slug: f.sport ?? "soccer" },
-                },
-            }
-            : undefined,
-    };
+  return {
+    id: f.id,
+    name: f.name,
+    slug: f.slug,
+    status: f.status,
+    data: {
+      __typename: "SportFixtureDataMatch" as const,
+      startTime: f.startTime,
+      isOutright: false,
+      competitors: (f.competitors ?? []).map((c) => ({
+        name: c.name,
+        defaultName: c.name,
+        extId: c.name,
+      })),
+    },
+    tournament: f.tournament
+      ? {
+          id: "t1",
+          name: f.tournament.name,
+          slug: f.tournament.slug ?? "",
+          category: {
+            id: "c1",
+            name: f.tournament.category.name,
+            slug: f.tournament.category.slug ?? "",
+            sport: { id: "s1", name: f.sport ?? "soccer", slug: f.sport ?? "soccer" },
+          },
+        }
+      : undefined,
+  };
 }
 
 /** Helper to build a FixtureDetailsData from groups + fixture. */
 function makeFixtureDetails(
-    marketGroups: StakeGroupWithMarkets[],
-    fixture?: DiscoveryFixture,
+  marketGroups: StakeGroupWithMarkets[],
+  fixture?: DiscoveryFixture,
 ): FixtureDetailsData {
-    const f = fixture ?? makeFixture();
-    return { fixture: makeStakeFixture(f), marketGroups };
+  const f = fixture ?? makeFixture();
+  return { fixture: makeStakeFixture(f), marketGroups };
 }
 
 function makeOutcome(id: string, odds: number, active = true) {
-    return {
-        __typename: "SportMarketOutcome" as const,
-        id,
-        active,
-        odds,
-        name: `Outcome ${id}`,
-    };
+  return {
+    __typename: "SportMarketOutcome" as const,
+    id,
+    active,
+    odds,
+    name: `Outcome ${id}`,
+  };
 }
 
 /** Build a StakeGroupWithMarkets with the given market/outcome structure. */
 function makeApiGroup(
-    name: string,
-    translation: string,
-    marketConfigs: Array<{ id: string; name: string; odds: number[] }>,
+  name: string,
+  translation: string,
+  marketConfigs: Array<{ id: string; name: string; odds: number[] }>,
 ): StakeGroupWithMarkets {
-    return {
-        name,
-        translation,
+  return {
+    name,
+    translation,
+    rank: 1,
+    templates: [
+      {
+        id: `tpl-${name}`,
+        extId: `ext-tpl-${name}`,
         rank: 1,
-        templates: [
-            {
-                id: `tpl-${name}`,
-                extId: `ext-tpl-${name}`,
-                rank: 1,
-                name: `Template ${name}`,
-                markets: marketConfigs.map((m) => ({
-                    id: m.id,
-                    name: m.name,
-                    status: "active" as const,
-                    extId: `ext-${m.id}`,
-                    provider: "test",
-                    outcomes: m.odds.map((odds, i) =>
-                        makeOutcome(`${m.id}-o${i}`, odds),
-                    ),
-                })),
-            },
-        ],
-    };
+        name: `Template ${name}`,
+        markets: marketConfigs.map((m) => ({
+          id: m.id,
+          name: m.name,
+          status: "active" as const,
+          extId: `ext-${m.id}`,
+          provider: "test",
+          outcomes: m.odds.map((odds, i) => makeOutcome(`${m.id}-o${i}`, odds)),
+        })),
+      },
+    ],
+  };
 }
 
 /** Build a realistic API response with 4 market groups (7 binary + 1 ternary). */
 function makeRichApiGroups(): StakeGroupWithMarkets[] {
-    return [
-        makeApiGroup("Goals", "Goals", [
-            { id: "g1", name: "Over/Under 2.5", odds: [1.85, 2.10] },
-            { id: "g2", name: "Both Teams To Score", odds: [1.95, 1.90] },
-        ]),
-        makeApiGroup("Corners", "Corners", [
-            { id: "c1", name: "Over/Under 9.5 Corners", odds: [1.70, 2.20] },
-            { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
-        ]),
-        makeApiGroup("Cards", "Cards", [
-            { id: "cd1", name: "Over/Under 3.5 Cards", odds: [1.65, 2.30] },
-            { id: "cd2", name: "Red Card Yes/No", odds: [6.00, 1.12] },
-        ]),
-        makeApiGroup("Halftime", "Halftime", [
-            { id: "h1", name: "HT Result", odds: [2.50, 3.20, 2.80] },
-            { id: "h2", name: "HT Over/Under 1.5", odds: [1.90, 1.90] },
-        ]),
-    ];
+  return [
+    makeApiGroup("Goals", "Goals", [
+      { id: "g1", name: "Over/Under 2.5", odds: [1.85, 2.1] },
+      { id: "g2", name: "Both Teams To Score", odds: [1.95, 1.9] },
+    ]),
+    makeApiGroup("Corners", "Corners", [
+      { id: "c1", name: "Over/Under 9.5 Corners", odds: [1.7, 2.2] },
+      { id: "c2", name: "Corner Handicap", odds: [1.8, 2.0] },
+    ]),
+    makeApiGroup("Cards", "Cards", [
+      { id: "cd1", name: "Over/Under 3.5 Cards", odds: [1.65, 2.3] },
+      { id: "cd2", name: "Red Card Yes/No", odds: [6.0, 1.12] },
+    ]),
+    makeApiGroup("Halftime", "Halftime", [
+      { id: "h1", name: "HT Result", odds: [2.5, 3.2, 2.8] },
+      { id: "h2", name: "HT Over/Under 1.5", odds: [1.9, 1.9] },
+    ]),
+  ];
 }
 
-function makeRankedMarket(
-    id: string,
-    name: string,
-    oddsList: number[],
-): RankedMarket {
-    const outcomes = oddsList.map((odds, i) => makeOutcome(`${id}-o${i}`, odds));
-    return {
-        market: {
-            id,
-            name,
-            status: "active" as const,
-            extId: `ext-${id}`,
-            provider: "test",
-            outcomes,
-        },
-        highestOdds: Math.max(...oddsList),
-        outcomeCount: oddsList.length,
-    };
+function makeRankedMarket(id: string, name: string, oddsList: number[]): RankedMarket {
+  const outcomes = oddsList.map((odds, i) => makeOutcome(`${id}-o${i}`, odds));
+  return {
+    market: {
+      id,
+      name,
+      status: "active" as const,
+      extId: `ext-${id}`,
+      provider: "test",
+      outcomes,
+    },
+    highestOdds: Math.max(...oddsList),
+    outcomeCount: oddsList.length,
+  };
 }
 
 /** Get compute slips (non-active slips) from the store. */
 function getComputeSlips() {
-    const { slips, activeSlipId } = useSlipStore.getState();
-    return slips.filter((s) => s.id !== activeSlipId);
+  const { slips, activeSlipId } = useSlipStore.getState();
+  return slips.filter((s) => s.id !== activeSlipId);
 }
 
 /** Get the active slip's selections. */
 function getActiveSelections() {
-    const { slips, activeSlipId } = useSlipStore.getState();
-    const active = slips.find((s) => s.id === activeSlipId);
-    return active?.selections ?? [];
+  const { slips, activeSlipId } = useSlipStore.getState();
+  const active = slips.find((s) => s.id === activeSlipId);
+  return active?.selections ?? [];
 }
 
 // ─── Reset store between tests ───────────────────────────────────────────────
 
 beforeEach(() => {
-    useSlipStore.setState({ slips: [], activeSlipId: "" });
-    // Create a default active slip (mode, stakePerLeg, stakeShieldEnabled live on the slip now)
-    const id = useSlipStore.getState().createSlip("Default");
-    useSlipStore.setState((st) => ({
-        activeSlipId: id,
-        savedSlips: [],
-        placeResults: [],
-        lastError: null,
-        slips: st.slips.map((s) =>
-            s.id === id
-                ? { ...s, mode: "singles", stakePerLeg: 1000, stakeShieldEnabled: false }
-                : s,
-        ),
-    }));
-    mockGetFixtureDetails.mockReset();
+  useSlipStore.setState({ slips: [], activeSlipId: "" });
+  // Create a default active slip (mode, stakePerLeg, stakeShieldEnabled live on the slip now)
+  const id = useSlipStore.getState().createSlip("Default");
+  useSlipStore.setState((st) => ({
+    activeSlipId: id,
+    savedSlips: [],
+    placeResults: [],
+    lastError: null,
+    slips: st.slips.map((s) =>
+      s.id === id ? { ...s, mode: "singles", stakePerLeg: 1000, stakeShieldEnabled: false } : s,
+    ),
+  }));
+  mockGetFixtureDetails.mockReset();
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -212,110 +204,113 @@ beforeEach(() => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe("Compute Flow Integration — Full Happy Path", () => {
-    it("fetches fixture, generates permutations, and adds selections to the slip store", async () => {
-        const fixture = makeFixture();
-        const apiGroups = makeRichApiGroups();
+  it("fetches fixture, generates permutations, and adds selections to the slip store", async () => {
+    const fixture = makeFixture();
+    const apiGroups = makeRichApiGroups();
 
-        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails(apiGroups, fixture));
+    mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails(apiGroups, fixture));
 
-        const { result } = renderHook(() => useCompute(fixture));
+    const { result } = renderHook(() => useCompute(fixture));
 
-        // Initially no result
-        expect(result.current.result).toBeNull();
-        expect(result.current.isLoading).toBe(false);
+    // Initially no result
+    expect(result.current.result).toBeNull();
+    expect(result.current.isLoading).toBe(false);
 
-        // Run compute
-        await act(async () => {
-            await result.current.runCompute();
-        });
-
-        // Should have generated slips
-        expect(result.current.isLoading).toBe(false);
-        expect(result.current.error).toBeNull();
-        expect(result.current.result).not.toBeNull();
-        expect(result.current.result!.slips.length).toBeGreaterThan(0);
-        expect(result.current.result!.totalPermutations).toBe(
-            result.current.result!.slips.length,
-        );
-
-        const originalActiveId = useSlipStore.getState().activeSlipId;
-
-        // Add all slips to the bet slip store as isolated entries
-        act(() => {
-            result.current.addAllSlips();
-        });
-
-        // Restore active slip so helpers reference the original slip
-        useSlipStore.setState({ activeSlipId: originalActiveId });
-
-        // Verify compute slips are isolated in the store
-        const computeSlips = getComputeSlips();
-        expect(computeSlips.length).toBeGreaterThan(0);
-
-        // Every compute slip entry should contain selections with betType "compute"
-        computeSlips.forEach((cs) => {
-            expect(cs.selections.length).toBeGreaterThan(0);
-            cs.selections.forEach((s) => {
-                expect(s.betType).toBe("compute");
-                expect(s.fixtureSlug).toBe("arsenal-vs-chelsea");
-                expect(s.fixtureName).toBe("Arsenal vs Chelsea");
-                expect(s.active).toBe(true);
-            });
-        });
-
-        // First entry's selections should reference valid fixture data
-        const firstEntrySelections = computeSlips[0].selections;
-        expect(firstEntrySelections[0].tournamentName).toBe("Premier League");
-        expect(firstEntrySelections[0].sport).toBe("soccer");
-        expect(firstEntrySelections[0].stakeUrl).toBe(
-            "https://stake.com/sports/soccer/arsenal-vs-chelsea",
-        );
+    // Run compute
+    await act(async () => {
+      await result.current.runCompute();
     });
 
-    it("handles the add-selected flow (subset of slips)", async () => {
-        const fixture = makeFixture();
-        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
-            makeApiGroup("Goals", "Goals", [
-                { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
-                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
-            ]),
-            makeApiGroup("Corners", "Corners", [
-                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
-                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
-            ]),
-        ], fixture));
+    // Should have generated slips
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.error).toBeNull();
+    expect(result.current.result).not.toBeNull();
+    expect(result.current.result!.slips.length).toBeGreaterThan(0);
+    expect(result.current.result!.totalPermutations).toBe(result.current.result!.slips.length);
 
-        const { result } = renderHook(() => useCompute(fixture));
+    const originalActiveId = useSlipStore.getState().activeSlipId;
 
-        await act(async () => {
-            await result.current.runCompute();
-        });
-
-        expect(result.current.result).not.toBeNull();
-        const allSlips = result.current.result!.slips;
-        // 4 binary markets → 2^4 = 16 slips
-        expect(allSlips).toHaveLength(16);
-
-        // Pick the first 2 slips
-        const firstTwoIds = allSlips.slice(0, 2).map((s) => s.id);
-
-        const originalActiveId = useSlipStore.getState().activeSlipId;
-
-        act(() => {
-            result.current.addSelectedSlips(firstTwoIds);
-        });
-
-        // Restore active slip so getActiveSelections / getComputeSlips helpers work
-        useSlipStore.setState({ activeSlipId: originalActiveId });
-
-        const selectedComputeSlips = getComputeSlips();
-        // 2 isolated entries, each with 4 legs (4 markets)
-        expect(selectedComputeSlips).toHaveLength(2);
-        selectedComputeSlips.forEach((cs) => {
-            expect(cs.selections).toHaveLength(4);
-            cs.selections.forEach((s) => expect(s.betType).toBe("compute"));
-        });
+    // Add all slips to the bet slip store as isolated entries
+    act(() => {
+      result.current.addAllSlips();
     });
+
+    // Restore active slip so helpers reference the original slip
+    useSlipStore.setState({ activeSlipId: originalActiveId });
+
+    // Verify compute slips are isolated in the store
+    const computeSlips = getComputeSlips();
+    expect(computeSlips.length).toBeGreaterThan(0);
+
+    // Every compute slip entry should contain selections with betType "compute"
+    computeSlips.forEach((cs) => {
+      expect(cs.selections.length).toBeGreaterThan(0);
+      cs.selections.forEach((s) => {
+        expect(s.betType).toBe("compute");
+        expect(s.fixtureSlug).toBe("arsenal-vs-chelsea");
+        expect(s.fixtureName).toBe("Arsenal vs Chelsea");
+        expect(s.active).toBe(true);
+      });
+    });
+
+    // First entry's selections should reference valid fixture data
+    const firstEntrySelections = computeSlips[0].selections;
+    expect(firstEntrySelections[0].tournamentName).toBe("Premier League");
+    expect(firstEntrySelections[0].sport).toBe("soccer");
+    expect(firstEntrySelections[0].stakeUrl).toBe(
+      "https://stake.com/sports/soccer/arsenal-vs-chelsea",
+    );
+  });
+
+  it("handles the add-selected flow (subset of slips)", async () => {
+    const fixture = makeFixture();
+    mockGetFixtureDetails.mockResolvedValue(
+      makeFixtureDetails(
+        [
+          makeApiGroup("Goals", "Goals", [
+            { id: "g1", name: "O/U 2.5", odds: [1.85, 2.1] },
+            { id: "g2", name: "BTTS", odds: [1.95, 1.9] },
+          ]),
+          makeApiGroup("Corners", "Corners", [
+            { id: "c1", name: "O/U 9.5", odds: [1.7, 2.2] },
+            { id: "c2", name: "Corner Handicap", odds: [1.8, 2.0] },
+          ]),
+        ],
+        fixture,
+      ),
+    );
+
+    const { result } = renderHook(() => useCompute(fixture));
+
+    await act(async () => {
+      await result.current.runCompute();
+    });
+
+    expect(result.current.result).not.toBeNull();
+    const allSlips = result.current.result!.slips;
+    // 4 binary markets → 2^4 = 16 slips
+    expect(allSlips).toHaveLength(16);
+
+    // Pick the first 2 slips
+    const firstTwoIds = allSlips.slice(0, 2).map((s) => s.id);
+
+    const originalActiveId = useSlipStore.getState().activeSlipId;
+
+    act(() => {
+      result.current.addSelectedSlips(firstTwoIds);
+    });
+
+    // Restore active slip so getActiveSelections / getComputeSlips helpers work
+    useSlipStore.setState({ activeSlipId: originalActiveId });
+
+    const selectedComputeSlips = getComputeSlips();
+    // 2 isolated entries, each with 4 legs (4 markets)
+    expect(selectedComputeSlips).toHaveLength(2);
+    selectedComputeSlips.forEach((cs) => {
+      expect(cs.selections).toHaveLength(4);
+      cs.selections.forEach((s) => expect(s.betType).toBe("compute"));
+    });
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -323,168 +318,165 @@ describe("Compute Flow Integration — Full Happy Path", () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe("Compute Flow Integration — Edge Cases", () => {
-    it("handles API returning empty marketGroups (no permutations)", async () => {
-        const fixture = makeFixture();
-        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([], fixture));
+  it("handles API returning empty marketGroups (no permutations)", async () => {
+    const fixture = makeFixture();
+    mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([], fixture));
 
-        const { result } = renderHook(() => useCompute(fixture));
+    const { result } = renderHook(() => useCompute(fixture));
 
-        await act(async () => {
-            await result.current.runCompute();
-        });
-
-        // selectTopMarkets throws → error state
-        expect(result.current.result).toBeNull();
-        expect(result.current.error).toBeTruthy();
-
-        // addAllSlips should add nothing (result is null)
-        act(() => {
-            result.current.addAllSlips();
-        });
-        expect(getComputeSlips()).toHaveLength(0);
+    await act(async () => {
+      await result.current.runCompute();
     });
 
-    it("handles API error gracefully", async () => {
-        const fixture = makeFixture();
-        mockGetFixtureDetails.mockRejectedValue(new Error("Network timeout"));
+    // selectTopMarkets throws → error state
+    expect(result.current.result).toBeNull();
+    expect(result.current.error).toBeTruthy();
 
-        const { result } = renderHook(() => useCompute(fixture));
+    // addAllSlips should add nothing (result is null)
+    act(() => {
+      result.current.addAllSlips();
+    });
+    expect(getComputeSlips()).toHaveLength(0);
+  });
 
-        await act(async () => {
-            await result.current.runCompute();
-        });
+  it("handles API error gracefully", async () => {
+    const fixture = makeFixture();
+    mockGetFixtureDetails.mockRejectedValue(new Error("Network timeout"));
 
-        expect(result.current.error).toBe("Network timeout");
-        expect(result.current.result).toBeNull();
-        expect(result.current.isLoading).toBe(false);
+    const { result } = renderHook(() => useCompute(fixture));
+
+    await act(async () => {
+      await result.current.runCompute();
     });
 
-    it("handles null fixture", async () => {
-        const { result } = renderHook(() => useCompute(null));
+    expect(result.current.error).toBe("Network timeout");
+    expect(result.current.result).toBeNull();
+    expect(result.current.isLoading).toBe(false);
+  });
 
-        await act(async () => {
-            await result.current.runCompute();
-        });
+  it("handles null fixture", async () => {
+    const { result } = renderHook(() => useCompute(null));
 
-        expect(result.current.error).toBe("No fixture selected");
-        expect(result.current.result).toBeNull();
+    await act(async () => {
+      await result.current.runCompute();
     });
 
-    it("produces error when all outcomes are inactive (0 qualifying markets)", async () => {
-        const fixture = makeFixture();
-        const group: StakeGroupWithMarkets = {
-            name: "Goals",
-            translation: "Goals",
-            rank: 1,
-            templates: [
-                {
-                    id: "t1",
-                    extId: "ext-t1",
-                    rank: 1,
-                    name: "Template 1",
-                    markets: [
-                        {
-                            id: "m1",
-                            name: "O/U 2.5",
-                            status: "active",
-                            extId: "ext-m1",
-                            provider: "test",
-                            outcomes: [
-                                makeOutcome("o1", 1.85, false),
-                                makeOutcome("o2", 2.10, false),
-                            ],
-                        },
-                    ],
-                },
-            ],
-        };
+    expect(result.current.error).toBe("No fixture selected");
+    expect(result.current.result).toBeNull();
+  });
 
-        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([group], fixture));
+  it("produces error when all outcomes are inactive (0 qualifying markets)", async () => {
+    const fixture = makeFixture();
+    const group: StakeGroupWithMarkets = {
+      name: "Goals",
+      translation: "Goals",
+      rank: 1,
+      templates: [
+        {
+          id: "t1",
+          extId: "ext-t1",
+          rank: 1,
+          name: "Template 1",
+          markets: [
+            {
+              id: "m1",
+              name: "O/U 2.5",
+              status: "active",
+              extId: "ext-m1",
+              provider: "test",
+              outcomes: [makeOutcome("o1", 1.85, false), makeOutcome("o2", 2.1, false)],
+            },
+          ],
+        },
+      ],
+    };
 
-        const { result } = renderHook(() => useCompute(fixture));
+    mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([group], fixture));
 
-        await act(async () => {
-            await result.current.runCompute();
-        });
+    const { result } = renderHook(() => useCompute(fixture));
 
-        // 0 qualifying markets → selectTopMarkets throws
-        expect(result.current.error).toBeTruthy();
-        expect(result.current.error).toContain("Not enough qualifying markets");
-        expect(result.current.result).toBeNull();
+    await act(async () => {
+      await result.current.runCompute();
     });
 
-    it("config bounds the permutation count regardless of available markets", async () => {
-        const fixture = makeFixture();
+    // 0 qualifying markets → selectTopMarkets throws
+    expect(result.current.error).toBeTruthy();
+    expect(result.current.error).toContain("Not enough qualifying markets");
+    expect(result.current.result).toBeNull();
+  });
 
-        // Provide many binary markets (9 binary markets across 3 groups)
-        const manyBinaryMarkets: StakeGroupWithMarkets[] = [
-            makeApiGroup("Goals", "Goals", [
-                { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
-                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
-                { id: "g3", name: "GG/NG", odds: [1.75, 2.15] },
-            ]),
-            makeApiGroup("Corners", "Corners", [
-                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
-                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
-                { id: "c3", name: "First Corner", odds: [2.50, 1.60] },
-            ]),
-            makeApiGroup("Cards", "Cards", [
-                { id: "cd1", name: "O/U 3.5 Cards", odds: [1.65, 2.30] },
-                { id: "cd2", name: "Red Card", odds: [6.00, 1.12] },
-                { id: "cd3", name: "Card Handicap", odds: [1.90, 1.95] },
-            ]),
-        ];
+  it("config bounds the permutation count regardless of available markets", async () => {
+    const fixture = makeFixture();
 
-        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails(manyBinaryMarkets, fixture));
+    // Provide many binary markets (9 binary markets across 3 groups)
+    const manyBinaryMarkets: StakeGroupWithMarkets[] = [
+      makeApiGroup("Goals", "Goals", [
+        { id: "g1", name: "O/U 2.5", odds: [1.85, 2.1] },
+        { id: "g2", name: "BTTS", odds: [1.95, 1.9] },
+        { id: "g3", name: "GG/NG", odds: [1.75, 2.15] },
+      ]),
+      makeApiGroup("Corners", "Corners", [
+        { id: "c1", name: "O/U 9.5", odds: [1.7, 2.2] },
+        { id: "c2", name: "Corner Handicap", odds: [1.8, 2.0] },
+        { id: "c3", name: "First Corner", odds: [2.5, 1.6] },
+      ]),
+      makeApiGroup("Cards", "Cards", [
+        { id: "cd1", name: "O/U 3.5 Cards", odds: [1.65, 2.3] },
+        { id: "cd2", name: "Red Card", odds: [6.0, 1.12] },
+        { id: "cd3", name: "Card Handicap", odds: [1.9, 1.95] },
+      ]),
+    ];
 
-        const { result } = renderHook(() => useCompute(fixture));
+    mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails(manyBinaryMarkets, fixture));
 
-        await act(async () => {
-            await result.current.runCompute();
-        });
+    const { result } = renderHook(() => useCompute(fixture));
 
-        // Default config: maxOutcomes=2, slipCount=16 → needed=4
-        // Even though 9 binary markets are available, only top 4 are selected
-        // 2^4 = 16 permutations, not 2^9 = 512
-        expect(result.current.result!.totalPermutations).toBe(16);
-        expect(result.current.result!.selectedMarkets).toHaveLength(4);
-        expect(result.current.canGenerate).toBe(true);
+    await act(async () => {
+      await result.current.runCompute();
     });
 
-    it("retry re-runs the pipeline with the same config", async () => {
-        const fixture = makeFixture();
-        const validGroups = [
-            makeApiGroup("Goals", "Goals", [
-                { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
-                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
-            ]),
-            makeApiGroup("Corners", "Corners", [
-                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
-                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
-            ]),
-        ];
-        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails(validGroups, fixture));
+    // Default config: maxOutcomes=2, slipCount=16 → needed=4
+    // Even though 9 binary markets are available, only top 4 are selected
+    // 2^4 = 16 permutations, not 2^9 = 512
+    expect(result.current.result!.totalPermutations).toBe(16);
+    expect(result.current.result!.selectedMarkets).toHaveLength(4);
+    expect(result.current.canGenerate).toBe(true);
+  });
 
-        const { result } = renderHook(() => useCompute(fixture));
+  it("retry re-runs the pipeline with the same config", async () => {
+    const fixture = makeFixture();
+    const validGroups = [
+      makeApiGroup("Goals", "Goals", [
+        { id: "g1", name: "O/U 2.5", odds: [1.85, 2.1] },
+        { id: "g2", name: "BTTS", odds: [1.95, 1.9] },
+      ]),
+      makeApiGroup("Corners", "Corners", [
+        { id: "c1", name: "O/U 9.5", odds: [1.7, 2.2] },
+        { id: "c2", name: "Corner Handicap", odds: [1.8, 2.0] },
+      ]),
+    ];
+    mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails(validGroups, fixture));
 
-        // Wait for auto-fetch to complete
-        await waitFor(() => expect(mockGetFixtureDetails).toHaveBeenCalled());
+    const { result } = renderHook(() => useCompute(fixture));
 
-        // First run
-        await act(async () => {
-            await result.current.runCompute();
-        });
-        const firstCount = result.current.result!.slips.length;
+    // Wait for auto-fetch to complete
+    await waitFor(() => expect(mockGetFixtureDetails).toHaveBeenCalled());
 
-        // Retry
-        await act(async () => {
-            await result.current.retry();
-        });
-
-        expect(result.current.result!.slips.length).toBe(firstCount);
-        // auto-fetch(1) + runCompute(1) + retry(1) = 3
-        expect(mockGetFixtureDetails).toHaveBeenCalledTimes(3);
+    // First run
+    await act(async () => {
+      await result.current.runCompute();
     });
+    const firstCount = result.current.result!.slips.length;
+
+    // Retry
+    await act(async () => {
+      await result.current.retry();
+    });
+
+    expect(result.current.result!.slips.length).toBe(firstCount);
+    // auto-fetch(1) + runCompute(1) + retry(1) = 3
+    expect(mockGetFixtureDetails).toHaveBeenCalledTimes(3);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -492,76 +484,86 @@ describe("Compute Flow Integration — Edge Cases", () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe("Compute Flow Integration — Duplicate Prevention", () => {
-    it("addAllSlips creates a new slip per permutation (no cross-call dedup)", async () => {
-        const fixture = makeFixture();
-        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
-            makeApiGroup("Goals", "Goals", [
-                { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
-                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
-            ]),
-            makeApiGroup("Corners", "Corners", [
-                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
-                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
-            ]),
-        ], fixture));
+  it("addAllSlips creates a new slip per permutation (no cross-call dedup)", async () => {
+    const fixture = makeFixture();
+    mockGetFixtureDetails.mockResolvedValue(
+      makeFixtureDetails(
+        [
+          makeApiGroup("Goals", "Goals", [
+            { id: "g1", name: "O/U 2.5", odds: [1.85, 2.1] },
+            { id: "g2", name: "BTTS", odds: [1.95, 1.9] },
+          ]),
+          makeApiGroup("Corners", "Corners", [
+            { id: "c1", name: "O/U 9.5", odds: [1.7, 2.2] },
+            { id: "c2", name: "Corner Handicap", odds: [1.8, 2.0] },
+          ]),
+        ],
+        fixture,
+      ),
+    );
 
-        const { result } = renderHook(() => useCompute(fixture));
+    const { result } = renderHook(() => useCompute(fixture));
 
-        await act(async () => {
-            await result.current.runCompute();
-        });
-
-        const permutationCount = result.current.result!.slips.length; // 16
-
-        // Add all — creates permutationCount new slips
-        act(() => {
-            result.current.addAllSlips();
-        });
-        const afterFirst = getComputeSlips().length;
-        expect(afterFirst).toBe(permutationCount);
-
-        // Add all again — creates another permutationCount new slips
-        act(() => {
-            result.current.addAllSlips();
-        });
-        const afterSecond = getComputeSlips().length;
-        expect(afterSecond).toBe(afterFirst + permutationCount);
+    await act(async () => {
+      await result.current.runCompute();
     });
 
-    it("addSelectedSlips creates exactly the requested number of slips", async () => {
-        const fixture = makeFixture();
-        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
-            makeApiGroup("Goals", "Goals", [
-                { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
-                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
-            ]),
-            makeApiGroup("Corners", "Corners", [
-                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
-                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
-            ]),
-        ], fixture));
+    const permutationCount = result.current.result!.slips.length; // 16
 
-        const { result } = renderHook(() => useCompute(fixture));
-
-        await act(async () => {
-            await result.current.runCompute();
-        });
-
-        const slipIds = result.current.result!.slips.map((s) => s.id);
-
-        // Add same IDs twice — creates 2× the count
-        act(() => {
-            result.current.addSelectedSlips(slipIds);
-        });
-        const afterFirst = getComputeSlips().length;
-        expect(afterFirst).toBe(slipIds.length);
-
-        act(() => {
-            result.current.addSelectedSlips(slipIds);
-        });
-        const afterSecond = getComputeSlips().length;
-        expect(afterSecond).toBe(afterFirst + slipIds.length);
+    // Add all — creates permutationCount new slips
+    act(() => {
+      result.current.addAllSlips();
     });
+    const afterFirst = getComputeSlips().length;
+    expect(afterFirst).toBe(permutationCount);
+
+    // Add all again — creates another permutationCount new slips
+    act(() => {
+      result.current.addAllSlips();
+    });
+    const afterSecond = getComputeSlips().length;
+    expect(afterSecond).toBe(afterFirst + permutationCount);
+  });
+
+  it("addSelectedSlips creates exactly the requested number of slips", async () => {
+    const fixture = makeFixture();
+    mockGetFixtureDetails.mockResolvedValue(
+      makeFixtureDetails(
+        [
+          makeApiGroup("Goals", "Goals", [
+            { id: "g1", name: "O/U 2.5", odds: [1.85, 2.1] },
+            { id: "g2", name: "BTTS", odds: [1.95, 1.9] },
+          ]),
+          makeApiGroup("Corners", "Corners", [
+            { id: "c1", name: "O/U 9.5", odds: [1.7, 2.2] },
+            { id: "c2", name: "Corner Handicap", odds: [1.8, 2.0] },
+          ]),
+        ],
+        fixture,
+      ),
+    );
+
+    const { result } = renderHook(() => useCompute(fixture));
+
+    await act(async () => {
+      await result.current.runCompute();
+    });
+
+    const slipIds = result.current.result!.slips.map((s) => s.id);
+
+    // Add same IDs twice — creates 2× the count
+    act(() => {
+      result.current.addSelectedSlips(slipIds);
+    });
+    const afterFirst = getComputeSlips().length;
+    expect(afterFirst).toBe(slipIds.length);
+
+    act(() => {
+      result.current.addSelectedSlips(slipIds);
+    });
+    const afterSecond = getComputeSlips().length;
+    expect(afterSecond).toBe(afterFirst + slipIds.length);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -569,133 +571,141 @@ describe("Compute Flow Integration — Duplicate Prevention", () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe("Compute Flow Integration — Mixed Compute + Normal Selections", () => {
-    it("coexists with manually added selections without conflicts", async () => {
-        const fixture = makeFixture();
+  it("coexists with manually added selections without conflicts", async () => {
+    const fixture = makeFixture();
 
-        // Manually add a normal selection to the active slip
-        const normalSelection: BetSelection = {
-            id: "manual-1",
-            fixtureSlug: "liverpool-vs-man-utd",
-            fixtureName: "Liverpool vs Man United",
-            fixtureId: "f2",
-            tournamentName: "Premier League",
-            marketId: "m99",
-            marketName: "Match Winner",
-            outcomeId: "o99",
-            outcomeName: "Liverpool",
-            odds: 2.50,
-            active: true,
-            startTime: "2026-08-30T17:30:00Z",
-            addedAt: Date.now(),
-            betType: "match-winner",
-            betTypeLine: null,
-        };
+    // Manually add a normal selection to the active slip
+    const normalSelection: BetSelection = {
+      id: "manual-1",
+      fixtureSlug: "liverpool-vs-man-utd",
+      fixtureName: "Liverpool vs Man United",
+      fixtureId: "f2",
+      tournamentName: "Premier League",
+      marketId: "m99",
+      marketName: "Match Winner",
+      outcomeId: "o99",
+      outcomeName: "Liverpool",
+      odds: 2.5,
+      active: true,
+      startTime: "2026-08-30T17:30:00Z",
+      addedAt: Date.now(),
+      betType: "match-winner",
+      betTypeLine: null,
+    };
 
-        useSlipStore.getState().addSelection(normalSelection);
-        expect(getActiveSelections()).toHaveLength(1);
+    useSlipStore.getState().addSelection(normalSelection);
+    expect(getActiveSelections()).toHaveLength(1);
 
-        // Now run compute and add
-        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
-            makeApiGroup("Goals", "Goals", [
-                { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
-                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
-            ]),
-            makeApiGroup("Corners", "Corners", [
-                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
-                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
-            ]),
-        ], fixture));
+    // Now run compute and add
+    mockGetFixtureDetails.mockResolvedValue(
+      makeFixtureDetails(
+        [
+          makeApiGroup("Goals", "Goals", [
+            { id: "g1", name: "O/U 2.5", odds: [1.85, 2.1] },
+            { id: "g2", name: "BTTS", odds: [1.95, 1.9] },
+          ]),
+          makeApiGroup("Corners", "Corners", [
+            { id: "c1", name: "O/U 9.5", odds: [1.7, 2.2] },
+            { id: "c2", name: "Corner Handicap", odds: [1.8, 2.0] },
+          ]),
+        ],
+        fixture,
+      ),
+    );
 
-        const { result } = renderHook(() => useCompute(fixture));
+    const { result } = renderHook(() => useCompute(fixture));
 
-        await act(async () => {
-            await result.current.runCompute();
-        });
-
-        const originalActiveId = useSlipStore.getState().activeSlipId;
-
-        act(() => {
-            result.current.addAllSlips();
-        });
-
-        // Restore active slip so helpers reference the original slip with manual selections
-        useSlipStore.setState({ activeSlipId: originalActiveId });
-
-        // Manual selection is in the active slip, compute entries are in separate slips
-        const normalOnes = getActiveSelections().filter((s) => s.betType === "match-winner");
-        expect(normalOnes).toHaveLength(1);
-        expect(normalOnes[0].id).toBe("manual-1");
-
-        const computeSlips = getComputeSlips();
-        expect(computeSlips.length).toBeGreaterThan(0);
-        computeSlips.forEach((cs) => {
-            cs.selections.forEach((s) => expect(s.betType).toBe("compute"));
-        });
+    await act(async () => {
+      await result.current.runCompute();
     });
 
-    it("removing a compute selection does not affect normal selections", async () => {
-        const fixture = makeFixture();
+    const originalActiveId = useSlipStore.getState().activeSlipId;
 
-        const normalSelection: BetSelection = {
-            id: "manual-1",
-            fixtureSlug: "liverpool-vs-man-utd",
-            fixtureName: "Liverpool vs Man United",
-            fixtureId: "f2",
-            tournamentName: "Premier League",
-            marketId: "m99",
-            marketName: "Match Winner",
-            outcomeId: "o99",
-            outcomeName: "Liverpool",
-            odds: 2.50,
-            active: true,
-            startTime: "2026-08-30T17:30:00Z",
-            addedAt: Date.now(),
-            betType: "match-winner",
-            betTypeLine: null,
-        };
-
-        useSlipStore.getState().addSelection(normalSelection);
-
-        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
-            makeApiGroup("Goals", "Goals", [
-                { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
-                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
-            ]),
-            makeApiGroup("Corners", "Corners", [
-                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
-                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
-            ]),
-        ], fixture));
-
-        const { result } = renderHook(() => useCompute(fixture));
-
-        await act(async () => {
-            await result.current.runCompute();
-        });
-
-        const originalActiveId = useSlipStore.getState().activeSlipId;
-
-        act(() => {
-            result.current.addAllSlips();
-        });
-
-        // Restore active slip so helpers reference the original slip with manual selections
-        useSlipStore.setState({ activeSlipId: originalActiveId });
-
-        const beforeComputeCount = getComputeSlips().length;
-        expect(beforeComputeCount).toBeGreaterThan(0);
-
-        // Remove first compute slip entry
-        const firstComputeEntryId = getComputeSlips()[0].id;
-        useSlipStore.getState().deleteSlip(firstComputeEntryId);
-
-        const afterRemoveComputeSlips = getComputeSlips();
-        expect(afterRemoveComputeSlips.length).toBe(beforeComputeCount - 1);
-        // Manual selection should remain untouched in the active slip
-        expect(
-            getActiveSelections().find((s) => s.id === "manual-1"),
-        ).toBeDefined();
+    act(() => {
+      result.current.addAllSlips();
     });
+
+    // Restore active slip so helpers reference the original slip with manual selections
+    useSlipStore.setState({ activeSlipId: originalActiveId });
+
+    // Manual selection is in the active slip, compute entries are in separate slips
+    const normalOnes = getActiveSelections().filter((s) => s.betType === "match-winner");
+    expect(normalOnes).toHaveLength(1);
+    expect(normalOnes[0].id).toBe("manual-1");
+
+    const computeSlips = getComputeSlips();
+    expect(computeSlips.length).toBeGreaterThan(0);
+    computeSlips.forEach((cs) => {
+      cs.selections.forEach((s) => expect(s.betType).toBe("compute"));
+    });
+  });
+
+  it("removing a compute selection does not affect normal selections", async () => {
+    const fixture = makeFixture();
+
+    const normalSelection: BetSelection = {
+      id: "manual-1",
+      fixtureSlug: "liverpool-vs-man-utd",
+      fixtureName: "Liverpool vs Man United",
+      fixtureId: "f2",
+      tournamentName: "Premier League",
+      marketId: "m99",
+      marketName: "Match Winner",
+      outcomeId: "o99",
+      outcomeName: "Liverpool",
+      odds: 2.5,
+      active: true,
+      startTime: "2026-08-30T17:30:00Z",
+      addedAt: Date.now(),
+      betType: "match-winner",
+      betTypeLine: null,
+    };
+
+    useSlipStore.getState().addSelection(normalSelection);
+
+    mockGetFixtureDetails.mockResolvedValue(
+      makeFixtureDetails(
+        [
+          makeApiGroup("Goals", "Goals", [
+            { id: "g1", name: "O/U 2.5", odds: [1.85, 2.1] },
+            { id: "g2", name: "BTTS", odds: [1.95, 1.9] },
+          ]),
+          makeApiGroup("Corners", "Corners", [
+            { id: "c1", name: "O/U 9.5", odds: [1.7, 2.2] },
+            { id: "c2", name: "Corner Handicap", odds: [1.8, 2.0] },
+          ]),
+        ],
+        fixture,
+      ),
+    );
+
+    const { result } = renderHook(() => useCompute(fixture));
+
+    await act(async () => {
+      await result.current.runCompute();
+    });
+
+    const originalActiveId = useSlipStore.getState().activeSlipId;
+
+    act(() => {
+      result.current.addAllSlips();
+    });
+
+    // Restore active slip so helpers reference the original slip with manual selections
+    useSlipStore.setState({ activeSlipId: originalActiveId });
+
+    const beforeComputeCount = getComputeSlips().length;
+    expect(beforeComputeCount).toBeGreaterThan(0);
+
+    // Remove first compute slip entry
+    const firstComputeEntryId = getComputeSlips()[0].id;
+    useSlipStore.getState().deleteSlip(firstComputeEntryId);
+
+    const afterRemoveComputeSlips = getComputeSlips();
+    expect(afterRemoveComputeSlips.length).toBe(beforeComputeCount - 1);
+    // Manual selection should remain untouched in the active slip
+    expect(getActiveSelections().find((s) => s.id === "manual-1")).toBeDefined();
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -703,88 +713,98 @@ describe("Compute Flow Integration — Mixed Compute + Normal Selections", () =>
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe("Compute Flow Integration — BetSlipDrawer Compatibility", () => {
-    it("compute selections have all fields required by SlipItem rendering", async () => {
-        const fixture = makeFixture();
-        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
-            makeApiGroup("Goals", "Goals", [
-                { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
-                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
-            ]),
-            makeApiGroup("Corners", "Corners", [
-                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
-                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
-            ]),
-        ], fixture));
+  it("compute selections have all fields required by SlipItem rendering", async () => {
+    const fixture = makeFixture();
+    mockGetFixtureDetails.mockResolvedValue(
+      makeFixtureDetails(
+        [
+          makeApiGroup("Goals", "Goals", [
+            { id: "g1", name: "O/U 2.5", odds: [1.85, 2.1] },
+            { id: "g2", name: "BTTS", odds: [1.95, 1.9] },
+          ]),
+          makeApiGroup("Corners", "Corners", [
+            { id: "c1", name: "O/U 9.5", odds: [1.7, 2.2] },
+            { id: "c2", name: "Corner Handicap", odds: [1.8, 2.0] },
+          ]),
+        ],
+        fixture,
+      ),
+    );
 
-        const { result } = renderHook(() => useCompute(fixture));
+    const { result } = renderHook(() => useCompute(fixture));
 
-        await act(async () => {
-            await result.current.runCompute();
-        });
-
-        act(() => {
-            result.current.addAllSlips();
-        });
-
-        const compatComputeSlips = getComputeSlips();
-        expect(compatComputeSlips.length).toBeGreaterThan(0);
-
-        // Verify every selection inside each entry has the fields SlipItem uses
-        compatComputeSlips.forEach((cs) => {
-            cs.selections.forEach((s) => {
-                expect(typeof s.id).toBe("string");
-                expect(s.id.length).toBeGreaterThan(0);
-                expect(typeof s.fixtureName).toBe("string");
-                expect(s.fixtureName.length).toBeGreaterThan(0);
-                expect(typeof s.outcomeName).toBe("string");
-                expect(s.outcomeName.length).toBeGreaterThan(0);
-                expect(typeof s.marketName).toBe("string");
-                expect(s.marketName.length).toBeGreaterThan(0);
-                expect(typeof s.odds).toBe("number");
-                expect(s.odds).toBeGreaterThan(0);
-                expect(s.betType).toBe("compute");
-            });
-        });
+    await act(async () => {
+      await result.current.runCompute();
     });
 
-    it("compute selections are serializable (for shareSlip / saveSlip)", async () => {
-        const fixture = makeFixture();
-        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
-            makeApiGroup("Goals", "Goals", [
-                { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
-                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
-            ]),
-            makeApiGroup("Corners", "Corners", [
-                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
-                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
-            ]),
-        ], fixture));
-
-        const { result } = renderHook(() => useCompute(fixture));
-
-        await act(async () => {
-            await result.current.runCompute();
-        });
-
-        const originalActiveId = useSlipStore.getState().activeSlipId;
-
-        act(() => {
-            result.current.addAllSlips();
-        });
-
-        // Restore active slip so helpers reference the original slip
-        useSlipStore.setState({ activeSlipId: originalActiveId });
-
-        const serialComputeSlips = getComputeSlips();
-
-        // Each entry's selections should be JSON-serializable
-        serialComputeSlips.forEach((cs) => {
-            const serialized = JSON.stringify(cs.selections);
-            const parsed = JSON.parse(serialized) as BetSelection[];
-            expect(parsed).toHaveLength(cs.selections.length);
-            expect(parsed[0].betType).toBe("compute");
-        });
+    act(() => {
+      result.current.addAllSlips();
     });
+
+    const compatComputeSlips = getComputeSlips();
+    expect(compatComputeSlips.length).toBeGreaterThan(0);
+
+    // Verify every selection inside each entry has the fields SlipItem uses
+    compatComputeSlips.forEach((cs) => {
+      cs.selections.forEach((s) => {
+        expect(typeof s.id).toBe("string");
+        expect(s.id.length).toBeGreaterThan(0);
+        expect(typeof s.fixtureName).toBe("string");
+        expect(s.fixtureName.length).toBeGreaterThan(0);
+        expect(typeof s.outcomeName).toBe("string");
+        expect(s.outcomeName.length).toBeGreaterThan(0);
+        expect(typeof s.marketName).toBe("string");
+        expect(s.marketName.length).toBeGreaterThan(0);
+        expect(typeof s.odds).toBe("number");
+        expect(s.odds).toBeGreaterThan(0);
+        expect(s.betType).toBe("compute");
+      });
+    });
+  });
+
+  it("compute selections are serializable (for shareSlip / saveSlip)", async () => {
+    const fixture = makeFixture();
+    mockGetFixtureDetails.mockResolvedValue(
+      makeFixtureDetails(
+        [
+          makeApiGroup("Goals", "Goals", [
+            { id: "g1", name: "O/U 2.5", odds: [1.85, 2.1] },
+            { id: "g2", name: "BTTS", odds: [1.95, 1.9] },
+          ]),
+          makeApiGroup("Corners", "Corners", [
+            { id: "c1", name: "O/U 9.5", odds: [1.7, 2.2] },
+            { id: "c2", name: "Corner Handicap", odds: [1.8, 2.0] },
+          ]),
+        ],
+        fixture,
+      ),
+    );
+
+    const { result } = renderHook(() => useCompute(fixture));
+
+    await act(async () => {
+      await result.current.runCompute();
+    });
+
+    const originalActiveId = useSlipStore.getState().activeSlipId;
+
+    act(() => {
+      result.current.addAllSlips();
+    });
+
+    // Restore active slip so helpers reference the original slip
+    useSlipStore.setState({ activeSlipId: originalActiveId });
+
+    const serialComputeSlips = getComputeSlips();
+
+    // Each entry's selections should be JSON-serializable
+    serialComputeSlips.forEach((cs) => {
+      const serialized = JSON.stringify(cs.selections);
+      const parsed = JSON.parse(serialized) as BetSelection[];
+      expect(parsed).toHaveLength(cs.selections.length);
+      expect(parsed[0].betType).toBe("compute");
+    });
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -792,69 +812,74 @@ describe("Compute Flow Integration — BetSlipDrawer Compatibility", () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe("Compute Flow Integration — Pipeline Chaining", () => {
-    it("generateAllPermutations produces correct count for known matrix", () => {
-        // 2 markets with 2 outcomes each = 4 permutations (flat array)
-        const market1 = makeRankedMarket("m1", "O/U 2.5", [1.85, 2.10]);
-        const market2 = makeRankedMarket("m2", "BTTS", [1.95, 1.90]);
+  it("generateAllPermutations produces correct count for known matrix", () => {
+    // 2 markets with 2 outcomes each = 4 permutations (flat array)
+    const market1 = makeRankedMarket("m1", "O/U 2.5", [1.85, 2.1]);
+    const market2 = makeRankedMarket("m2", "BTTS", [1.95, 1.9]);
 
-        const markets: RankedMarket[] = [market1, market2];
-        const slips = generateAllPermutations(markets);
+    const markets: RankedMarket[] = [market1, market2];
+    const slips = generateAllPermutations(markets);
 
-        expect(slips).toHaveLength(4);
+    expect(slips).toHaveLength(4);
 
-        // Each slip should have 2 selections
-        slips.forEach((slip) => {
-            expect(slip.selections).toHaveLength(2);
-            expect(slip.id).toMatch(/^slip-/);
-            expect(slip.totalCombinedOdds).toBeGreaterThan(0);
-        });
+    // Each slip should have 2 selections
+    slips.forEach((slip) => {
+      expect(slip.selections).toHaveLength(2);
+      expect(slip.id).toMatch(/^slip-/);
+      expect(slip.totalCombinedOdds).toBeGreaterThan(0);
+    });
+  });
+
+  it("produces deterministic slip IDs", () => {
+    const market1 = makeRankedMarket("m1", "O/U 2.5", [1.85, 2.1]);
+    const markets: RankedMarket[] = [market1];
+
+    const run1 = generateAllPermutations(markets);
+    const run2 = generateAllPermutations(markets);
+
+    expect(run1.map((s) => s.id)).toEqual(run2.map((s) => s.id));
+  });
+
+  it("pipeline produces BetSelections with correct odds from API data", async () => {
+    const fixture = makeFixture();
+
+    // Provide 4 binary markets for default config (needed=4)
+    mockGetFixtureDetails.mockResolvedValue(
+      makeFixtureDetails(
+        [
+          makeApiGroup("Goals", "Goals", [
+            { id: "g1", name: "O/U 2.5", odds: [1.85, 2.1] },
+            { id: "g2", name: "BTTS", odds: [1.95, 1.9] },
+          ]),
+          makeApiGroup("Corners", "Corners", [
+            { id: "c1", name: "O/U 9.5", odds: [1.7, 2.2] },
+            { id: "c2", name: "Corner Handicap", odds: [1.8, 2.0] },
+          ]),
+        ],
+        fixture,
+      ),
+    );
+
+    const { result } = renderHook(() => useCompute(fixture));
+
+    await act(async () => {
+      await result.current.runCompute();
     });
 
-    it("produces deterministic slip IDs", () => {
-        const market1 = makeRankedMarket("m1", "O/U 2.5", [1.85, 2.10]);
-        const markets: RankedMarket[] = [market1];
+    const slips = result.current.result!.slips;
+    // 4 binary markets → 2^4 = 16
+    expect(slips).toHaveLength(16);
 
-        const run1 = generateAllPermutations(markets);
-        const run2 = generateAllPermutations(markets);
+    // Markets are ranked by highestOdds desc: c1(2.20), g1(2.10), c2(2.00), g2(1.95)
+    // Slip 0: all first outcomes → c1-o0 (1.70), g1-o0 (1.85), c2-o0 (1.80), g2-o0 (1.95)
+    expect(slips[0].selections[0].odds).toBe(1.7); // c1 first outcome
+    expect(slips[0].selections[1].odds).toBe(1.85); // g1 first outcome
+    expect(slips[0].selections[2].odds).toBe(1.8); // c2 first outcome
+    expect(slips[0].selections[3].odds).toBe(1.95); // g2 first outcome
 
-        expect(run1.map((s) => s.id)).toEqual(run2.map((s) => s.id));
-    });
-
-    it("pipeline produces BetSelections with correct odds from API data", async () => {
-        const fixture = makeFixture();
-
-        // Provide 4 binary markets for default config (needed=4)
-        mockGetFixtureDetails.mockResolvedValue(makeFixtureDetails([
-            makeApiGroup("Goals", "Goals", [
-                { id: "g1", name: "O/U 2.5", odds: [1.85, 2.10] },
-                { id: "g2", name: "BTTS", odds: [1.95, 1.90] },
-            ]),
-            makeApiGroup("Corners", "Corners", [
-                { id: "c1", name: "O/U 9.5", odds: [1.70, 2.20] },
-                { id: "c2", name: "Corner Handicap", odds: [1.80, 2.00] },
-            ]),
-        ], fixture));
-
-        const { result } = renderHook(() => useCompute(fixture));
-
-        await act(async () => {
-            await result.current.runCompute();
-        });
-
-        const slips = result.current.result!.slips;
-        // 4 binary markets → 2^4 = 16
-        expect(slips).toHaveLength(16);
-
-        // Markets are ranked by highestOdds desc: c1(2.20), g1(2.10), c2(2.00), g2(1.95)
-        // Slip 0: all first outcomes → c1-o0 (1.70), g1-o0 (1.85), c2-o0 (1.80), g2-o0 (1.95)
-        expect(slips[0].selections[0].odds).toBe(1.70); // c1 first outcome
-        expect(slips[0].selections[1].odds).toBe(1.85); // g1 first outcome
-        expect(slips[0].selections[2].odds).toBe(1.80); // c2 first outcome
-        expect(slips[0].selections[3].odds).toBe(1.95); // g2 first outcome
-
-        // Convert to BetSelections and verify odds preserved
-        const betSelections = computeSlipToBetSelections(slips[0], fixture);
-        expect(betSelections[0].odds).toBe(1.70);
-        expect(betSelections[1].odds).toBe(1.85);
-    });
+    // Convert to BetSelections and verify odds preserved
+    const betSelections = computeSlipToBetSelections(slips[0], fixture);
+    expect(betSelections[0].odds).toBe(1.7);
+    expect(betSelections[1].odds).toBe(1.85);
+  });
 });

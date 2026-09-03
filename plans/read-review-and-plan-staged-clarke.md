@@ -20,13 +20,13 @@ Font wiring: Google Fonts `@import` in `src/index.css` (Vite convention).
 
 ## Architecture Adaptation (Next.js → Vite)
 
-| Spec says (Next.js) | Adapt to (Vite/React) |
-|---|---|
-| `app/layout.tsx` shell | `src/App.tsx` as AppShell |
-| `@/*` path alias | `@/*` already wired in `vite.config.ts` as `src/*` |
-| `tailwind.config.ts` | Tailwind v4 tokens in `src/index.css` via `@theme` |
-| `pages/` or `app/` routing | Single-SPA tabs or React Router (no router needed for v1 — tab-based navigation) |
-| Radix, Recharts, Zustand, etc. | Install the same packages |
+| Spec says (Next.js)            | Adapt to (Vite/React)                                                            |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| `app/layout.tsx` shell         | `src/App.tsx` as AppShell                                                        |
+| `@/*` path alias               | `@/*` already wired in `vite.config.ts` as `src/*`                               |
+| `tailwind.config.ts`           | Tailwind v4 tokens in `src/index.css` via `@theme`                               |
+| `pages/` or `app/` routing     | Single-SPA tabs or React Router (no router needed for v1 — tab-based navigation) |
+| Radix, Recharts, Zustand, etc. | Install the same packages                                                        |
 
 ---
 

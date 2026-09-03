@@ -22,28 +22,28 @@ A new feature that extracts markets from selected fixtures, pre-filters for the 
 
 ## Confirmed Requirements
 
-| Parameter | Value |
-|-----------|-------|
-| Groups per fixture | User-configurable: 1–5 (default 3) |
-| Markets per group | User-configurable: 1–3 (default 2) |
-| Outcomes per market | 3 (max, from API) |
-| Permutation rule | One outcome per market |
-| Total slips hard cap | **15** (enforced) |
-| Market selection metric | Highest average outcome odds |
-| Fixture scope | Single fixture (v1), designed for multi-fixture (v2) |
+| Parameter               | Value                                                |
+| ----------------------- | ---------------------------------------------------- |
+| Groups per fixture      | User-configurable: 1–5 (default 3)                   |
+| Markets per group       | User-configurable: 1–3 (default 2)                   |
+| Outcomes per market     | 3 (max, from API)                                    |
+| Permutation rule        | One outcome per market                               |
+| Total slips hard cap    | **15** (enforced)                                    |
+| Market selection metric | Highest average outcome odds                         |
+| Fixture scope           | Single fixture (v1), designed for multi-fixture (v2) |
 
 ### Example Configurations Under the Cap
 
 | Groups | Markets/Group | Total Markets | Max Outcomes Each | Total Slips |
-|--------|---------------|---------------|-------------------|-------------|
-| 3 | 1 | 3 | 3 | 27 ❌ |
-| 3 | 1 | 3 | 2 | 8 ✅ |
-| 3 | 2 | 6 | 2 | 64 ❌ |
-| 2 | 2 | 4 | 2 | 16 ❌ |
-| 2 | 2 | 4 | mix 2,2,2,3 | 24 ❌ |
-| 3 | 1 | 3 | mix 2,2,3 | 12 ✅ |
-| 2 | 1 | 2 | 3 | 9 ✅ |
-| 1 | 2 | 2 | 3 | 9 ✅ |
+| ------ | ------------- | ------------- | ----------------- | ----------- |
+| 3      | 1             | 3             | 3                 | 27 ❌       |
+| 3      | 1             | 3             | 2                 | 8 ✅        |
+| 3      | 2             | 6             | 2                 | 64 ❌       |
+| 2      | 2             | 4             | 2                 | 16 ❌       |
+| 2      | 2             | 4             | mix 2,2,2,3       | 24 ❌       |
+| 3      | 1             | 3             | mix 2,2,3         | 12 ✅       |
+| 2      | 1             | 2             | 3                 | 9 ✅        |
+| 1      | 2             | 2             | 3                 | 9 ✅        |
 
 **Key insight:** With the 15-cap, practical max is ~3 markets total (not groups/markets per group). The dynamic slider constraint system enforces this automatically.
 
@@ -74,24 +74,24 @@ flowchart TD
 
 ### New Files
 
-| File | Purpose |
-|------|---------|
-| `src/lib/compute/types.ts` | Compute-specific types + max permutations constant |
-| `src/lib/compute/cartesian.ts` | Pure permutation engine — Cartesian product |
-| `src/lib/compute/marketFilter.ts` | Market pre-filter — rank and select top markets by avg odds |
-| `src/hooks/useCompute.ts` | React hook — orchestrates the compute pipeline |
-| `src/components/compute/ComputePanel.tsx` | Main UI panel — shows preview, controls, and results |
-| `src/components/compute/ComputeSlipPreview.tsx` | Individual slip preview row/card |
-| `src/components/compute/ComputeControls.tsx` | Configuration controls with live counter + slider constraints |
+| File                                            | Purpose                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------- |
+| `src/lib/compute/types.ts`                      | Compute-specific types + max permutations constant            |
+| `src/lib/compute/cartesian.ts`                  | Pure permutation engine — Cartesian product                   |
+| `src/lib/compute/marketFilter.ts`               | Market pre-filter — rank and select top markets by avg odds   |
+| `src/hooks/useCompute.ts`                       | React hook — orchestrates the compute pipeline                |
+| `src/components/compute/ComputePanel.tsx`       | Main UI panel — shows preview, controls, and results          |
+| `src/components/compute/ComputeSlipPreview.tsx` | Individual slip preview row/card                              |
+| `src/components/compute/ComputeControls.tsx`    | Configuration controls with live counter + slider constraints |
 
 ### Modified Files
 
-| File | Change |
-|------|--------|
+| File                                         | Change                                        |
+| -------------------------------------------- | --------------------------------------------- |
 | `src/components/discovery/MarketBrowser.tsx` | Add "Compute" button to trigger the generator |
-| `src/store/useSlipStore.ts` | Add `addMultipleSelections` batch action |
-| `src/components/layout/BetSlipDrawer.tsx` | Support displaying compute-generated slips |
-| `src/lib/contracts/ui.contract.ts` | Add compute-related types |
+| `src/store/useSlipStore.ts`                  | Add `addMultipleSelections` batch action      |
+| `src/components/layout/BetSlipDrawer.tsx`    | Support displaying compute-generated slips    |
+| `src/lib/contracts/ui.contract.ts`           | Add compute-related types                     |
 
 ---
 
@@ -109,7 +109,7 @@ export const MAX_PERMUTATIONS = 15;
 export interface RankedMarket {
   market: StakeMarket;
   groupName: string;
-  avgOdds: number;           // average of all active outcome odds
+  avgOdds: number; // average of all active outcome odds
   outcomeCount: number;
 }
 
@@ -117,12 +117,12 @@ export interface RankedMarket {
 export interface RankedGroup {
   groupName: string;
   groupTranslation: string;
-  markets: RankedMarket[];   // sorted by avgOdds desc
+  markets: RankedMarket[]; // sorted by avgOdds desc
 }
 
 /** One permutation = one bet slip */
 export interface ComputeSlip {
-  id: string;                // deterministic hash
+  id: string; // deterministic hash
   selections: ComputeSelection[];
   totalCombinedOdds: number; // product of all outcome odds
 }
@@ -139,8 +139,8 @@ export interface ComputeSelection {
 
 /** Compute configuration — slider values */
 export interface ComputeConfig {
-  groups: number;            // default: 3, range: 1–5
-  marketsPerGroup: number;   // default: 2, range: 1–3
+  groups: number; // default: 3, range: 1–5
+  marketsPerGroup: number; // default: 2, range: 1–3
 }
 
 /** Compute pipeline result */
@@ -179,9 +179,7 @@ export function getSliderMax(
  * Compute the exact permutation count for a given config,
  * given actual market data (each market may have 2 or 3 outcomes).
  */
-export function estimatePermutations(
-  selectedMarkets: RankedMarket[][],
-): number {
+export function estimatePermutations(selectedMarkets: RankedMarket[][]): number {
   let total = 1;
   for (const group of selectedMarkets) {
     for (const market of group) {
@@ -203,6 +201,7 @@ Pure functions, no side effects:
 - [`buildFilteredMatrix(groups, config)`](src/lib/compute/marketFilter.ts) — Returns the matrix of selected markets ready for Cartesian product.
 
 **Ranking algorithm:**
+
 ```
 avgOdds(market) = sum(outcome.odds for outcome in market.outcomes where outcome.active) / count(active outcomes)
 avgOdds(group)  = sum(avgOdds(market) for market in group.markets) / count(markets in group)
@@ -244,6 +243,7 @@ function useCompute(fixture: DiscoveryFixture | null) {
 ```
 
 **Flow inside `runCompute`:**
+
 1. Fetch fixture details via [`getFixtureDetailsQuery()`](src/lib/stake-api/queries.ts) if not already loaded
 2. Pass `marketGroups` through the filter pipeline
 3. Build the matrix
@@ -267,6 +267,7 @@ function useCompute(fixture: DiscoveryFixture | null) {
 #### [`ComputeSlipPreview`](src/components/compute/ComputeSlipPreview.tsx)
 
 Each row shows:
+
 - Slip number
 - Outcomes listed (market: outcome × odds)
 - Combined odds (product)
@@ -302,15 +303,15 @@ Add a "⚡ Compute" button in the [`MarketBrowser`](src/components/discovery/Mar
 
 ## Edge Cases
 
-| Case | Handling |
-|------|----------|
-| Fixture has fewer groups than configured | Use all available groups |
-| Group has fewer markets than configured | Use all available markets |
-| Market has suspended/deactivated outcomes | Exclude from permutations |
-| No active outcomes in a market | Skip that market, reduce matrix dimension |
-| 0 permutations possible | Show empty state with explanation |
-| API fetch fails | Show error with retry button |
-| Sliders adjusted to exceed 15 | Generate button disabled, counter turns red |
+| Case                                      | Handling                                    |
+| ----------------------------------------- | ------------------------------------------- |
+| Fixture has fewer groups than configured  | Use all available groups                    |
+| Group has fewer markets than configured   | Use all available markets                   |
+| Market has suspended/deactivated outcomes | Exclude from permutations                   |
+| No active outcomes in a market            | Skip that market, reduce matrix dimension   |
+| 0 permutations possible                   | Show empty state with explanation           |
+| API fetch fails                           | Show error with retry button                |
+| Sliders adjusted to exceed 15             | Generate button disabled, counter turns red |
 
 ---
 
@@ -318,17 +319,17 @@ Add a "⚡ Compute" button in the [`MarketBrowser`](src/components/discovery/Mar
 
 Each step MUST complete the 3-pass quality gate before moving to the next.
 
-| Step | Task | Quality Gate — What to Test |
-|------|------|-----------------------------|
-| 1 | Create `src/lib/compute/types.ts` | Test `getSliderMax()` and `estimatePermutations()` with boundary values (0, 1, 15, 16) |
-| 2 | Create `src/lib/compute/marketFilter.ts` | Test ranking accuracy, top-N selection, empty groups, single-market groups, suspended outcomes excluded |
-| 3 | Create `src/lib/compute/cartesian.ts` | Test permutation count, output correctness, edge cases (1 market, 0 outcomes, max cap) |
-| 4 | Create `src/hooks/useCompute.ts` | Test state transitions, config changes trigger recompute, error handling, loading states |
-| 5 | Create `src/components/compute/ComputeControls.tsx` | Test slider constraints enforce cap, live counter accuracy, disabled state when > 15 |
-| 6 | Create `src/components/compute/ComputeSlipPreview.tsx` | Test rendering, odds display, selection toggle, combined odds calculation |
-| 7 | Create `src/components/compute/ComputePanel.tsx` | Test full flow: open → config → generate → display → select → add to slip |
-| 8 | Modify `src/components/discovery/MarketBrowser.tsx` | Test Compute button appears, opens ComputePanel, integrates with existing UI |
-| 9 | Modify `src/store/useSlipStore.ts` | Test batch add, no duplicates, state integrity after batch operations |
-| 10 | End-to-end integration test | Full flow: fixture → compute → review → add to bet slip → verify in drawer |
+| Step | Task                                                   | Quality Gate — What to Test                                                                             |
+| ---- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| 1    | Create `src/lib/compute/types.ts`                      | Test `getSliderMax()` and `estimatePermutations()` with boundary values (0, 1, 15, 16)                  |
+| 2    | Create `src/lib/compute/marketFilter.ts`               | Test ranking accuracy, top-N selection, empty groups, single-market groups, suspended outcomes excluded |
+| 3    | Create `src/lib/compute/cartesian.ts`                  | Test permutation count, output correctness, edge cases (1 market, 0 outcomes, max cap)                  |
+| 4    | Create `src/hooks/useCompute.ts`                       | Test state transitions, config changes trigger recompute, error handling, loading states                |
+| 5    | Create `src/components/compute/ComputeControls.tsx`    | Test slider constraints enforce cap, live counter accuracy, disabled state when > 15                    |
+| 6    | Create `src/components/compute/ComputeSlipPreview.tsx` | Test rendering, odds display, selection toggle, combined odds calculation                               |
+| 7    | Create `src/components/compute/ComputePanel.tsx`       | Test full flow: open → config → generate → display → select → add to slip                               |
+| 8    | Modify `src/components/discovery/MarketBrowser.tsx`    | Test Compute button appears, opens ComputePanel, integrates with existing UI                            |
+| 9    | Modify `src/store/useSlipStore.ts`                     | Test batch add, no duplicates, state integrity after batch operations                                   |
+| 10   | End-to-end integration test                            | Full flow: fixture → compute → review → add to bet slip → verify in drawer                              |
 
 **Bug reduction target:** 0 blocking bugs, 0 should-fix bugs before feature is considered complete. Only cosmetic nits may remain.

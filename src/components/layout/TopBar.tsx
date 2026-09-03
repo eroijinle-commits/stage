@@ -5,7 +5,10 @@ import { useBalance } from "@/hooks/useBalance";
 import { cn } from "@/lib/utils/cn";
 import { PanelLeft, ShoppingCart, Zap, Wallet, Loader2 } from "lucide-react";
 
-interface TopBarProps { activePage: string; onNavigate: (page: string) => void; }
+interface TopBarProps {
+  activePage: string;
+  onNavigate: (page: string) => void;
+}
 
 const NAV = [
   { id: "discovery", label: "Discovery" },
@@ -17,7 +20,9 @@ const NAV = [
 
 export default function TopBar({ activePage, onNavigate }: TopBarProps) {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
-  const selectionCount = useSlipStore((s) => s.slips.reduce((acc, slip) => acc + slip.selections.length, 0));
+  const selectionCount = useSlipStore((s) =>
+    s.slips.reduce((acc, slip) => acc + slip.selections.length, 0),
+  );
   const apiToken = useSettingsStore((s) => s.apiToken);
   const currency = useSettingsStore((s) => s.currency);
   const { balance, isLoading, error } = useBalance();
@@ -25,7 +30,11 @@ export default function TopBar({ activePage, onNavigate }: TopBarProps) {
   const renderBalance = () => {
     if (!apiToken) {
       return (
-        <button onClick={() => onNavigate("settings")} className="flex items-center gap-1 text-xs font-mono text-muted-foreground/60 px-2 py-1 rounded border border-border/50 hover:border-border hover:text-muted-foreground transition-colors" title="Set API token in Settings">
+        <button
+          onClick={() => onNavigate("settings")}
+          className="flex items-center gap-1 text-xs font-mono text-muted-foreground/60 px-2 py-1 rounded border border-border/50 hover:border-border hover:text-muted-foreground transition-colors"
+          title="Set API token in Settings"
+        >
           <Wallet size={11} />
           <span>No token</span>
         </button>
@@ -41,7 +50,10 @@ export default function TopBar({ activePage, onNavigate }: TopBarProps) {
     }
     if (error) {
       return (
-        <span className="text-xs font-mono text-bet-lost/70 px-2 py-1 rounded border border-border" title={error}>
+        <span
+          className="text-xs font-mono text-bet-lost/70 px-2 py-1 rounded border border-border"
+          title={error}
+        >
           Error
         </span>
       );
@@ -59,7 +71,10 @@ export default function TopBar({ activePage, onNavigate }: TopBarProps) {
   return (
     <header className="h-11 flex items-center justify-between px-3 border-b border-border bg-card shrink-0 z-20">
       <div className="flex items-center gap-3">
-        <button onClick={() => toggleSidebar()} className="text-muted-foreground hover:text-foreground transition-colors p-1">
+        <button
+          onClick={() => toggleSidebar()}
+          className="text-muted-foreground hover:text-foreground transition-colors p-1"
+        >
           <PanelLeft size={16} />
         </button>
         <div className="flex items-center gap-1.5">

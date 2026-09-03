@@ -1,11 +1,22 @@
 import { useState, useRef, useEffect } from "react";
 import { BetTypeConfig } from "@/lib/contracts/ui.contract";
-import { BET_TYPES, getPopularBetTypes, getBetTypesByCategory, CATEGORY_ORDER, CATEGORY_LABELS, getBetTypesForSport } from "@/lib/utils/bet-type-mapper";
+import {
+  BET_TYPES,
+  getPopularBetTypes,
+  getBetTypesByCategory,
+  CATEGORY_ORDER,
+  CATEGORY_LABELS,
+  getBetTypesForSport,
+} from "@/lib/utils/bet-type-mapper";
 import { cn } from "@/lib/utils/cn";
 import { ChevronDown, X, Flame, Trophy, Goal, Flag, Square, User, Target } from "lucide-react";
 
 const ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-  Trophy, Flag, Square, User, Target,
+  Trophy,
+  Flag,
+  Square,
+  User,
+  Target,
   Goal: () => <span className="text-[13px]">⚽</span>,
   Scale: () => <span className="text-[13px]">⚖</span>,
   CheckCircle2: () => <span className="text-[13px]">✓</span>,
@@ -30,7 +41,12 @@ interface BetTypeSelectorProps {
   sport?: string;
 }
 
-export default function BetTypeSelector({ value, onChange, label = "Bet Type", sport }: BetTypeSelectorProps) {
+export default function BetTypeSelector({
+  value,
+  onChange,
+  label = "Bet Type",
+  sport,
+}: BetTypeSelectorProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
@@ -41,7 +57,9 @@ export default function BetTypeSelector({ value, onChange, label = "Bet Type", s
   const popular = allForSport.filter((b) => b.popular);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
@@ -51,7 +69,11 @@ export default function BetTypeSelector({ value, onChange, label = "Bet Type", s
   }, [open]);
 
   const filtered = search
-    ? allForSport.filter((b) => b.name.toLowerCase().includes(search.toLowerCase()) || b.description.toLowerCase().includes(search.toLowerCase()))
+    ? allForSport.filter(
+        (b) =>
+          b.name.toLowerCase().includes(search.toLowerCase()) ||
+          b.description.toLowerCase().includes(search.toLowerCase()),
+      )
     : null;
 
   const handleSelect = (bt: BetTypeConfig | null) => {
@@ -62,7 +84,11 @@ export default function BetTypeSelector({ value, onChange, label = "Bet Type", s
 
   return (
     <div className="flex flex-col gap-1" ref={ref}>
-      {label && <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">{label}</label>}
+      {label && (
+        <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+          {label}
+        </label>
+      )}
       <div className="relative">
         <button
           type="button"
@@ -76,7 +102,9 @@ export default function BetTypeSelector({ value, onChange, label = "Bet Type", s
           <div className="flex items-center gap-2 min-w-0">
             {selected ? (
               <>
-                <span className="text-muted-foreground shrink-0"><BetTypeIcon icon={selected.icon} /></span>
+                <span className="text-muted-foreground shrink-0">
+                  <BetTypeIcon icon={selected.icon} />
+                </span>
                 <span className="truncate">{selected.name}</span>
               </>
             ) : (
@@ -85,11 +113,20 @@ export default function BetTypeSelector({ value, onChange, label = "Bet Type", s
           </div>
           <div className="flex items-center gap-1 shrink-0 ml-1">
             {selected && (
-              <span onClick={(e) => { e.stopPropagation(); handleSelect(null); }} className="text-muted-foreground hover:text-foreground">
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSelect(null);
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
                 <X size={11} />
               </span>
             )}
-            <ChevronDown size={13} className={cn("text-muted-foreground transition-transform", open && "rotate-180")} />
+            <ChevronDown
+              size={13}
+              className={cn("text-muted-foreground transition-transform", open && "rotate-180")}
+            />
           </div>
         </button>
 
@@ -109,23 +146,42 @@ export default function BetTypeSelector({ value, onChange, label = "Bet Type", s
               <button
                 type="button"
                 onClick={() => handleSelect(null)}
-                className={cn("w-full flex items-center gap-2 px-3 py-2 text-xs font-mono hover:bg-muted transition-colors", !value && "text-primary")}
+                className={cn(
+                  "w-full flex items-center gap-2 px-3 py-2 text-xs font-mono hover:bg-muted transition-colors",
+                  !value && "text-primary",
+                )}
               >
                 <span className="text-muted-foreground">∅</span>
                 <span>All Bet Types</span>
               </button>
 
               {filtered ? (
-                filtered.map((bt) => <BetTypeItem key={bt.id} bt={bt} selected={value === bt.id} onSelect={handleSelect} />)
+                filtered.map((bt) => (
+                  <BetTypeItem
+                    key={bt.id}
+                    bt={bt}
+                    selected={value === bt.id}
+                    onSelect={handleSelect}
+                  />
+                ))
               ) : (
                 <>
                   <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-mono text-primary uppercase tracking-wider">
                     <Flame size={10} />
                     <span>Popular</span>
                   </div>
-                  {popular.map((bt) => <BetTypeItem key={bt.id} bt={bt} selected={value === bt.id} onSelect={handleSelect} />)}
+                  {popular.map((bt) => (
+                    <BetTypeItem
+                      key={bt.id}
+                      bt={bt}
+                      selected={value === bt.id}
+                      onSelect={handleSelect}
+                    />
+                  ))}
 
-                  {CATEGORY_ORDER.filter((cat) => allForSport.filter((b) => b.category === cat && !b.popular).length > 0).map((cat) => {
+                  {CATEGORY_ORDER.filter(
+                    (cat) => allForSport.filter((b) => b.category === cat && !b.popular).length > 0,
+                  ).map((cat) => {
                     const items = allForSport.filter((b) => b.category === cat && !b.popular);
                     if (!items.length) return null;
                     return (
@@ -133,7 +189,14 @@ export default function BetTypeSelector({ value, onChange, label = "Bet Type", s
                         <div className="px-3 py-1.5 text-[10px] font-mono text-muted-foreground uppercase tracking-wider border-t border-border mt-1">
                           {CATEGORY_LABELS[cat]}
                         </div>
-                        {items.map((bt) => <BetTypeItem key={bt.id} bt={bt} selected={value === bt.id} onSelect={handleSelect} />)}
+                        {items.map((bt) => (
+                          <BetTypeItem
+                            key={bt.id}
+                            bt={bt}
+                            selected={value === bt.id}
+                            onSelect={handleSelect}
+                          />
+                        ))}
                       </div>
                     );
                   })}
@@ -147,7 +210,15 @@ export default function BetTypeSelector({ value, onChange, label = "Bet Type", s
   );
 }
 
-function BetTypeItem({ bt, selected, onSelect }: { bt: BetTypeConfig; selected: boolean; onSelect: (bt: BetTypeConfig) => void }) {
+function BetTypeItem({
+  bt,
+  selected,
+  onSelect,
+}: {
+  bt: BetTypeConfig;
+  selected: boolean;
+  onSelect: (bt: BetTypeConfig) => void;
+}) {
   return (
     <button
       type="button"
@@ -162,7 +233,9 @@ function BetTypeItem({ bt, selected, onSelect }: { bt: BetTypeConfig; selected: 
       </span>
       <div className="flex-1 min-w-0">
         <div className="truncate">{bt.name}</div>
-        {!selected && <div className="text-[10px] text-muted-foreground truncate">{bt.description}</div>}
+        {!selected && (
+          <div className="text-[10px] text-muted-foreground truncate">{bt.description}</div>
+        )}
       </div>
       {bt.hasLines && <span className="text-[10px] text-muted-foreground shrink-0">lines</span>}
     </button>

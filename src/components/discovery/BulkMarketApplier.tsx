@@ -50,7 +50,9 @@ function resolveOutcome(
   }
 
   // Fallback: first available
-  return info.overOutcome ?? info.underOutcome ?? info.singleOutcome ?? info.allOutcomes?.[0] ?? null;
+  return (
+    info.overOutcome ?? info.underOutcome ?? info.singleOutcome ?? info.allOutcomes?.[0] ?? null
+  );
 }
 
 /**
@@ -96,7 +98,13 @@ function getPreviewOutcome(
   return resolveOutcome(info, direction, specificOutcomeId);
 }
 
-export default function BulkMarketApplier({ selectedFixtures, activeBetType, betTypeLine, onAddSelections, onClearSelection }: BulkMarketApplierProps) {
+export default function BulkMarketApplier({
+  selectedFixtures,
+  activeBetType,
+  betTypeLine,
+  onAddSelections,
+  onClearSelection,
+}: BulkMarketApplierProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [selectedMarket, setSelectedMarket] = useState<string | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -137,7 +145,8 @@ export default function BulkMarketApplier({ selectedFixtures, activeBetType, bet
         const names = new Set<string>();
         if (info.overOutcome) names.add(`${info.betTypeName} Over ${info.line}`);
         if (info.underOutcome) names.add(`${info.betTypeName} Under ${info.line}`);
-        if (info.allOutcomes) info.allOutcomes.forEach((o) => names.add(`${info.betTypeName} ${o.name}`));
+        if (info.allOutcomes)
+          info.allOutcomes.forEach((o) => names.add(`${info.betTypeName} ${o.name}`));
         if (info.singleOutcome) names.add(`${info.betTypeName} ${info.singleOutcome.name}`);
         return names;
       });
@@ -156,7 +165,10 @@ export default function BulkMarketApplier({ selectedFixtures, activeBetType, bet
     });
     if (sels.length > 0) {
       onAddSelections(sels);
-      addToast({ type: "success", title: `Added ${sels.length} selection${sels.length > 1 ? "s" : ""} to slip` });
+      addToast({
+        type: "success",
+        title: `Added ${sels.length} selection${sels.length > 1 ? "s" : ""} to slip`,
+      });
     }
   }, [available, outcomeDirection, selectedOutcomeId, onAddSelections, addToast]);
 
@@ -171,7 +183,10 @@ export default function BulkMarketApplier({ selectedFixtures, activeBetType, bet
     });
     if (sels.length > 0) {
       onAddSelections(sels);
-      addToast({ type: "success", title: `Applied "${selectedMarket}" to ${sels.length} match${sels.length > 1 ? "es" : ""}` });
+      addToast({
+        type: "success",
+        title: `Applied "${selectedMarket}" to ${sels.length} match${sels.length > 1 ? "es" : ""}`,
+      });
     }
     setSelectedMarket(null);
     setShowConfirm(false);
@@ -206,8 +221,16 @@ export default function BulkMarketApplier({ selectedFixtures, activeBetType, bet
         </span>
 
         <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
-          <span className="flex items-center gap-1 text-bet-won"><CheckCircle size={10} />{available.length} available</span>
-          {unavailable.length > 0 && <span className="flex items-center gap-1 text-bet-lost"><XCircle size={10} />{unavailable.length} unavailable</span>}
+          <span className="flex items-center gap-1 text-bet-won">
+            <CheckCircle size={10} />
+            {available.length} available
+          </span>
+          {unavailable.length > 0 && (
+            <span className="flex items-center gap-1 text-bet-lost">
+              <XCircle size={10} />
+              {unavailable.length} unavailable
+            </span>
+          )}
         </div>
 
         {/* ── Outcome Direction Toggle (line-based bet types) ── */}
@@ -215,7 +238,10 @@ export default function BulkMarketApplier({ selectedFixtures, activeBetType, bet
           <div className="flex items-center gap-1 border border-border rounded overflow-hidden">
             <button
               type="button"
-              onClick={() => { setOutcomeDirection(outcomeDirection === "over" ? null : "over"); setSelectedOutcomeId(null); }}
+              onClick={() => {
+                setOutcomeDirection(outcomeDirection === "over" ? null : "over");
+                setSelectedOutcomeId(null);
+              }}
               className={cn(
                 "flex items-center gap-1 px-2.5 py-1 text-[10px] font-mono transition-colors",
                 outcomeDirection === "over"
@@ -229,7 +255,10 @@ export default function BulkMarketApplier({ selectedFixtures, activeBetType, bet
             <div className="w-px h-4 bg-border" />
             <button
               type="button"
-              onClick={() => { setOutcomeDirection(outcomeDirection === "under" ? null : "under"); setSelectedOutcomeId(null); }}
+              onClick={() => {
+                setOutcomeDirection(outcomeDirection === "under" ? null : "under");
+                setSelectedOutcomeId(null);
+              }}
               className={cn(
                 "flex items-center gap-1 px-2.5 py-1 text-[10px] font-mono transition-colors",
                 outcomeDirection === "under"
@@ -252,15 +281,22 @@ export default function BulkMarketApplier({ selectedFixtures, activeBetType, bet
               onClick={() => setShowOutcomePicker(!showOutcomePicker)}
             >
               {selectedOutcomeId
-                ? allAvailableOutcomes.find((o) => o.id === selectedOutcomeId)?.name ?? "Pick Outcome"
+                ? (allAvailableOutcomes.find((o) => o.id === selectedOutcomeId)?.name ??
+                  "Pick Outcome")
                 : "Pick Outcome"}
-              <ChevronDown size={10} className={cn("transition-transform ml-1", showOutcomePicker && "rotate-180")} />
+              <ChevronDown
+                size={10}
+                className={cn("transition-transform ml-1", showOutcomePicker && "rotate-180")}
+              />
             </Button>
             {showOutcomePicker && (
               <div className="absolute z-50 mt-1 w-56 bg-card border border-border rounded shadow-lg overflow-hidden">
                 <button
                   type="button"
-                  onClick={() => { setSelectedOutcomeId(null); setShowOutcomePicker(false); }}
+                  onClick={() => {
+                    setSelectedOutcomeId(null);
+                    setShowOutcomePicker(false);
+                  }}
                   className={cn(
                     "w-full text-left px-3 py-2 text-xs font-mono hover:bg-muted transition-colors",
                     !selectedOutcomeId && "text-primary bg-primary/5",
@@ -272,7 +308,10 @@ export default function BulkMarketApplier({ selectedFixtures, activeBetType, bet
                   <button
                     key={o.id}
                     type="button"
-                    onClick={() => { setSelectedOutcomeId(o.id); setShowOutcomePicker(false); }}
+                    onClick={() => {
+                      setSelectedOutcomeId(o.id);
+                      setShowOutcomePicker(false);
+                    }}
                     className={cn(
                       "w-full text-left px-3 py-2 text-xs font-mono hover:bg-muted transition-colors flex items-center justify-between",
                       selectedOutcomeId === o.id && "text-primary bg-primary/5",
@@ -310,7 +349,10 @@ export default function BulkMarketApplier({ selectedFixtures, activeBetType, bet
               onClick={() => setShowDropdown(!showDropdown)}
             >
               Common Markets
-              <ChevronDown size={10} className={cn("transition-transform", showDropdown && "rotate-180")} />
+              <ChevronDown
+                size={10}
+                className={cn("transition-transform", showDropdown && "rotate-180")}
+              />
             </Button>
             {showDropdown && (
               <div className="absolute z-50 mt-1 w-64 bg-card border border-border rounded shadow-lg overflow-hidden">
@@ -333,7 +375,10 @@ export default function BulkMarketApplier({ selectedFixtures, activeBetType, bet
           </div>
         )}
 
-        <button onClick={onClearSelection} className="text-[10px] font-mono text-muted-foreground hover:text-foreground ml-auto transition-colors">
+        <button
+          onClick={onClearSelection}
+          className="text-[10px] font-mono text-muted-foreground hover:text-foreground ml-auto transition-colors"
+        >
           Clear selection
         </button>
       </div>
@@ -345,10 +390,19 @@ export default function BulkMarketApplier({ selectedFixtures, activeBetType, bet
             const info = f.betTypeInfo;
             const outcome = info?.available ? previewOutcomeFor(info) : null;
             return (
-              <div key={f.id} className={cn("flex items-center justify-between text-[10px] font-mono py-1 px-2 rounded", info?.available ? "bg-bet-won/5" : "bg-bet-lost/5")}>
+              <div
+                key={f.id}
+                className={cn(
+                  "flex items-center justify-between text-[10px] font-mono py-1 px-2 rounded",
+                  info?.available ? "bg-bet-won/5" : "bg-bet-lost/5",
+                )}
+              >
                 <span className="text-muted-foreground truncate flex-1">{f.name}</span>
                 {info?.available && outcome ? (
-                  <span className="text-bet-won tabular-nums ml-4">@{outcome.odds.toFixed(2)} <span className="text-muted-foreground">({outcome.name})</span></span>
+                  <span className="text-bet-won tabular-nums ml-4">
+                    @{outcome.odds.toFixed(2)}{" "}
+                    <span className="text-muted-foreground">({outcome.name})</span>
+                  </span>
                 ) : (
                   <span className="text-bet-lost ml-4">N/A</span>
                 )}
@@ -362,12 +416,22 @@ export default function BulkMarketApplier({ selectedFixtures, activeBetType, bet
       {showConfirm && selectedMarket && (
         <Modal
           open={showConfirm}
-          onClose={() => { setShowConfirm(false); setSelectedMarket(null); }}
+          onClose={() => {
+            setShowConfirm(false);
+            setSelectedMarket(null);
+          }}
           title="Confirm Bulk Apply"
           size="sm"
           actions={
             <>
-              <Button variant="ghost" size="sm" onClick={() => { setShowConfirm(false); setSelectedMarket(null); }}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowConfirm(false);
+                  setSelectedMarket(null);
+                }}
+              >
                 Cancel
               </Button>
               <Button variant="primary" size="sm" onClick={handleApplySpecificMarket}>
@@ -379,7 +443,8 @@ export default function BulkMarketApplier({ selectedFixtures, activeBetType, bet
           <div className="space-y-2">
             <p className="text-sm font-mono text-foreground">
               Apply <span className="text-primary font-semibold">"{selectedMarket}"</span> to{" "}
-              <span className="text-primary font-semibold">{available.length}</span> match{available.length > 1 ? "es" : ""}?
+              <span className="text-primary font-semibold">{available.length}</span> match
+              {available.length > 1 ? "es" : ""}?
             </p>
             <p className="text-xs font-mono text-muted-foreground">
               This will add one selection per match to your bet slip.

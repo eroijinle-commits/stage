@@ -9,7 +9,13 @@ interface BetTypeLineSelectorProps {
   lineOdds?: Record<string, { over?: number; under?: number }>;
 }
 
-export default function BetTypeLineSelector({ betTypeId, value, onChange, availableLines, lineOdds }: BetTypeLineSelectorProps) {
+export default function BetTypeLineSelector({
+  betTypeId,
+  value,
+  onChange,
+  availableLines,
+  lineOdds,
+}: BetTypeLineSelectorProps) {
   const betType = getBetTypeById(betTypeId);
   if (!betType?.hasLines) return null;
 
@@ -19,7 +25,9 @@ export default function BetTypeLineSelector({ betTypeId, value, onChange, availa
 
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Line</label>
+      <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+        Line
+      </label>
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-1 flex-wrap">
           {lines.map((line) => {
@@ -45,9 +53,14 @@ export default function BetTypeLineSelector({ betTypeId, value, onChange, availa
         </div>
         {preview && (
           <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground">
-            <span>Over {value} <span className="text-odds-up">~@{preview.over?.toFixed(2) ?? "—"}</span></span>
+            <span>
+              Over {value} <span className="text-odds-up">~@{preview.over?.toFixed(2) ?? "—"}</span>
+            </span>
             <span className="text-border">|</span>
-            <span>Under {value} <span className="text-odds-down">~@{preview.under?.toFixed(2) ?? "—"}</span></span>
+            <span>
+              Under {value}{" "}
+              <span className="text-odds-down">~@{preview.under?.toFixed(2) ?? "—"}</span>
+            </span>
           </div>
         )}
       </div>

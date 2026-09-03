@@ -47,12 +47,8 @@ export const useUIStore = create<UIStore>((set) => ({
   closeModal: () => set({ activeModal: null, modalData: null }),
   addToast: (toast) =>
     set((s) => ({
-      toasts: [
-        ...s.toasts,
-        { ...toast, id: `toast-${++toastCounter}` },
-      ],
+      toasts: [...s.toasts, { ...toast, id: `toast-${++toastCounter}` }],
     })),
-  removeToast: (id) =>
-    set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+  removeToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
   setMobile: (isMobile) => set({ isMobile }),
 }));

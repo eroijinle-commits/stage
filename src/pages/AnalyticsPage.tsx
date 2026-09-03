@@ -37,7 +37,13 @@ const CHART_STYLE = {
   itemStyle: { color: "#e8eaed" },
 };
 
-function ProfitBar(props: { x?: number; y?: number; width?: number; height?: number; payload?: { value: number } }) {
+function ProfitBar(props: {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  payload?: { value: number };
+}) {
   const { x = 0, y = 0, width = 0, height = 0, payload } = props;
   const isPositive = (payload?.value ?? 0) >= 0;
   return (
@@ -111,10 +117,33 @@ export default function AnalyticsPage() {
 
       {/* ─── Secondary KPIs ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard title="Avg Stake" value={kpi.avgStake} format="currency" currency="NGN" icon={<DollarSign size={14} />} />
-        <StatCard title="Yield" value={kpi.yield} format="percentage" trend={kpi.yield >= 0 ? "up" : "down"} icon={<BarChart3 size={14} />} />
-        <StatCard title="Sharpe" value={sharpeRatio} format="number" trend={sharpeRatio > 1 ? "up" : sharpeRatio > 0 ? "neutral" : "down"} icon={<Zap size={14} />} />
-        <StatCard title="Avg Odds" value={kpi.avgOdds} format="number" icon={<Layers size={14} />} />
+        <StatCard
+          title="Avg Stake"
+          value={kpi.avgStake}
+          format="currency"
+          currency="NGN"
+          icon={<DollarSign size={14} />}
+        />
+        <StatCard
+          title="Yield"
+          value={kpi.yield}
+          format="percentage"
+          trend={kpi.yield >= 0 ? "up" : "down"}
+          icon={<BarChart3 size={14} />}
+        />
+        <StatCard
+          title="Sharpe"
+          value={sharpeRatio}
+          format="number"
+          trend={sharpeRatio > 1 ? "up" : sharpeRatio > 0 ? "neutral" : "down"}
+          icon={<Zap size={14} />}
+        />
+        <StatCard
+          title="Avg Odds"
+          value={kpi.avgOdds}
+          format="number"
+          icon={<Layers size={14} />}
+        />
       </div>
 
       {/* ─── Cumulative P/L + Market Breakdown ─── */}
@@ -130,11 +159,11 @@ export default function AnalyticsPage() {
               </p>
             </div>
             <span
-              className={`text-sm font-mono font-bold tabular-nums ${kpi.netProfit >= 0 ? "text-bet-won" : "text-bet-lost"
-                }`}
+              className={`text-sm font-mono font-bold tabular-nums ${
+                kpi.netProfit >= 0 ? "text-bet-won" : "text-bet-lost"
+              }`}
             >
-              {kpi.netProfit >= 0 ? "+" : ""}₦
-              {kpi.netProfit.toLocaleString("en-NG")}
+              {kpi.netProfit >= 0 ? "+" : ""}₦{kpi.netProfit.toLocaleString("en-NG")}
             </span>
           </div>
           <ResponsiveContainer width="100%" height={200}>
@@ -163,7 +192,14 @@ export default function AnalyticsPage() {
                 {...CHART_STYLE}
                 formatter={(v) => [`₦${Number(v ?? 0).toLocaleString("en-NG")}`, "Cumulative P/L"]}
               />
-              <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} fill="url(#plGrad)" dot={false} />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="#10b981"
+                strokeWidth={2}
+                fill="url(#plGrad)"
+                dot={false}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -199,7 +235,9 @@ export default function AnalyticsPage() {
           <h3 className="text-xs font-mono font-semibold text-foreground uppercase tracking-wider">
             Daily P/L
           </h3>
-          <span className="text-[10px] font-mono text-muted-foreground">green = profit · red = loss</span>
+          <span className="text-[10px] font-mono text-muted-foreground">
+            green = profit · red = loss
+          </span>
         </div>
         <ResponsiveContainer width="100%" height={140}>
           <BarChart data={dailyDeltas}>
@@ -325,7 +363,9 @@ export default function AnalyticsPage() {
                   <tr key={l.league} className="border-b border-border/50">
                     <td className="py-2 pr-4 text-foreground truncate max-w-[160px]">{l.league}</td>
                     <td className="py-2 px-2 text-right text-muted-foreground">{l.bets}</td>
-                    <td className="py-2 px-2 text-right text-muted-foreground">{l.winRate.toFixed(1)}%</td>
+                    <td className="py-2 px-2 text-right text-muted-foreground">
+                      {l.winRate.toFixed(1)}%
+                    </td>
                     <td
                       className={`py-2 px-2 text-right ${l.profit >= 0 ? "text-bet-won" : "text-bet-lost"}`}
                     >
@@ -336,7 +376,9 @@ export default function AnalyticsPage() {
                     >
                       {l.roi.toFixed(1)}%
                     </td>
-                    <td className="py-2 pl-2 text-right text-muted-foreground">{l.avgOdds.toFixed(2)}</td>
+                    <td className="py-2 pl-2 text-right text-muted-foreground">
+                      {l.avgOdds.toFixed(2)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -370,7 +412,9 @@ export default function AnalyticsPage() {
                     <tr key={o.range} className="border-b border-border/50">
                       <td className="py-2 pr-4 text-foreground">{o.range}</td>
                       <td className="py-2 px-2 text-right text-muted-foreground">{o.bets}</td>
-                      <td className="py-2 px-2 text-right text-muted-foreground">{o.winRate.toFixed(1)}%</td>
+                      <td className="py-2 px-2 text-right text-muted-foreground">
+                        {o.winRate.toFixed(1)}%
+                      </td>
                       <td
                         className={`py-2 px-2 text-right ${o.profit >= 0 ? "text-bet-won" : "text-bet-lost"}`}
                       >

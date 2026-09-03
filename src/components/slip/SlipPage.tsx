@@ -19,9 +19,20 @@ export default function SlipPage() {
   const [copied, setCopied] = useState(false);
 
   const {
-    selections, mode, stakePerLeg, stakeShieldEnabled, isPlacing, placeResults,
-    placeBets, clearSelections, setMode,
-    setStakeShieldEnabled, allSlips, createSlip, deleteSlip, switchSlip,
+    selections,
+    mode,
+    stakePerLeg,
+    stakeShieldEnabled,
+    isPlacing,
+    placeResults,
+    placeBets,
+    clearSelections,
+    setMode,
+    setStakeShieldEnabled,
+    allSlips,
+    createSlip,
+    deleteSlip,
+    switchSlip,
   } = useBetSlip();
 
   const saveSlip = useSlipStore((s) => s.saveSlip);
@@ -37,58 +48,75 @@ export default function SlipPage() {
     return activeSlipId;
   }, [activeSlipId, allSlips]);
 
-  const handleTabChange = useCallback((tabId: SlipTabId) => {
-    switchSlip(tabId);
-  }, [switchSlip]);
+  const handleTabChange = useCallback(
+    (tabId: SlipTabId) => {
+      switchSlip(tabId);
+    },
+    [switchSlip],
+  );
 
   const handleNewSlip = useCallback(() => {
     createSlip();
   }, [createSlip]);
 
-  const handleTabClose = useCallback((tabId: SlipTabId) => {
-    if (allSlips.length <= 1) return;
-    deleteSlip(tabId);
-  }, [allSlips.length, deleteSlip]);
+  const handleTabClose = useCallback(
+    (tabId: SlipTabId) => {
+      if (allSlips.length <= 1) return;
+      deleteSlip(tabId);
+    },
+    [allSlips.length, deleteSlip],
+  );
 
-  const handleTabRename = useCallback((tabId: SlipTabId, name: string) => {
-    renameSlip(tabId, name);
-  }, [renameSlip]);
+  const handleTabRename = useCallback(
+    (tabId: SlipTabId, name: string) => {
+      renameSlip(tabId, name);
+    },
+    [renameSlip],
+  );
 
-  const handleTabDuplicate = useCallback((tabId: SlipTabId) => {
-    duplicateSlip(tabId);
-  }, [duplicateSlip]);
+  const handleTabDuplicate = useCallback(
+    (tabId: SlipTabId) => {
+      duplicateSlip(tabId);
+    },
+    [duplicateSlip],
+  );
 
-  const handleTabClear = useCallback((tabId: SlipTabId) => {
-    clearSlip(tabId);
-  }, [clearSlip]);
+  const handleTabClear = useCallback(
+    (tabId: SlipTabId) => {
+      clearSlip(tabId);
+    },
+    [clearSlip],
+  );
 
   // ── Active slip calculations ───────────────────────────────────────────
   const activeSlipSelectionCount = selections.length;
 
   const activeManualTotalStake = useMemo(() => {
-    return mode === "singles"
-      ? selections.reduce((acc, s) => acc + stakePerLeg, 0)
-      : stakePerLeg;
+    return mode === "singles" ? selections.reduce((acc, s) => acc + stakePerLeg, 0) : stakePerLeg;
   }, [mode, selections, stakePerLeg]);
 
   const activeDisplayReturn = useMemo(() => {
     return mode === "singles"
       ? selections.reduce((acc, s) => acc + stakePerLeg * s.odds, 0)
       : (() => {
-        let r = stakePerLeg * selections.reduce((acc, s) => acc * s.odds, 1);
-        if (stakeShieldEnabled && selections.length >= 3) r *= (1 - getShieldFeeRate(selections.length));
-        return Math.round(r * 100) / 100;
-      })();
+          let r = stakePerLeg * selections.reduce((acc, s) => acc * s.odds, 1);
+          if (stakeShieldEnabled && selections.length >= 3)
+            r *= 1 - getShieldFeeRate(selections.length);
+          return Math.round(r * 100) / 100;
+        })();
   }, [mode, selections, stakePerLeg, stakeShieldEnabled]);
 
   const activeProfit = activeDisplayReturn - activeManualTotalStake;
   const placed = placeResults.length > 0;
   const totalOdds = mode === "parlay" ? selections.reduce((acc, s) => acc * s.odds, 1) : undefined;
 
-  const handleModeChange = useCallback((m: "singles" | "parlay") => {
-    setMode(m);
-    if (m !== "parlay") setStakeShieldEnabled(false);
-  }, [setMode, setStakeShieldEnabled]);
+  const handleModeChange = useCallback(
+    (m: "singles" | "parlay") => {
+      setMode(m);
+      if (m !== "parlay") setStakeShieldEnabled(false);
+    },
+    [setMode, setStakeShieldEnabled],
+  );
 
   const handleShare = useCallback(() => {
     const data = shareSlip();
@@ -96,12 +124,15 @@ export default function SlipPage() {
     const text = data.link
       ? `${data.code}\nStake fixture: ${data.link}\nRestore in Stage: ${data.stageLink}`
       : data.stageLink;
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {
-      prompt("Copy this slip:", text);
-    });
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        prompt("Copy this slip:", text);
+      });
   }, [shareSlip]);
 
   const handleSave = useCallback(() => {
@@ -163,7 +194,9 @@ export default function SlipPage() {
           }}
           onShare={handleShare}
           onSave={handleSave}
-          onClear={() => { clearSelections(); }}
+          onClear={() => {
+            clearSelections();
+          }}
           hasContent={activeSlipSelectionCount > 0}
           copied={copied}
         />
@@ -181,10 +214,24 @@ export default function SlipPage() {
             className="flex-1 max-w-xs bg-secondary border border-border rounded px-2 py-0.5 text-[11px] font-mono focus:outline-none focus:border-ring"
             autoFocus
           />
-          <Button variant="primary" size="sm" className="px-2 py-0.5 text-[10px]" onClick={handleSave} disabled={!saveName.trim()}>
+          <Button
+            variant="primary"
+            size="sm"
+            className="px-2 py-0.5 text-[10px]"
+            onClick={handleSave}
+            disabled={!saveName.trim()}
+          >
             Save
           </Button>
-          <Button variant="ghost" size="sm" className="px-2 py-0.5 text-[10px]" onClick={() => { setShowSaveInput(false); setSaveName(""); }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-2 py-0.5 text-[10px]"
+            onClick={() => {
+              setShowSaveInput(false);
+              setSaveName("");
+            }}
+          >
             Cancel
           </Button>
         </div>

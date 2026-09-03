@@ -9,16 +9,16 @@ let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
  * Reads DATABASE_URL from process.env — never exposed to the client.
  */
 export function getServerDb() {
-    if (!_db) {
-        const databaseUrl = process.env.DATABASE_URL;
-        if (!databaseUrl) {
-            throw new Error(
-                "Missing DATABASE_URL environment variable. " +
-                "Set it in your .env file (server-side only, no VITE_ prefix)."
-            );
-        }
-        const sql = neon(databaseUrl);
-        _db = drizzle(sql, { schema });
+  if (!_db) {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      throw new Error(
+        "Missing DATABASE_URL environment variable. " +
+          "Set it in your .env file (server-side only, no VITE_ prefix).",
+      );
     }
-    return _db;
+    const sql = neon(databaseUrl);
+    _db = drizzle(sql, { schema });
+  }
+  return _db;
 }

@@ -2,16 +2,16 @@
 export { getDb, checkConnection } from "./client";
 export * from "./schema";
 export type {
-    Bet,
-    NewBet,
-    BetOutcome,
-    NewBetOutcome,
-    SavedFilterRow,
-    NewSavedFilter,
-    StakingPresetRow,
-    NewStakingPreset,
-    SettingRow,
-    AppStateRow,
+  Bet,
+  NewBet,
+  BetOutcome,
+  NewBetOutcome,
+  SavedFilterRow,
+  NewSavedFilter,
+  StakingPresetRow,
+  NewStakingPreset,
+  SettingRow,
+  AppStateRow,
 } from "./types";
 
 // Repositories

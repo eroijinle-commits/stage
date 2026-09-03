@@ -18,26 +18,26 @@ const MAX_RETRIES = 1;
  * NEVER logs the token.
  */
 function getToken(): string | null {
-    try {
-        return localStorage.getItem("stake-api-token");
-    } catch {
-        return null;
-    }
+  try {
+    return localStorage.getItem("stake-api-token");
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Set the API token in localStorage.
  */
 export function setToken(token: string | null): void {
-    try {
-        if (token) {
-            localStorage.setItem("stake-api-token", token);
-        } else {
-            localStorage.removeItem("stake-api-token");
-        }
-    } catch {
-        // localStorage unavailable — silently fail
+  try {
+    if (token) {
+      localStorage.setItem("stake-api-token", token);
+    } else {
+      localStorage.removeItem("stake-api-token");
     }
+  } catch {
+    // localStorage unavailable — silently fail
+  }
 }
 
 /**
@@ -52,116 +52,113 @@ export function setToken(token: string | null): void {
  * @throws StakeApiError on any failure
  */
 export async function executeQuery<T>(options: ExecuteQueryOptions): Promise<T> {
-    const { query, variables, operationName, operationType } = options;
+  const { query, variables, operationName, operationType } = options;
 
-    return rateLimited(async () => {
-        let lastError: unknown;
+  return rateLimited(async () => {
+    let lastError: unknown;
 
-        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-            if (attempt > 0) {
-                const delay = computeBackoff(attempt - 1);
-                await sleep(delay);
-            }
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        const delay = computeBackoff(attempt - 1);
+        await sleep(delay);
+      }
 
-            try {
-                const token = getToken();
-                const headers: Record<string, string> = {
-                    "Content-Type": "application/json",
-                    "x-language": "en",
-                    "x-operation-name": operationName,
-                    "x-operation-type": operationType,
-                };
+      try {
+        const token = getToken();
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          "x-language": "en",
+          "x-operation-name": operationName,
+          "x-operation-type": operationType,
+        };
 
-                if (token) {
-                    headers["x-access-token"] = token;
-                }
-
-                const response = await fetch(GRAPHQL_ENDPOINT, {
-                    method: "POST",
-                    headers,
-                    body: JSON.stringify({ query, variables }),
-                });
-
-                // Handle 429 rate limiting
-                if (response.status === 429) {
-                    const retryAfter = response.headers.get("Retry-After");
-                    const delay = computeBackoff(attempt, retryAfter ? parseInt(retryAfter, 10) : undefined);
-                    await sleep(delay);
-                    lastError = new StakeApiError("rateLimited", "Rate limited by server", 429);
-                    continue;
-                }
-
-                // Handle non-OK responses
-                if (!response.ok) {
-                    const statusText = response.statusText;
-                    // Try to read the response body for better error info
-                    let bodyText = "";
-                    try {
-                        bodyText = await response.text();
-                    } catch { /* ignore */ }
-                    const detail = bodyText ? ` — ${bodyText.slice(0, 500)}` : "";
-                    console.error(`[stake-api] HTTP ${response.status}${detail}`);
-                    lastError = new Error(`HTTP ${response.status}: ${statusText}${detail}`);
-                    // Retry on 5xx
-                    if (response.status >= 500 && attempt < MAX_RETRIES) continue;
-                    break;
-                }
-
-                // Parse JSON
-                let body: unknown;
-                try {
-                    body = await response.json();
-                } catch {
-                    lastError = new Error("Failed to parse API response as JSON");
-                    continue;
-                }
-
-                const graphql = body as GraphQLResponse<T>;
-
-                // Check for GraphQL errors
-                if (graphql.errors && graphql.errors.length > 0) {
-                    const firstErr = graphql.errors[0];
-
-                    // Partial data: some sub-fields (e.g. markets) may be geo-restricted
-                    // but the rest of the query data is still valid — return it
-                    if (graphql.data) {
-                        console.warn(
-                            "[stake-api] Partial GraphQL error (returning available data):",
-                            firstErr.message,
-                            firstErr.path,
-                        );
-                        return graphql.data;
-                    }
-
-                    lastError = new Error(firstErr.message);
-                    // Don't retry on GraphQL errors — they're deterministic
-                    break;
-                }
-
-                if (!graphql.data) {
-                    lastError = new Error("API returned empty data");
-                    break;
-                }
-
-                return graphql.data;
-            } catch (err) {
-                // Network errors — retry
-                lastError = err;
-                if (attempt < MAX_RETRIES) continue;
-            }
+        if (token) {
+          headers["x-access-token"] = token;
         }
 
-        // All retries exhausted — classify and throw
-        if (lastError instanceof StakeApiError) throw lastError;
+        const response = await fetch(GRAPHQL_ENDPOINT, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ query, variables }),
+        });
 
-        const errorType = classifyError(lastError);
-        throw new StakeApiError(
-            errorType,
-            getUserFriendlyMessage(errorType),
-            undefined,
-            lastError,
-        );
-    }) as Promise<T>;
+        // Handle 429 rate limiting
+        if (response.status === 429) {
+          const retryAfter = response.headers.get("Retry-After");
+          const delay = computeBackoff(attempt, retryAfter ? parseInt(retryAfter, 10) : undefined);
+          await sleep(delay);
+          lastError = new StakeApiError("rateLimited", "Rate limited by server", 429);
+          continue;
+        }
+
+        // Handle non-OK responses
+        if (!response.ok) {
+          const statusText = response.statusText;
+          // Try to read the response body for better error info
+          let bodyText = "";
+          try {
+            bodyText = await response.text();
+          } catch {
+            /* ignore */
+          }
+          const detail = bodyText ? ` — ${bodyText.slice(0, 500)}` : "";
+          console.error(`[stake-api] HTTP ${response.status}${detail}`);
+          lastError = new Error(`HTTP ${response.status}: ${statusText}${detail}`);
+          // Retry on 5xx
+          if (response.status >= 500 && attempt < MAX_RETRIES) continue;
+          break;
+        }
+
+        // Parse JSON
+        let body: unknown;
+        try {
+          body = await response.json();
+        } catch {
+          lastError = new Error("Failed to parse API response as JSON");
+          continue;
+        }
+
+        const graphql = body as GraphQLResponse<T>;
+
+        // Check for GraphQL errors
+        if (graphql.errors && graphql.errors.length > 0) {
+          const firstErr = graphql.errors[0];
+
+          // Partial data: some sub-fields (e.g. markets) may be geo-restricted
+          // but the rest of the query data is still valid — return it
+          if (graphql.data) {
+            console.warn(
+              "[stake-api] Partial GraphQL error (returning available data):",
+              firstErr.message,
+              firstErr.path,
+            );
+            return graphql.data;
+          }
+
+          lastError = new Error(firstErr.message);
+          // Don't retry on GraphQL errors — they're deterministic
+          break;
+        }
+
+        if (!graphql.data) {
+          lastError = new Error("API returned empty data");
+          break;
+        }
+
+        return graphql.data;
+      } catch (err) {
+        // Network errors — retry
+        lastError = err;
+        if (attempt < MAX_RETRIES) continue;
+      }
+    }
+
+    // All retries exhausted — classify and throw
+    if (lastError instanceof StakeApiError) throw lastError;
+
+    const errorType = classifyError(lastError);
+    throw new StakeApiError(errorType, getUserFriendlyMessage(errorType), undefined, lastError);
+  }) as Promise<T>;
 }
 
 /**
@@ -169,29 +166,29 @@ export async function executeQuery<T>(options: ExecuteQueryOptions): Promise<T> 
  * Returns true if connection is valid, false otherwise.
  */
 export async function testConnectionQuery(): Promise<boolean> {
-    try {
-        const token = getToken();
-        if (!token) return false;
+  try {
+    const token = getToken();
+    if (!token) return false;
 
-        const response = await fetch(GRAPHQL_ENDPOINT, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "x-access-token": token,
-                "x-language": "en",
-                "x-operation-name": "StakeBalances",
-                "x-operation-type": "query",
-            },
-            body: JSON.stringify({
-                query: `query StakeBalances { user { balances { available { amount currency } vault { amount currency } } } }`,
-            }),
-        });
+    const response = await fetch(GRAPHQL_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-access-token": token,
+        "x-language": "en",
+        "x-operation-name": "StakeBalances",
+        "x-operation-type": "query",
+      },
+      body: JSON.stringify({
+        query: `query StakeBalances { user { balances { available { amount currency } vault { amount currency } } } }`,
+      }),
+    });
 
-        if (!response.ok) return false;
+    if (!response.ok) return false;
 
-        const body = await response.json() as GraphQLResponse<{ user: { balances: unknown[] } }>;
-        return !body.errors && !!body.data?.user;
-    } catch {
-        return false;
-    }
+    const body = (await response.json()) as GraphQLResponse<{ user: { balances: unknown[] } }>;
+    return !body.errors && !!body.data?.user;
+  } catch {
+    return false;
+  }
 }

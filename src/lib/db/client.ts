@@ -15,13 +15,13 @@ let _db: any = null;
  * backward compatibility and should not be called from new code.
  */
 export function getDb() {
-    if (!_db) {
-        throw new Error(
-            "Direct database access from the client is no longer supported. " +
-            "Use the server API (src/lib/api.ts) instead."
-        );
-    }
-    return _db;
+  if (!_db) {
+    throw new Error(
+      "Direct database access from the client is no longer supported. " +
+        "Use the server API (src/lib/api.ts) instead.",
+    );
+  }
+  return _db;
 }
 
 /**
@@ -29,11 +29,11 @@ export function getDb() {
  * Returns true if the backend is alive.
  */
 export async function checkConnection(): Promise<boolean> {
-    try {
-        const res = await fetch("/api/health");
-        const data = await res.json();
-        return data.ok === true;
-    } catch {
-        return false;
-    }
+  try {
+    const res = await fetch("/api/health");
+    const data = await res.json();
+    return data.ok === true;
+  } catch {
+    return false;
+  }
 }

@@ -36,9 +36,7 @@ function getOddsClass(odds: number): string {
 }
 
 export default function ManualTab({ bulkStake, onBulkStakeChange }: ManualTabProps = {}) {
-  const {
-    selections, mode, stakePerLeg, placeResults, removeSelection,
-  } = useBetSlip();
+  const { selections, mode, stakePerLeg, placeResults, removeSelection } = useBetSlip();
   const currency = useSettingsStore((s) => s.currency);
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -89,9 +87,14 @@ export default function ManualTab({ bulkStake, onBulkStakeChange }: ManualTabPro
             <tr className="text-muted-foreground border-b border-border">
               <th className="text-left px-3 py-1.5 font-medium w-8">#</th>
               <th className="text-left px-2 py-1.5 font-medium min-w-[180px]">Fixture</th>
-              <th className="text-left px-2 py-1.5 font-medium min-w-[160px]">Market / Selection</th>
+              <th className="text-left px-2 py-1.5 font-medium min-w-[160px]">
+                Market / Selection
+              </th>
               <th className="text-left px-2 py-1.5 font-medium">
-                <button onClick={() => toggleSort("odds")} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                <button
+                  onClick={() => toggleSort("odds")}
+                  className="flex items-center gap-1 hover:text-foreground transition-colors"
+                >
                   Odds
                   {renderSortIcon("odds")}
                 </button>
@@ -104,7 +107,9 @@ export default function ManualTab({ bulkStake, onBulkStakeChange }: ManualTabPro
           </thead>
           <tbody className="divide-y divide-border/50">
             {sorted.map((s: BetSelection, index: number) => {
-              const result = placeResults.find((r: { selectionId: string }) => r.selectionId === s.id);
+              const result = placeResults.find(
+                (r: { selectionId: string }) => r.selectionId === s.id,
+              );
               const status = getStatus(result);
               const stake = stakePerLeg;
               const rowReturn = stake * s.odds;
@@ -122,9 +127,16 @@ export default function ManualTab({ bulkStake, onBulkStakeChange }: ManualTabPro
                   <td className="px-3 py-1.5 text-muted-foreground tabular-nums">{index + 1}</td>
                   <td className="px-2 py-1.5 min-w-[180px]">
                     <p className="text-foreground truncate max-w-[220px]">{s.fixtureName}</p>
-                    <p className="text-muted-foreground truncate max-w-[220px]">{s.tournamentName}</p>
+                    <p className="text-muted-foreground truncate max-w-[220px]">
+                      {s.tournamentName}
+                    </p>
                     <p className="text-[10px] text-muted-foreground/70 tabular-nums">
-                      {new Date(s.startTime).toLocaleDateString("en-NG", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      {new Date(s.startTime).toLocaleDateString("en-NG", {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </p>
                   </td>
                   <td className="px-2 py-1.5 min-w-[160px]">
@@ -137,10 +149,14 @@ export default function ManualTab({ bulkStake, onBulkStakeChange }: ManualTabPro
                     </span>
                   </td>
                   <td className="px-2 py-1.5 text-right">
-                    <span className="text-foreground tabular-nums">{stake.toLocaleString("en-NG")}</span>
+                    <span className="text-foreground tabular-nums">
+                      {stake.toLocaleString("en-NG")}
+                    </span>
                   </td>
                   <td className="px-2 py-1.5 text-right">
-                    <span className="text-foreground tabular-nums">{formatCurrency(rowReturn, currency)}</span>
+                    <span className="text-foreground tabular-nums">
+                      {formatCurrency(rowReturn, currency)}
+                    </span>
                   </td>
                   <td className="px-2 py-1.5 text-center">
                     <Badge variant={STATUS_CONFIG[status].variant} size="sm">

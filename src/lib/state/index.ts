@@ -1,9 +1,9 @@
 // Barrel export for the state management layer
 export {
-    calculatePotentialReturn,
-    calculateTotalStake,
-    validateSlip,
-    canPlaceBet,
+  calculatePotentialReturn,
+  calculateTotalStake,
+  validateSlip,
+  canPlaceBet,
 } from "./slipLogic";
 
 export { executeBetPlacement } from "./betPlacement";

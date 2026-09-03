@@ -49,11 +49,11 @@ Output: StakeMarket[]  (markets with unique names)
 
 ### Qualification Impact
 
-| Scenario | Before | After |
-|----------|--------|-------|
-| 3 markets named "2nd Half Total", each with 2 outcomes | 3 qualifying markets (each ≤ 2) | 1 merged market with 6 outcomes → **excluded** |
-| 1 market "Match Winner" with 3 outcomes, maxOutcomes=3 | 1 qualifying market | 1 qualifying market (unchanged) |
-| 2 markets named "Total Goals", each with 2 outcomes, maxOutcomes=2 | 2 qualifying markets | 1 merged market with 4 outcomes → **excluded** |
+| Scenario                                                           | Before                          | After                                          |
+| ------------------------------------------------------------------ | ------------------------------- | ---------------------------------------------- |
+| 3 markets named "2nd Half Total", each with 2 outcomes             | 3 qualifying markets (each ≤ 2) | 1 merged market with 6 outcomes → **excluded** |
+| 1 market "Match Winner" with 3 outcomes, maxOutcomes=3             | 1 qualifying market             | 1 qualifying market (unchanged)                |
+| 2 markets named "Total Goals", each with 2 outcomes, maxOutcomes=2 | 2 qualifying markets            | 1 merged market with 4 outcomes → **excluded** |
 
 ## File Changes
 
@@ -69,13 +69,13 @@ Output: StakeMarket[]  (markets with unique names)
 
 ```typescript
 export function selectTopMarkets(
-    groups: StakeGroupWithMarkets[],
-    config: ComputeConfig,
+  groups: StakeGroupWithMarkets[],
+  config: ComputeConfig,
 ): RankedMarket[] {
-    const allMarkets = flattenAllMarkets(groups);
-    const merged   = mergeMarketsByName(allMarkets);        // ← NEW
-    const ranked   = filterByOutcomeCount(merged, config.maxOutcomes);
-    // ... rest unchanged
+  const allMarkets = flattenAllMarkets(groups);
+  const merged = mergeMarketsByName(allMarkets); // ← NEW
+  const ranked = filterByOutcomeCount(merged, config.maxOutcomes);
+  // ... rest unchanged
 }
 ```
 
@@ -85,14 +85,14 @@ export function selectTopMarkets(
 
 ```typescript
 const permutationCount = useMemo(() => {
-    if (marketGroups.length === 0) return 0;
-    const needed = marketsNeeded(config.slipCount, config.maxOutcomes);
-    const allMarkets = flattenAllMarkets(marketGroups);
-    const merged     = mergeMarketsByName(allMarkets);      // ← NEW
-    const qualifying = filterByOutcomeCount(merged, config.maxOutcomes);
-    if (qualifying.length < needed) return 0;
-    const topN = qualifying.slice(0, needed);
-    return topN.reduce((acc, m) => acc * m.outcomeCount, 1);
+  if (marketGroups.length === 0) return 0;
+  const needed = marketsNeeded(config.slipCount, config.maxOutcomes);
+  const allMarkets = flattenAllMarkets(marketGroups);
+  const merged = mergeMarketsByName(allMarkets); // ← NEW
+  const qualifying = filterByOutcomeCount(merged, config.maxOutcomes);
+  if (qualifying.length < needed) return 0;
+  const topN = qualifying.slice(0, needed);
+  return topN.reduce((acc, m) => acc * m.outcomeCount, 1);
 }, [config, marketGroups]);
 ```
 
@@ -117,13 +117,13 @@ Import `mergeMarketsByName` from `marketFilter.ts`.
 
 ### 4. No changes needed
 
-| File | Reason |
-|------|--------|
-| `src/lib/compute/types.ts` | `RankedMarket` and `ComputeSelection` are generic — work with merged markets |
-| `src/lib/compute/cartesian.ts` | Operates on `RankedMarket[]` — already correct |
-| `src/hooks/useCompute.ts` (other than permutationCount) | `runCompute()` calls `selectTopMarkets()` which handles the merge |
-| `src/components/compute/*` | UI is driven by `ComputeResult` — no awareness of merge logic |
-| `src/store/useSlipStore.ts` | Store is unaffected |
+| File                                                    | Reason                                                                       |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `src/lib/compute/types.ts`                              | `RankedMarket` and `ComputeSelection` are generic — work with merged markets |
+| `src/lib/compute/cartesian.ts`                          | Operates on `RankedMarket[]` — already correct                               |
+| `src/hooks/useCompute.ts` (other than permutationCount) | `runCompute()` calls `selectTopMarkets()` which handles the merge            |
+| `src/components/compute/*`                              | UI is driven by `ComputeResult` — no awareness of merge logic                |
+| `src/store/useSlipStore.ts`                             | Store is unaffected                                                          |
 
 ## Edge Cases
 

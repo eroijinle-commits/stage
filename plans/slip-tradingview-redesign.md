@@ -1,18 +1,21 @@
 # SlipPage TradingView Terminal Redesign
 
 ## Design Read
+
 Dense betting terminal for power users, with a TradingView-inspired dark cockpit language, leaning toward monospace-heavy utilities + tight grid + color-coded data rows.
 
 ## Dials
-| Dial | Value | Rationale |
-|------|-------|-----------|
-| DESIGN_VARIANCE | 3 | Systematic precision, symmetric grid, zero floating elements |
-| MOTION_INTENSITY | 4 | Functional transitions only: panel collapse, row highlight, tab switch |
-| VISUAL_DENSITY | 9 | Cockpit: tight paddings, no card boxes, 1px lines separate data, monospace numbers |
+
+| Dial             | Value | Rationale                                                                          |
+| ---------------- | ----- | ---------------------------------------------------------------------------------- |
+| DESIGN_VARIANCE  | 3     | Systematic precision, symmetric grid, zero floating elements                       |
+| MOTION_INTENSITY | 4     | Functional transitions only: panel collapse, row highlight, tab switch             |
+| VISUAL_DENSITY   | 9     | Cockpit: tight paddings, no card boxes, 1px lines separate data, monospace numbers |
 
 ## Architecture
 
 ### Current State
+
 - [`SlipPage.tsx`](Git Files/src/components/slip/SlipPage.tsx) - Container with 3 tabs (Manual, Compute, Saved)
 - [`SlipTabs.tsx`](Git Files/src/components/slip/SlipTabs.tsx) - Simple tab bar
 - [`SlipVariantA.tsx`](Git Files/src/components/slip/SlipVariantA.tsx) - Manual tab: left table + right summary rail (360 lines)
@@ -60,6 +63,7 @@ Dense betting terminal for power users, with a TradingView-inspired dark cockpit
 ## File Changes
 
 ### 1. `src/components/slip/SlipPage.tsx` (REWRITE)
+
 - New TradingView terminal shell: tabs + toolbar + 3-column grid (main table | right panel) + bottom bar
 - State: `activeTab`, `rightPanelOpen` (default true)
 - Bottom bar: fixed at bottom, shows selection count, total stake, potential return, Place button
@@ -67,12 +71,14 @@ Dense betting terminal for power users, with a TradingView-inspired dark cockpit
 - Right panel: collapsible, shows order summary per active tab
 
 ### 2. `src/components/slip/SlipTabs.tsx` (REWRITE)
+
 - TradingView-style tab bar: small, dense, horizontal pills
 - Active tab gets filled background (`bg-primary/15 text-primary`)
 - Badge count shown as small monospace number inline
 - Height: 32px, border-bottom separator
 
 ### 3. `src/components/slip/SlipVariantA.tsx` (REWRITE as ManualTab)
+
 - Rename export to `ManualTab` (internal, SlipPage imports it)
 - Full-height dense data table with columns: `# | Fixture | Market/Selection | Odds | Stake | Return | Status | X`
 - Sticky table header
@@ -82,6 +88,7 @@ Dense betting terminal for power users, with a TradingView-inspired dark cockpit
 - Empty state: centered muted text
 
 ### 4. `src/components/slip/ComputeSlipTable.tsx` (NEW FILE)
+
 - Extracted from the inline `ComputeSlipCard` in SlipPage
 - Grid of compute slip cards, each with:
   - Collapsible header (name + leg count)
@@ -93,17 +100,20 @@ Dense betting terminal for power users, with a TradingView-inspired dark cockpit
 - Dense card style: `border border-border/50 rounded` (not the current thick borders)
 
 ### 5. `src/components/slip/SavedSlipList.tsx` (NEW FILE)
+
 - Extracted from the inline saved slips section in SlipPage
 - Table-style list (not cards): rows with `name | legs | mode | date | actions`
 - Load and Delete actions per row
 - Empty state
 
 ### 6. `src/components/slip/SlipItem.tsx` (UPDATE)
+
 - Minimal changes: ensure it works as a table row component
 - Remove card-style `border rounded p-2.5` wrapper (parent controls layout)
 - Keep content rendering (fixture, outcome, odds, stake input, status)
 
 ### 7. `src/components/slip/OrderPanel.tsx` (NEW FILE)
+
 - Extracted right-side summary panel from SlipVariantA
 - Shared across all 3 tabs with tab-specific content
 - Manual tab: mode, selections count, combined odds, stake input, return, profit, stake shield, place button
@@ -113,6 +123,7 @@ Dense betting terminal for power users, with a TradingView-inspired dark cockpit
 - Width: 224px (`w-56`), border-left separator
 
 ### 8. `src/components/slip/BottomBar.tsx` (NEW FILE)
+
 - Fixed bottom bar across all tabs
 - Left: selection count + total stake
 - Center: potential return (green) + potential profit
@@ -120,6 +131,7 @@ Dense betting terminal for power users, with a TradingView-inspired dark cockpit
 - Height: 48px, border-top separator, bg-card
 
 ### 9. `src/components/slip/ToolbarRibbon.tsx` (NEW FILE)
+
 - Horizontal toolbar below tabs
 - Left group: Mode toggle (Singles/Parlay pills)
 - Center group: Bulk stake input (singles mode only) + Apply button
@@ -147,7 +159,9 @@ SlipPage
 ```
 
 ## Design Tokens (No Changes Needed)
+
 The existing dark theme tokens in [`index.css`](Git Files/src/index.css) are already TradingView-appropriate:
+
 - Background: `#0a0d0f` (near-black)
 - Card: `#111418` (dark surface)
 - Border: `#1e2530` (subtle separators)
@@ -156,6 +170,7 @@ The existing dark theme tokens in [`index.css`](Git Files/src/index.css) are alr
 - JetBrains Mono as mono font already loaded
 
 ## Constraints
+
 - **No new dependencies** - reuse existing: Tailwind, framer-motion (for panel collapse), lucide-react icons, recharts (if sparklines needed), Radix primitives
 - **Preserve all business logic** - store hooks, slip calculations, bet placement, compute pipeline unchanged
 - **Preserve BetSlipDrawer** - global overlay drawer stays as-is (it duplicates some functionality but serves a different UX path)

@@ -17,8 +17,16 @@ const sizes = {
 };
 
 export default function Button({
-  children, onClick, disabled, loading, variant = "primary", size = "md",
-  type = "button", className, icon, fullWidth,
+  children,
+  onClick,
+  disabled,
+  loading,
+  variant = "primary",
+  size = "md",
+  type = "button",
+  className,
+  icon,
+  fullWidth,
 }: ButtonProps) {
   return (
     <button

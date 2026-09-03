@@ -2,36 +2,36 @@ import "@testing-library/jest-dom/vitest";
 
 // Mock localStorage
 const localStorageMock = (() => {
-    let store: Record<string, string> = {};
-    return {
-        getItem: (key: string) => store[key] ?? null,
-        setItem: (key: string, value: string) => {
-            store[key] = value;
-        },
-        removeItem: (key: string) => {
-            delete store[key];
-        },
-        clear: () => {
-            store = {};
-        },
-        get length() {
-            return Object.keys(store).length;
-        },
-        key: (index: number) => Object.keys(store)[index] ?? null,
-    };
+  let store: Record<string, string> = {};
+  return {
+    getItem: (key: string) => store[key] ?? null,
+    setItem: (key: string, value: string) => {
+      store[key] = value;
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+    get length() {
+      return Object.keys(store).length;
+    },
+    key: (index: number) => Object.keys(store)[index] ?? null,
+  };
 })();
 
 Object.defineProperty(globalThis, "localStorage", { value: localStorageMock });
 
 // Mock fetch globally
 if (!globalThis.fetch) {
-    Object.defineProperty(globalThis, "fetch", {
-        value: vi.fn(),
-        writable: true,
-    });
+  Object.defineProperty(globalThis, "fetch", {
+    value: vi.fn(),
+    writable: true,
+  });
 }
 
 // Reset localStorage before each test
 beforeEach(() => {
-    localStorage.clear();
+  localStorage.clear();
 });

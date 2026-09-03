@@ -15,9 +15,21 @@ const sizes = {
   md: "px-2 py-0.5 text-xs",
 };
 
-export default function Badge({ children, variant = "default", size = "sm", className }: BadgeProps) {
+export default function Badge({
+  children,
+  variant = "default",
+  size = "sm",
+  className,
+}: BadgeProps) {
   return (
-    <span className={cn("inline-flex items-center font-mono font-medium rounded-sm tracking-wide uppercase", variants[variant], sizes[size], className)}>
+    <span
+      className={cn(
+        "inline-flex items-center font-mono font-medium rounded-sm tracking-wide uppercase",
+        variants[variant],
+        sizes[size],
+        className,
+      )}
+    >
       {children}
     </span>
   );

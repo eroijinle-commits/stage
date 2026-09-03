@@ -33,11 +33,13 @@ async function ensureSportIdCache(): Promise<void> {
     }
   `;
 
-  const data = await executeQuery<{ sportList: Array<{ id: string; name: string; slug: string }> }>({
-    query,
-    operationName: "SportList",
-    operationType: "query",
-  });
+  const data = await executeQuery<{ sportList: Array<{ id: string; name: string; slug: string }> }>(
+    {
+      query,
+      operationName: "SportList",
+      operationType: "query",
+    },
+  );
 
   for (const sport of data.sportList) {
     sportIdCache.set(sport.slug, sport.id);
@@ -112,7 +114,12 @@ export interface SportIndexData {
         id: string;
         name: string;
         slug: string;
-        category: { id: string; name: string; slug: string; sport: { id: string; name: string; slug: string } };
+        category: {
+          id: string;
+          name: string;
+          slug: string;
+          sport: { id: string; name: string; slug: string };
+        };
         fixtures: StakeFixture[];
       }>;
     }>;
@@ -289,7 +296,8 @@ export async function getFixtureDetailsQuery(
   // The query always returns `groups { name translation }` — all available groups —
   // regardless of which groups we filter with.
   const discovery = await queryFixtureBySlug(fixtureSlug, hintGroups);
-  const availableGroups: string[] = discovery.groups?.map((g: { name: string; translation: string }) => g.name) ?? [];
+  const availableGroups: string[] =
+    discovery.groups?.map((g: { name: string; translation: string }) => g.name) ?? [];
 
   // If we discovered more groups than we asked for, re-fetch with all of them
   // to get complete market data.
@@ -503,7 +511,9 @@ async function queryFixtureBySlug(
   }));
 
   // fixture.groups contains ALL available group names for this fixture
-  const availableGroups = (fixture as StakeFixture & { groups?: Array<{ name: string; translation: string }> }).groups;
+  const availableGroups = (
+    fixture as StakeFixture & { groups?: Array<{ name: string; translation: string }> }
+  ).groups;
 
   return { fixture, marketGroups, groups: availableGroups };
 }

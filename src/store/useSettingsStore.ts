@@ -30,8 +30,7 @@ export const useSettingsStore = create<SettingsStore>()(
       setCurrency: (currency) => set({ currency }),
       setOddsFormat: (oddsFormat) => set({ oddsFormat }),
       setDefaultPresetId: (defaultPresetId) => set({ defaultPresetId }),
-      setNotifications: (n) =>
-        set((st) => ({ notifications: { ...st.notifications, ...n } })),
+      setNotifications: (n) => set((st) => ({ notifications: { ...st.notifications, ...n } })),
       setTheme: (theme) => set({ theme }),
     }),
     {
