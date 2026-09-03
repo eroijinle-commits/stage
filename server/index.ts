@@ -5,6 +5,8 @@ import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { getServerDb } from "./db";
 import * as schema from "../src/lib/db/schema";
 import { encryptToken, decryptToken, isEncrypted } from "./crypto";
+import { sendErrorToDiscord } from "./discord-webhook";
+import type { ErrorReportPayload, ErrorReportResponse } from "../src/lib/contracts/error.contract";
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
@@ -85,6 +87,85 @@ app.use("/api/graphql", async (req, res) => {
 // ─── Health ───
 
 app.get("/api/health", (_req, res) => {
+  res.json({ ok: true });
+});
+
+// ─── Error Reporting ───
+
+app.post("/api/errors/report", async (req, res) => {
+  const payload = req.body as ErrorReportPayload;
+
+  // Basic validation — reject empty or malformed payloads
+  if (!payload || typeof payload.message !== "string" || !payload.message) {
+    res.status(400).json({ ok: false, reason: "disabled" } satisfies ErrorReportResponse);
+    return;
+  }
+
+  // Ensure source is set correctly for frontend reports
+  if (!payload.source) payload.source = "frontend";
+
+  // Store in DB (fire-and-forget — don't block the response on DB failures)
+  try {
+    const db = getServerDb();
+    await db.insert(schema.errorReports).values({
+      message: payload.message,
+      stack: payload.stack ?? null,
+      source: payload.source,
+      captureMethod: payload.captureMethod,
+      severity: payload.severity ?? "error",
+      url: payload.url ?? null,
+      userAgent: payload.userAgent ?? null,
+      metadata: payload.metadata ? JSON.stringify(payload.metadata) : null,
+      createdAt: Math.floor(Date.now() / 1000),
+    });
+  } catch (dbErr) {
+    console.error("[error-report] Failed to store in DB:", dbErr);
+  }
+
+  // Forward to Discord
+  const result = await sendErrorToDiscord(payload);
+  res.json({ ok: result !== "disabled", reason: result } satisfies ErrorReportResponse);
+});
+
+// Get unacknowledged errors (for agent monitoring)
+app.get("/api/errors", async (req, res) => {
+  const db = getServerDb();
+  const { limit = "50", acknowledged } = req.query;
+
+  const conditions = [];
+  if (acknowledged !== undefined) {
+    conditions.push(eq(schema.errorReports.acknowledged, acknowledged === "true"));
+  }
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const rows = await db
+    .select()
+    .from(schema.errorReports)
+    .where(where)
+    .orderBy(desc(schema.errorReports.createdAt))
+    .limit(Number(limit));
+
+  res.json(rows);
+});
+
+// Acknowledge errors (mark as seen by the agent)
+app.put("/api/errors/:id/acknowledge", async (req, res) => {
+  const db = getServerDb();
+  await db
+    .update(schema.errorReports)
+    .set({ acknowledged: true })
+    .where(eq(schema.errorReports.id, Number(req.params.id)));
+  res.json({ ok: true });
+});
+
+// Acknowledge all unacknowledged errors
+app.put("/api/errors/acknowledge-all", async (_req, res) => {
+  const db = getServerDb();
+  await db
+    .update(schema.errorReports)
+    .set({ acknowledged: true })
+    .where(eq(schema.errorReports.acknowledged, false));
   res.json({ ok: true });
 });
 
@@ -388,6 +469,29 @@ app.delete("/api/presets/:id", async (req, res) => {
   await db.delete(schema.stakingPresets).where(eq(schema.stakingPresets.id, Number(req.params.id)));
   res.json({ ok: true });
 });
+
+// ─── Express Error Middleware ───
+// Catches unhandled errors in server-side route handlers,
+// reports them to Discord, and returns a 500 response.
+
+app.use(
+  async (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error("[server] Unhandled error:", err);
+
+    // Report to Discord (fire-and-forget, don't block the response)
+    sendErrorToDiscord({
+      message: err.message,
+      stack: err.stack,
+      source: "backend",
+      captureMethod: "expressMiddleware",
+      severity: "error",
+      timestamp: new Date().toISOString(),
+    }).catch(() => {});
+
+    if (res.headersSent) return;
+    res.status(500).json({ error: "Internal server error" });
+  },
+);
 
 // ─── Start ───
 
