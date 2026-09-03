@@ -13,6 +13,8 @@ import { calculatePotentialReturn, calculateTotalStake, validateSlip } from "@/l
 import { executeBetPlacement, type BetPlacementResult } from "@/lib/state/betPlacement";
 import type { BetSelection } from "@/lib/contracts/ui.contract";
 import type { SlipMode } from "@/lib/contracts/db.contract";
+import { classifyError, getUserFriendlyMessage } from "@/lib/stake-api/errors";
+import { useUIStore } from "@/store/useUIStore";
 
 /** Get the active slip from raw state (non-reactive helper for .getState() calls). */
 function getActiveSlip(state: ReturnType<typeof useSlipStore.getState>): SlipData | null {
@@ -46,6 +48,7 @@ export function useBetSlip() {
   const setPlacing = useSlipStore((s) => s.setPlacing);
   const setPlaceResults = useSlipStore((s) => s.setPlaceResults);
   const setLastError = useSlipStore((s) => s.setLastError);
+  const addToast = useUIStore((s) => s.addToast);
 
   // ── All slips / compute helpers ─────────────────────────────────────────
   const allSlips = useSlipStore((s) => s.slips);
@@ -122,8 +125,10 @@ export function useBetSlip() {
 
       return results;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Bet placement failed";
+      const errType = classifyError(err);
+      const message = getUserFriendlyMessage(errType);
       setLastError(message);
+      addToast({ type: "error", title: "Bet Placement", description: message, duration: 5000 });
       return [];
     } finally {
       setPlacing(false);
@@ -184,8 +189,10 @@ export function useBetSlip() {
 
         return results;
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Bet placement failed";
+        const errType = classifyError(err);
+        const message = getUserFriendlyMessage(errType);
         setErrorFor(groupId, message);
+        addToast({ type: "error", title: "Bet Placement", description: message, duration: 5000 });
         return [];
       } finally {
         setPlacingFor(groupId, false);

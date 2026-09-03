@@ -11,6 +11,7 @@ import { DiscoveryFixture, BetSelection } from "@/lib/contracts/ui.contract";
 import { getFixtureDetailsQuery, type FixtureDetailsData } from "@/lib/stake-api/queries";
 import { useSlipStore } from "@/store/useSlipStore";
 import { useUIStore } from "@/store/useUIStore";
+import { classifyError, getUserFriendlyMessage } from "@/lib/stake-api/errors";
 import { cn } from "@/lib/utils/cn";
 import { ChevronDown, ChevronRight, Radio, Zap } from "lucide-react";
 
@@ -47,7 +48,10 @@ export default function MarketBrowser({ open, onClose, fixture }: MarketBrowserP
         setExpandedGroups(new Set([data.marketGroups[0].name]));
       }
     } catch (e) {
-      setError(`Failed to load markets${e instanceof Error ? `: ${e.message}` : ""}`);
+      const errType = classifyError(e);
+      const message = getUserFriendlyMessage(errType);
+      setError(message);
+      addToast({ type: "error", title: "Markets", description: message, duration: 5000 });
       setDetails(null);
     } finally {
       setIsLoading(false);
@@ -138,12 +142,12 @@ export default function MarketBrowser({ open, onClose, fixture }: MarketBrowserP
 
   const startTime = fixture?.startTime
     ? new Date(fixture.startTime).toLocaleString("en-GB", {
-        weekday: "short",
-        day: "2-digit",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
     : "";
 
   return (

@@ -7,6 +7,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { getBalance } from "@/lib/stake-api/auth";
+import { classifyError, getUserFriendlyMessage } from "@/lib/stake-api/errors";
+import { useUIStore } from "@/store/useUIStore";
 
 interface BalanceData {
   currency: string;
@@ -31,6 +33,7 @@ interface UseBalanceReturn {
 export function useBalance(): UseBalanceReturn {
   const apiToken = useSettingsStore((s) => s.apiToken);
   const currency = useSettingsStore((s) => s.currency);
+  const addToast = useUIStore((s) => s.addToast);
   const [balance, setBalance] = useState<BalanceData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,13 +75,22 @@ export function useBalance(): UseBalanceReturn {
         }
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to fetch balance";
+      const errType = classifyError(err);
+      const message = getUserFriendlyMessage(errType);
       setError(message);
       setBalance(null);
+      const isTransient = errType === "networkError" || errType === "rateLimited";
+      addToast({
+        type: "error",
+        title: "Balance",
+        description: message,
+        duration: 5000,
+        ...(isTransient ? { action: { label: "Retry", onClick: () => fetchBalance() } } : {}),
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [apiToken, currency]);
+  }, [apiToken, currency, addToast]);
 
   // Auto-fetch when token or currency changes
   useEffect(() => {

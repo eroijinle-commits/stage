@@ -8,6 +8,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { testConnection } from "@/lib/stake-api/auth";
+import { classifyError, getUserFriendlyMessage } from "@/lib/stake-api/errors";
+import { useUIStore } from "@/store/useUIStore";
 
 interface UseStakeApiReturn {
   /** Whether a valid API connection has been confirmed */
@@ -26,6 +28,7 @@ interface UseStakeApiReturn {
  */
 export function useStakeApi(): UseStakeApiReturn {
   const apiToken = useSettingsStore((s) => s.apiToken);
+  const addToast = useUIStore((s) => s.addToast);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,8 +63,17 @@ export function useStakeApi(): UseStakeApiReturn {
       return result;
     } catch (err) {
       setIsConnected(false);
-      const message = err instanceof Error ? err.message : "Unknown error occurred";
+      const errType = classifyError(err);
+      const message = getUserFriendlyMessage(errType);
       setError(message);
+      const isTransient = errType === "networkError" || errType === "rateLimited";
+      addToast({
+        type: "error",
+        title: "Connection",
+        description: message,
+        duration: 5000,
+        ...(isTransient ? { action: { label: "Retry", onClick: () => handleTestConnection() } } : {}),
+      });
       return false;
     } finally {
       setIsLoading(false);

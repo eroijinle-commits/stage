@@ -3,6 +3,8 @@ import { BetHistoryRow } from "@/lib/contracts/ui.contract";
 import { BetStatus, BetRecord } from "@/lib/contracts/db.contract";
 import { getBets, getBetStats, getBetCount } from "@/lib/db/repositories/bet.repository";
 import { getOutcomesByBetId } from "@/lib/db/repositories/outcome.repository";
+import { classifyError, getUserFriendlyMessage } from "@/lib/stake-api/errors";
+import { useUIStore } from "@/store/useUIStore";
 
 function betToHistoryRow(
   bet: BetRecord,
@@ -35,6 +37,7 @@ function betToHistoryRow(
 }
 
 export function useBetHistory() {
+  const addToast = useUIStore((s) => s.addToast);
   const [bets, setBets] = useState<BetHistoryRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +80,10 @@ export function useBetHistory() {
       setTotalCount(count);
       setStats(betStats);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to fetch bet history");
+      const errType = classifyError(e);
+      const message = getUserFriendlyMessage(errType);
+      setError(message);
+      addToast({ type: "error", title: "Bet History", description: message, duration: 5000 });
     } finally {
       setIsLoading(false);
     }

@@ -6,6 +6,8 @@ export interface Toast {
   title: string;
   description?: string;
   duration?: number;
+  /** Optional retry action for transient errors (network, rate limit) */
+  action?: { label: string; onClick: () => void };
 }
 
 interface UIStore {

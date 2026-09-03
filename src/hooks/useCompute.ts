@@ -20,6 +20,8 @@ import { getFixtureDetailsQuery } from "@/lib/stake-api/queries";
 import { useSlipStore } from "@/store/useSlipStore";
 import type { SlipData } from "@/store/useSlipStore";
 import type { StakeGroupWithMarkets } from "@/lib/contracts/api.contract";
+import { classifyError, getUserFriendlyMessage } from "@/lib/stake-api/errors";
+import { useUIStore } from "@/store/useUIStore";
 
 // ─── Default config ──────────────────────────────────────────────────────────
 
@@ -97,6 +99,7 @@ export interface UseComputeReturn {
  * @param fixture - The discovery fixture to compute for, or null if none selected.
  */
 export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
+  const addToast = useUIStore((s) => s.addToast);
   const [config, setConfig] = useState<ComputeConfig>(DEFAULT_CONFIG);
   const [result, setResult] = useState<ComputeResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -143,8 +146,10 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
         setError(null);
       } catch (err) {
         if (cancelled) return;
-        const message = err instanceof Error ? err.message : "Failed to load fixture data";
+        const errType = classifyError(err);
+        const message = getUserFriendlyMessage(errType);
         setError(message);
+        addToast({ type: "error", title: "Fixture Data", description: message, duration: 5000 });
       }
     })();
 
@@ -204,8 +209,10 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
 
       setResult(computeResult);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to fetch fixture details";
+      const errType = classifyError(err);
+      const message = getUserFriendlyMessage(errType);
       setError(message);
+      addToast({ type: "error", title: "Compute", description: message, duration: 5000 });
     } finally {
       setIsLoading(false);
     }
