@@ -26,6 +26,8 @@ export interface PoolFixture extends BetSelection {
   selection: string;
   /** Implied probability derived from odds (1 / odds) */
   impliedProbability: number;
+  /** All available outcomes for this market, used for rich slip display */
+  allOutcomes?: Array<{ name: string; odds: number; active: boolean }>;
 }
 
 // ─── Generated Slip ───────────────────────────────────────────────────────

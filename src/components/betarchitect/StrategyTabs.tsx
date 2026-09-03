@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Play, Loader2 } from "lucide-react";
+import { Play, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { ArchitectSlip } from "@/lib/betarchitect/types";
 import SlipCard from "./SlipCard";
@@ -9,6 +9,7 @@ interface StrategyTabsProps {
   isGenerating: boolean;
   onGenerate: () => void;
   onAddToSlip: (slip: ArchitectSlip) => void;
+  onClearAll: () => void;
   poolSize: number;
 }
 
@@ -27,6 +28,7 @@ export default function StrategyTabs({
   isGenerating,
   onGenerate,
   onAddToSlip,
+  onClearAll,
   poolSize,
 }: StrategyTabsProps) {
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("All");
@@ -84,14 +86,25 @@ export default function StrategyTabs({
         ))}
       </div>
 
-      {/* Slip count */}
+      {/* Slip count + clear button */}
       {slips.length > 0 && (
         <div className="flex items-center justify-between mt-3 mb-1">
           <span className="text-[10px] font-mono text-muted-foreground">
             {filtered.length} slip{filtered.length !== 1 ? "s" : ""}
             {activeTab !== "All" ? ` (${activeTab})` : ""} generated
           </span>
-          <span className="text-[10px] font-mono text-muted-foreground">{slips.length} total</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-muted-foreground">{slips.length} total</span>
+            <button
+              type="button"
+              onClick={onClearAll}
+              className="text-[10px] font-mono text-muted-foreground hover:text-bet-lost transition-colors inline-flex items-center gap-1"
+              title="Clear all generated slips"
+            >
+              <Trash2 size={10} />
+              Clear
+            </button>
+          </div>
         </div>
       )}
 

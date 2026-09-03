@@ -81,6 +81,17 @@ interface SlipStore {
   removeFromPool: (id: string) => void;
   clearPool: () => void;
   generateStrategies: (settings?: RuleSettings) => ArchitectSlip[];
+
+  // ── BetArchitect persisted state ───────────────────────────────────────
+  architectSlips: ArchitectSlip[];
+  architectSettings: RuleSettings;
+  architectExpertMode: boolean;
+  architectOverrides: Partial<RuleSettings>;
+  setArchitectSlips: (slips: ArchitectSlip[]) => void;
+  setArchitectSettings: (settings: RuleSettings) => void;
+  setArchitectExpertMode: (v: boolean) => void;
+  setArchitectOverrides: (overrides: Partial<RuleSettings>) => void;
+  clearArchitectSlips: () => void;
 }
 
 // Tracks whether the store has been rehydrated from localStorage.
@@ -288,9 +299,9 @@ export const useSlipStore = create<SlipStore>()(
           slips: st.slips.map((slip) =>
             slip.id === st.activeSlipId
               ? {
-                  ...slip,
-                  selections: slip.selections.map((s) => (s.id === id ? { ...s, odds } : s)),
-                }
+                ...slip,
+                selections: slip.selections.map((s) => (s.id === id ? { ...s, odds } : s)),
+              }
               : slip,
           ),
         }));
@@ -416,6 +427,18 @@ export const useSlipStore = create<SlipStore>()(
           ...generateSystem78(pool, settings),
         ];
       },
+
+      // ── BetArchitect persisted state ───────────────────────────────────
+      architectSlips: [],
+      architectSettings: DEFAULT_RULES,
+      architectExpertMode: false,
+      architectOverrides: {},
+
+      setArchitectSlips: (slips) => set({ architectSlips: slips }),
+      setArchitectSettings: (settings) => set({ architectSettings: settings }),
+      setArchitectExpertMode: (v) => set({ architectExpertMode: v }),
+      setArchitectOverrides: (overrides) => set({ architectOverrides: overrides }),
+      clearArchitectSlips: () => set({ architectSlips: [] }),
     }),
     {
       name: "stake-slip-storage",
@@ -429,6 +452,11 @@ export const useSlipStore = create<SlipStore>()(
         })),
         activeSlipId: state.activeSlipId,
         savedSlips: [],
+        betArchitectPool: state.betArchitectPool,
+        architectSlips: state.architectSlips,
+        architectSettings: state.architectSettings,
+        architectExpertMode: state.architectExpertMode,
+        architectOverrides: state.architectOverrides,
       }),
       onRehydrateStorage: () => {
         return (state, _error) => {

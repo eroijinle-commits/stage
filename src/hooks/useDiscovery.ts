@@ -155,6 +155,11 @@ function mapFixtureToDiscovery(
       ? `https://stake.com/sports/${sportSlug}/${catSlug}/${tourSlug}/${fixture.slug}`
       : undefined;
 
+  // Build a meaningful fallback name from competitors when tournament data is missing
+  const competitorFallback = competitors.length >= 2
+    ? `${competitors[0].name} vs ${competitors[1].name}`
+    : fixture.name || "Unscheduled";
+
   return {
     id: fixture.id,
     name: fixture.name,
@@ -165,10 +170,10 @@ function mapFixtureToDiscovery(
     homeScore: eventStatus?.homeScore,
     awayScore: eventStatus?.awayScore,
     tournament: {
-      name: fixture.tournament?.name ?? "Unknown",
+      name: fixture.tournament?.name ?? competitorFallback,
       slug: fixture.tournament?.slug,
       category: {
-        name: fixture.tournament?.category?.name ?? "Unknown",
+        name: fixture.tournament?.category?.name ?? (sportSlug ?? "Other"),
         slug: fixture.tournament?.category?.slug,
       },
     },

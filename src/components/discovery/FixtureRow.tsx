@@ -46,13 +46,34 @@ function makeSelection(
 }
 
 function toPoolFixture(fixture: FixtureRowProps["fixture"]): PoolFixture {
-  const firstOutcome = fixture.previewMarkets?.[0]?.outcomes?.[0];
-  const marketName = fixture.previewMarkets?.[0]?.name || "Match Winner";
-  const outcomeName = firstOutcome?.name || "Unknown";
-  const odds = firstOutcome?.odds || 1.5;
+  const firstMarket = fixture.previewMarkets?.[0];
+  const firstOutcome = firstMarket?.outcomes?.[0];
+  const marketName = firstMarket?.name || "Match Winner";
+
+  // Build a meaningful outcome name instead of "Unknown"
+  let outcomeName: string;
+  let odds: number;
+  if (firstOutcome) {
+    outcomeName = firstOutcome.name;
+    odds = firstOutcome.odds;
+  } else {
+    // Fallback: use competitor names to describe the fixture
+    const home = fixture.competitors?.[0]?.name;
+    const away = fixture.competitors?.[1]?.name;
+    outcomeName = home && away ? `${home} or ${away}` : marketName;
+    odds = 1.5;
+  }
+
   // Use the real outcome ID from the API, not a fabricated one.
-  // The backend requires actual outcome UUIDs — `outcome-${fixture.id}` is invalid.
   const realOutcomeId = firstOutcome?.id ?? "";
+
+  // Collect all outcomes from the first market for rich display
+  const allOutcomes = firstMarket?.outcomes?.map((o) => ({
+    name: o.name,
+    odds: o.odds,
+    active: o.active,
+  }));
+
   return {
     id: `pool-${fixture.id}-${marketName}-${outcomeName}`,
     fixtureSlug: fixture.slug,
@@ -75,6 +96,7 @@ function toPoolFixture(fixture: FixtureRowProps["fixture"]): PoolFixture {
     market: marketName,
     selection: outcomeName,
     impliedProbability: 1 / odds,
+    allOutcomes,
   };
 }
 

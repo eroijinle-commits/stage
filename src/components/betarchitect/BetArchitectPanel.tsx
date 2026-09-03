@@ -1,10 +1,12 @@
 import { useBetArchitect } from "@/hooks/useBetArchitect";
+import { useSlipStore } from "@/store/useSlipStore";
 import PoolBuilder from "./PoolBuilder";
 import RulesEngine from "./RulesEngine";
 import StrategyTabs from "./StrategyTabs";
 
 export default function BetArchitectPanel() {
   const ba = useBetArchitect();
+  const clearArchitectSlips = useSlipStore((s) => s.clearArchitectSlips);
   return (
     <div className="flex flex-col gap-4 p-4">
       <div>
@@ -22,6 +24,7 @@ export default function BetArchitectPanel() {
         isGenerating={ba.isGenerating}
         onGenerate={ba.generate}
         onAddToSlip={ba.addSlipToStore}
+        onClearAll={clearArchitectSlips}
         poolSize={ba.pool.length}
       />
     </div>

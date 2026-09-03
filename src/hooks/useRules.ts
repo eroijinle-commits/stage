@@ -1,19 +1,40 @@
 /**
  * useRules — manages rule settings and expert-mode toggle for BetArchitect.
- * Returns the current effective settings (defaults + overrides) and UI state.
+ * Reads/writes from the persisted Zustand store so settings survive refresh.
  * @module hooks/useRules
  */
 
-import { useState } from "react";
+import { useCallback, useMemo } from "react";
 import type { RuleSettings } from "@/lib/betarchitect/types";
-import { DEFAULT_RULES } from "@/lib/betarchitect/rules";
+import { useSlipStore } from "@/store/useSlipStore";
 
 export function useRules() {
-  const [settings, setSettings] = useState<RuleSettings>(DEFAULT_RULES);
-  const [expertMode, setExpertMode] = useState(false);
-  const [overrides, setOverrides] = useState<Partial<RuleSettings>>({});
+  const settings = useSlipStore((s) => s.architectSettings);
+  const expertMode = useSlipStore((s) => s.architectExpertMode);
+  const overrides = useSlipStore((s) => s.architectOverrides);
+  const setArchitectSettings = useSlipStore((s) => s.setArchitectSettings);
+  const setArchitectExpertMode = useSlipStore((s) => s.setArchitectExpertMode);
+  const setArchitectOverrides = useSlipStore((s) => s.setArchitectOverrides);
 
-  const effective: RuleSettings = { ...settings, ...overrides };
+  const effective: RuleSettings = useMemo(
+    () => ({ ...settings, ...overrides }),
+    [settings, overrides],
+  );
+
+  const setSettings = useCallback(
+    (s: RuleSettings) => setArchitectSettings(s),
+    [setArchitectSettings],
+  );
+
+  const setExpertMode = useCallback(
+    (v: boolean) => setArchitectExpertMode(v),
+    [setArchitectExpertMode],
+  );
+
+  const setOverrides = useCallback(
+    (o: Partial<RuleSettings>) => setArchitectOverrides(o),
+    [setArchitectOverrides],
+  );
 
   return {
     settings,
