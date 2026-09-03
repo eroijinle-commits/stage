@@ -76,3 +76,19 @@ export const appState = pgTable("app_state", {
   value: text("value").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
+
+// ─── Error Reports ───
+
+export const errorReports = pgTable("error_reports", {
+  id: serial("id").primaryKey(),
+  message: text("message").notNull(),
+  stack: text("stack"),
+  source: text("source").notNull(),
+  captureMethod: text("capture_method").notNull(),
+  severity: text("severity").notNull().default("error"),
+  url: text("url"),
+  userAgent: text("user_agent"),
+  metadata: text("metadata"),
+  createdAt: integer("created_at").notNull(),
+  acknowledged: boolean("acknowledged").notNull().default(false),
+});

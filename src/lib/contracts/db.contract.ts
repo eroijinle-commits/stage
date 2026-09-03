@@ -55,3 +55,17 @@ export interface AppSetting {
   value: string;
   updatedAt: number;
 }
+
+export interface ErrorReportRecord {
+  id: number;
+  message: string;
+  stack: string | null;
+  source: string;
+  captureMethod: string;
+  severity: string;
+  url: string | null;
+  userAgent: string | null;
+  metadata: string | null;
+  createdAt: number;
+  acknowledged: boolean;
+}

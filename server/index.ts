@@ -104,8 +104,69 @@ app.post("/api/errors/report", async (req, res) => {
   // Ensure source is set correctly for frontend reports
   if (!payload.source) payload.source = "frontend";
 
+  // Store in DB (fire-and-forget — don't block the response on DB failures)
+  try {
+    const db = getServerDb();
+    await db.insert(schema.errorReports).values({
+      message: payload.message,
+      stack: payload.stack ?? null,
+      source: payload.source,
+      captureMethod: payload.captureMethod,
+      severity: payload.severity ?? "error",
+      url: payload.url ?? null,
+      userAgent: payload.userAgent ?? null,
+      metadata: payload.metadata ? JSON.stringify(payload.metadata) : null,
+      createdAt: Math.floor(Date.now() / 1000),
+    });
+  } catch (dbErr) {
+    console.error("[error-report] Failed to store in DB:", dbErr);
+  }
+
+  // Forward to Discord
   const result = await sendErrorToDiscord(payload);
   res.json({ ok: result !== "disabled", reason: result } satisfies ErrorReportResponse);
+});
+
+// Get unacknowledged errors (for agent monitoring)
+app.get("/api/errors", async (req, res) => {
+  const db = getServerDb();
+  const { limit = "50", acknowledged } = req.query;
+
+  const conditions = [];
+  if (acknowledged !== undefined) {
+    conditions.push(eq(schema.errorReports.acknowledged, acknowledged === "true"));
+  }
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const rows = await db
+    .select()
+    .from(schema.errorReports)
+    .where(where)
+    .orderBy(desc(schema.errorReports.createdAt))
+    .limit(Number(limit));
+
+  res.json(rows);
+});
+
+// Acknowledge errors (mark as seen by the agent)
+app.put("/api/errors/:id/acknowledge", async (req, res) => {
+  const db = getServerDb();
+  await db
+    .update(schema.errorReports)
+    .set({ acknowledged: true })
+    .where(eq(schema.errorReports.id, Number(req.params.id)));
+  res.json({ ok: true });
+});
+
+// Acknowledge all unacknowledged errors
+app.put("/api/errors/acknowledge-all", async (_req, res) => {
+  const db = getServerDb();
+  await db
+    .update(schema.errorReports)
+    .set({ acknowledged: true })
+    .where(eq(schema.errorReports.acknowledged, false));
+  res.json({ ok: true });
 });
 
 // ─── Settings ───
