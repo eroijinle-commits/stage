@@ -3,6 +3,12 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { BetSelection } from "@/lib/contracts/ui.contract";
 import { SlipMode } from "@/lib/contracts/db.contract";
 import { BetPlacementResult } from "@/lib/state/betPlacement";
+import type { PoolFixture, ArchitectSlip, RuleSettings } from "@/lib/betarchitect/types";
+import { generateFortress } from "@/lib/betarchitect/strategies/fortress";
+import { generateGrowth } from "@/lib/betarchitect/strategies/growth";
+import { generateUpside } from "@/lib/betarchitect/strategies/upside";
+import { generateSystem78 } from "@/lib/betarchitect/strategies/system78";
+import { DEFAULT_RULES } from "@/lib/betarchitect/rules";
 
 /** A single betting slip. Every slip — manual, compute, saved — is first-class. */
 export interface SlipData {
@@ -32,20 +38,6 @@ export interface SlipShareData {
   code: string;
   link: string;
   stageLink: string;
-}
-
-/** Legacy compute-slip entry. Only kept for localStorage migration. */
-export interface ComputeSlipEntry {
-  id: string;
-  name: string;
-  selections: BetSelection[];
-  mode: SlipMode;
-  stakePerLeg: number;
-  stakeShieldEnabled: boolean;
-  isPlacing: boolean;
-  placeResults: BetPlacementResult[];
-  lastError: string | null;
-  createdAt: number;
 }
 
 interface SlipStore {
@@ -82,6 +74,13 @@ interface SlipStore {
   saveSlip: (name: string) => void;
   loadSlip: (id: string) => void;
   deleteSavedSlip: (id: string) => void;
+
+  // ── BetArchitect pool ──────────────────────────────────────────────────
+  betArchitectPool: PoolFixture[];
+  addToPool: (fixture: PoolFixture) => void;
+  removeFromPool: (id: string) => void;
+  clearPool: () => void;
+  generateStrategies: (settings?: RuleSettings) => ArchitectSlip[];
 }
 
 // Tracks whether the store has been rehydrated from localStorage.
@@ -160,9 +159,7 @@ export const useSlipStore = create<SlipStore>()(
         set((st) => {
           if (st.slips.length <= 1) return {}; // keep at least one slip
           const nextSlips = st.slips.filter((s) => s.id !== id);
-          const nextActive = st.activeSlipId === id
-            ? nextSlips[0]?.id ?? ""
-            : st.activeSlipId;
+          const nextActive = st.activeSlipId === id ? (nextSlips[0]?.id ?? "") : st.activeSlipId;
           return { slips: nextSlips, activeSlipId: nextActive };
         });
       },
@@ -242,9 +239,7 @@ export const useSlipStore = create<SlipStore>()(
 
       setMode: (mode) => {
         set((st) => ({
-          slips: st.slips.map((slip) =>
-            slip.id === st.activeSlipId ? { ...slip, mode } : slip,
-          ),
+          slips: st.slips.map((slip) => (slip.id === st.activeSlipId ? { ...slip, mode } : slip)),
         }));
       },
 
@@ -293,11 +288,9 @@ export const useSlipStore = create<SlipStore>()(
           slips: st.slips.map((slip) =>
             slip.id === st.activeSlipId
               ? {
-                ...slip,
-                selections: slip.selections.map((s) =>
-                  s.id === id ? { ...s, odds } : s,
-                ),
-              }
+                  ...slip,
+                  selections: slip.selections.map((s) => (s.id === id ? { ...s, odds } : s)),
+                }
               : slip,
           ),
         }));
@@ -397,6 +390,32 @@ export const useSlipStore = create<SlipStore>()(
       deleteSavedSlip: (id: string) => {
         get().deleteSlip(id);
       },
+
+      // ── BetArchitect pool ──────────────────────────────────────────────
+      betArchitectPool: [],
+
+      addToPool: (fixture) =>
+        set((st) => {
+          if (st.betArchitectPool.some((f) => f.id === fixture.id)) return {};
+          return { betArchitectPool: [...st.betArchitectPool, fixture] };
+        }),
+
+      removeFromPool: (id) =>
+        set((st) => ({
+          betArchitectPool: st.betArchitectPool.filter((f) => f.id !== id),
+        })),
+
+      clearPool: () => set({ betArchitectPool: [] }),
+
+      generateStrategies: (settings = DEFAULT_RULES) => {
+        const pool = get().betArchitectPool;
+        return [
+          ...generateFortress(pool, settings),
+          ...generateGrowth(pool, settings),
+          ...generateUpside(pool, settings),
+          ...generateSystem78(pool, settings),
+        ];
+      },
     }),
     {
       name: "stake-slip-storage",
@@ -418,12 +437,10 @@ export const useSlipStore = create<SlipStore>()(
 
           if (!state) return;
 
-          // Migrate old format (selections / computeSlips / savedSlips) into unified slips.
+          // Migrate old format (selections / savedSlips) into unified slips.
           const anyState = state as any;
           const hasLegacyShape =
-            Array.isArray(anyState.selections) ||
-            Array.isArray(anyState.computeSlips) ||
-            Array.isArray(anyState.savedSlips);
+            Array.isArray(anyState.selections) || Array.isArray(anyState.savedSlips);
 
           if (!hasLegacyShape || (anyState.slips && anyState.slips.length > 0)) {
             if (!state.activeSlipId && state.slips.length > 0) {
@@ -446,21 +463,6 @@ export const useSlipStore = create<SlipStore>()(
               placeResults: [],
               lastError: null,
               createdAt: Date.now(),
-            });
-          }
-
-          for (const cs of anyState.computeSlips ?? []) {
-            migrated.push({
-              id: cs.id,
-              name: cs.name || "Slip",
-              selections: cs.selections ?? [],
-              mode: cs.mode ?? "singles",
-              stakePerLeg: cs.stakePerLeg ?? 1000,
-              stakeShieldEnabled: cs.stakeShieldEnabled ?? false,
-              isPlacing: false,
-              placeResults: [],
-              lastError: null,
-              createdAt: cs.createdAt ?? Date.now(),
             });
           }
 

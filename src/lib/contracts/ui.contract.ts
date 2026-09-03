@@ -1,20 +1,145 @@
 import { ReactNode } from "react";
 import { BetStatus, SlipMode } from "./db.contract";
+import type { PoolFixture } from "@/lib/betarchitect/types";
 
-export interface ButtonProps { children: ReactNode; onClick?: () => void; disabled?: boolean; loading?: boolean; variant?: "primary" | "secondary" | "danger" | "ghost" | "outline"; size?: "sm" | "md" | "lg"; type?: "button" | "submit" | "reset"; className?: string; icon?: ReactNode; fullWidth?: boolean; }
-export interface InputProps { value: string | number; onChange: (value: string) => void; placeholder?: string; type?: "text" | "number" | "password" | "email"; label?: string; error?: string; disabled?: boolean; min?: number; max?: number; step?: number; prefix?: ReactNode; suffix?: ReactNode; className?: string; }
-export interface NumberInputProps extends Omit<InputProps, "onChange" | "type"> { onChange: (value: number) => void; min?: number; max?: number; step?: number; showControls?: boolean; format?: "currency" | "number" | "percentage"; currency?: string; }
-export interface SelectOption { value: string; label: string; icon?: ReactNode; disabled?: boolean; }
-export interface SelectProps { options: SelectOption[]; value: string; onChange: (value: string) => void; placeholder?: string; label?: string; error?: string; disabled?: boolean; searchable?: boolean; clearable?: boolean; className?: string; }
-export interface MultiSelectProps extends Omit<SelectProps, "value" | "onChange"> { value: string[]; onChange: (value: string[]) => void; maxSelected?: number; }
-export interface BadgeProps { children: ReactNode; variant?: "default" | "success" | "warning" | "error" | "info" | "neutral"; size?: "sm" | "md"; className?: string; }
-export interface CardProps { children: ReactNode; onClick?: () => void; selected?: boolean; disabled?: boolean; className?: string; header?: ReactNode; footer?: ReactNode; padding?: "none" | "sm" | "md" | "lg"; }
-export interface ModalProps { open: boolean; onClose: () => void; title?: string; description?: string; children: ReactNode; actions?: ReactNode; size?: "sm" | "md" | "lg" | "xl" | "full"; }
-export interface DrawerProps { open: boolean; onClose: () => void; side?: "left" | "right"; children: ReactNode; title?: string; width?: string; }
-export interface TabsProps { tabs: Array<{ id: string; label: string; content: ReactNode; badge?: number | string }>; activeTab: string; onChange: (tabId: string) => void; variant?: "underline" | "pills" | "cards"; }
-export interface DataTableColumn<T> { key: string; header: string | ReactNode; width?: string; align?: "left" | "center" | "right"; sortable?: boolean; render?: (row: T) => ReactNode; }
-export interface DataTableProps<T> { columns: DataTableColumn<T>[]; data: T[]; rowKey: (row: T) => string; selectable?: boolean; selectedRows?: string[]; onRowSelect?: (rowId: string, selected: boolean) => void; onSelectAll?: (selected: boolean) => void; sortColumn?: string; sortDirection?: "asc" | "desc"; onSort?: (column: string) => void; pagination?: { page: number; pageSize: number; total: number; onPageChange: (page: number) => void; onPageSizeChange?: (size: number) => void }; loading?: boolean; emptyState?: ReactNode; onRowClick?: (row: T) => void; }
-export interface OddsButtonProps { odds: number; name: string; active: boolean; selected?: boolean; suspended?: boolean; onClick: () => void; trend?: "up" | "down" | "stable"; className?: string; }
+export interface ButtonProps {
+  children: ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+  variant?: "primary" | "secondary" | "danger" | "ghost" | "outline";
+  size?: "sm" | "md" | "lg";
+  type?: "button" | "submit" | "reset";
+  className?: string;
+  icon?: ReactNode;
+  fullWidth?: boolean;
+}
+export interface InputProps {
+  value: string | number;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: "text" | "number" | "password" | "email";
+  label?: string;
+  error?: string;
+  disabled?: boolean;
+  min?: number;
+  max?: number;
+  step?: number;
+  prefix?: ReactNode;
+  suffix?: ReactNode;
+  className?: string;
+}
+export interface NumberInputProps extends Omit<InputProps, "onChange" | "type"> {
+  onChange: (value: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  showControls?: boolean;
+  format?: "currency" | "number" | "percentage";
+  currency?: string;
+}
+export interface SelectOption {
+  value: string;
+  label: string;
+  icon?: ReactNode;
+  disabled?: boolean;
+}
+export interface SelectProps {
+  options: SelectOption[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  label?: string;
+  error?: string;
+  disabled?: boolean;
+  searchable?: boolean;
+  clearable?: boolean;
+  className?: string;
+}
+export interface MultiSelectProps extends Omit<SelectProps, "value" | "onChange"> {
+  value: string[];
+  onChange: (value: string[]) => void;
+  maxSelected?: number;
+}
+export interface BadgeProps {
+  children: ReactNode;
+  variant?: "default" | "success" | "warning" | "error" | "info" | "neutral";
+  size?: "sm" | "md";
+  className?: string;
+}
+export interface CardProps {
+  children: ReactNode;
+  onClick?: () => void;
+  selected?: boolean;
+  disabled?: boolean;
+  className?: string;
+  header?: ReactNode;
+  footer?: ReactNode;
+  padding?: "none" | "sm" | "md" | "lg";
+}
+export interface ModalProps {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  description?: string;
+  children: ReactNode;
+  actions?: ReactNode;
+  size?: "sm" | "md" | "lg" | "xl" | "full";
+}
+export interface DrawerProps {
+  open: boolean;
+  onClose: () => void;
+  side?: "left" | "right";
+  children: ReactNode;
+  title?: string;
+  width?: string;
+}
+export interface TabsProps {
+  tabs: Array<{ id: string; label: string; content: ReactNode; badge?: number | string }>;
+  activeTab: string;
+  onChange: (tabId: string) => void;
+  variant?: "underline" | "pills" | "cards";
+}
+export interface DataTableColumn<T> {
+  key: string;
+  header: string | ReactNode;
+  width?: string;
+  align?: "left" | "center" | "right";
+  sortable?: boolean;
+  render?: (row: T) => ReactNode;
+}
+export interface DataTableProps<T> {
+  columns: DataTableColumn<T>[];
+  data: T[];
+  rowKey: (row: T) => string;
+  selectable?: boolean;
+  selectedRows?: string[];
+  onRowSelect?: (rowId: string, selected: boolean) => void;
+  onSelectAll?: (selected: boolean) => void;
+  sortColumn?: string;
+  sortDirection?: "asc" | "desc";
+  onSort?: (column: string) => void;
+  pagination?: {
+    page: number;
+    pageSize: number;
+    total: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange?: (size: number) => void;
+  };
+  loading?: boolean;
+  emptyState?: ReactNode;
+  onRowClick?: (row: T) => void;
+}
+export interface OddsButtonProps {
+  odds: number;
+  name: string;
+  active: boolean;
+  selected?: boolean;
+  suspended?: boolean;
+  onClick: () => void;
+  trend?: "up" | "down" | "stable";
+  className?: string;
+}
 
 // ─── Bet Type System ───
 
@@ -69,14 +194,58 @@ export interface BetSelection {
   stakeUrl?: string;
 }
 
-export interface SlipItemProps { selection: BetSelection; onRemove: () => void; stake?: number; onStakeChange?: (stake: number) => void; mode: SlipMode; result?: { success: boolean; betId?: string; error?: string }; }
+export interface SlipItemProps {
+  selection: BetSelection;
+  onRemove: () => void;
+  stake?: number;
+  onStakeChange?: (stake: number) => void;
+  mode: SlipMode;
+  result?: { success: boolean; betId?: string; error?: string };
+}
 
-export interface BetHistoryRow { id: string; date: string; matches: string[]; market: string; stake: number; totalOdds: number; status: BetStatus; return: number | null; profit: number | null; currency: string; }
+export interface BetHistoryRow {
+  id: string;
+  date: string;
+  matches: string[];
+  market: string;
+  stake: number;
+  totalOdds: number;
+  status: BetStatus;
+  return: number | null;
+  profit: number | null;
+  currency: string;
+}
 
-export interface StatCardProps { title: string; value: string | number; change?: number; changeLabel?: string; icon?: ReactNode; trend?: "up" | "down" | "neutral"; loading?: boolean; format?: "currency" | "number" | "percentage"; currency?: string; }
-export interface ChartDataPoint { label: string; value: number; secondaryValue?: number; date?: string; }
-export interface FilterChip { id: string; label: string; onRemove: () => void; }
-export interface ToastMessage { id: string; type: "success" | "error" | "warning" | "info"; title: string; description?: string; duration?: number; action?: { label: string; onClick: () => void }; }
+export interface StatCardProps {
+  title: string;
+  value: string | number;
+  change?: number;
+  changeLabel?: string;
+  icon?: ReactNode;
+  trend?: "up" | "down" | "neutral";
+  loading?: boolean;
+  format?: "currency" | "number" | "percentage";
+  currency?: string;
+}
+export interface ChartDataPoint {
+  label: string;
+  value: number;
+  secondaryValue?: number;
+  date?: string;
+}
+export interface FilterChip {
+  id: string;
+  label: string;
+  onRemove: () => void;
+}
+export interface ToastMessage {
+  id: string;
+  type: "success" | "error" | "warning" | "info";
+  title: string;
+  description?: string;
+  duration?: number;
+  action?: { label: string; onClick: () => void };
+}
 
 export interface BetTypeInfo {
   betTypeName: string;
@@ -99,7 +268,10 @@ export interface DiscoveryFixture {
   awayScore?: number;
   tournament: { name: string; slug?: string; category: { name: string; slug?: string } };
   competitors: Array<{ name: string; iconPath?: string }>;
-  previewMarkets?: Array<{ name: string; outcomes: Array<{ name: string; odds: number; active: boolean }> }>;
+  previewMarkets?: Array<{
+    name: string;
+    outcomes: Array<{ name: string; odds: number; active: boolean }>;
+  }>;
   betTypeInfo?: BetTypeInfo;
   sport?: string;
   stakeUrl?: string;
@@ -111,6 +283,7 @@ export interface FixtureRowProps {
   onSelect: (selected: boolean) => void;
   onViewMarkets: () => void;
   onAddSelection: (selection: BetSelection) => void;
+  onAddToPool?: (poolFixture: PoolFixture) => void;
   activeBetType?: BetTypeConfig | null;
 }
 

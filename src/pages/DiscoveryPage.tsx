@@ -16,7 +16,8 @@ import { Badge, Button, Skeleton } from "@/components/ui";
 import { BetSelection, DiscoveryFixture } from "@/lib/contracts/ui.contract";
 import { useSlipStore } from "@/store/useSlipStore";
 import { useUIStore } from "@/store/useUIStore";
-import { Radio, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { usePool } from "@/hooks/usePool";
+import { Radio, ChevronLeft, ChevronRight, RefreshCw, Layers } from "lucide-react";
 
 export default function DiscoveryPage({
   activeSport,
@@ -46,43 +47,58 @@ export default function DiscoveryPage({
   const [selectedFixtureSlug, setSelectedFixtureSlug] = useState<DiscoveryFixture | null>(null);
   const addSelection = useSlipStore((s) => s.addSelection);
   const toggleSlip = useUIStore((s) => s.toggleSlip);
+  const { pool, addToPool } = usePool();
 
   const liveCount = fixtures.filter((f) => f.isLive).length;
   const selectedFixtures = fixtures.filter((f) => selectedIds.includes(f.id));
 
-  const handleAddSelection = useCallback((sel: BetSelection) => {
-    addSelection(sel);
-    toggleSlip(true);
-  }, [addSelection, toggleSlip]);
+  const handleAddSelection = useCallback(
+    (sel: BetSelection) => {
+      addSelection(sel);
+      toggleSlip(true);
+    },
+    [addSelection, toggleSlip],
+  );
 
-  const handleAddSelections = useCallback((sels: BetSelection[]) => {
-    sels.forEach((s) => addSelection(s));
-    toggleSlip(true);
-    setSelectedIds([]);
-  }, [addSelection, toggleSlip]);
+  const handleAddSelections = useCallback(
+    (sels: BetSelection[]) => {
+      sels.forEach((s) => addSelection(s));
+      toggleSlip(true);
+      setSelectedIds([]);
+    },
+    [addSelection, toggleSlip],
+  );
 
-  const toggleSelect = useCallback((id: string, v: boolean) =>
-    setSelectedIds((prev) => v ? [...prev, id] : prev.filter((x) => x !== id)), []);
+  const toggleSelect = useCallback(
+    (id: string, v: boolean) =>
+      setSelectedIds((prev) => (v ? [...prev, id] : prev.filter((x) => x !== id))),
+    [],
+  );
 
-  const toggleAll = useCallback((v: boolean) =>
-    setSelectedIds(v ? fixtures.map((f) => f.id) : []), [fixtures]);
+  const toggleAll = useCallback(
+    (v: boolean) => setSelectedIds(v ? fixtures.map((f) => f.id) : []),
+    [fixtures],
+  );
 
   const handleViewMarkets = useCallback((fixture: DiscoveryFixture) => {
     setSelectedFixtureSlug(fixture);
     setMarketBrowserOpen(true);
   }, []);
 
-  const handleRemoveFilter = useCallback((key: keyof typeof filters) => {
-    const defaults: Record<string, unknown> = {
-      betType: null,
-      betTypeLine: null,
-      searchQuery: "",
-      dateFrom: null,
-      dateTo: null,
-      tournamentSlugs: [],
-    };
-    setFilters({ [key]: defaults[key] ?? null } as Partial<typeof filters>);
-  }, [setFilters]);
+  const handleRemoveFilter = useCallback(
+    (key: keyof typeof filters) => {
+      const defaults: Record<string, unknown> = {
+        betType: null,
+        betTypeLine: null,
+        searchQuery: "",
+        dateFrom: null,
+        dateTo: null,
+        tournamentSlugs: [],
+      };
+      setFilters({ [key]: defaults[key] ?? null } as Partial<typeof filters>);
+    },
+    [setFilters],
+  );
 
   const handleClearAllFilters = useCallback(() => {
     setFilters({
@@ -96,7 +112,8 @@ export default function DiscoveryPage({
   }, [setFilters]);
 
   const betTypeLabel = activeBetType
-    ? activeBetType.name + (filters.betTypeLine && activeBetType.hasLines ? ` — ${filters.betTypeLine}` : "")
+    ? activeBetType.name +
+      (filters.betTypeLine && activeBetType.hasLines ? ` — ${filters.betTypeLine}` : "")
     : "Markets";
 
   return (
@@ -138,11 +155,23 @@ export default function DiscoveryPage({
             <span className="text-bet-lost">{liveCount} live</span>
           </span>
         )}
+        {pool.length > 0 && (
+          <span className="flex items-center gap-1">
+            <Layers size={9} className="text-primary" />
+            <span className="text-primary">{pool.length} in pool</span>
+          </span>
+        )}
         {activeBetType && (
-          <Badge variant="info" size="sm">{activeBetType.name}{filters.betTypeLine ? ` ${filters.betTypeLine}` : ""}</Badge>
+          <Badge variant="info" size="sm">
+            {activeBetType.name}
+            {filters.betTypeLine ? ` ${filters.betTypeLine}` : ""}
+          </Badge>
         )}
         <div className="ml-auto">
-          <button onClick={refetch} className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+          <button
+            onClick={refetch}
+            className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+          >
             <RefreshCw size={10} className={isLoading ? "animate-spin" : ""} />
             Refresh
           </button>
@@ -175,7 +204,9 @@ export default function DiscoveryPage({
         ) : fixtures.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <p className="text-sm font-mono text-muted-foreground">No matches found</p>
-            <p className="text-[10px] font-mono text-muted-foreground/60 mt-1">Try adjusting your filters</p>
+            <p className="text-[10px] font-mono text-muted-foreground/60 mt-1">
+              Try adjusting your filters
+            </p>
             <Button variant="outline" size="sm" onClick={handleClearAllFilters} className="mt-3">
               Clear Filters
             </Button>
@@ -192,8 +223,12 @@ export default function DiscoveryPage({
                     onChange={(e) => toggleAll(e.target.checked)}
                   />
                 </th>
-                <th className="px-3 py-2.5 text-left text-[10px] font-mono text-muted-foreground uppercase tracking-wider w-24">Time</th>
-                <th className="px-3 py-2.5 text-left text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Fixture</th>
+                <th className="px-3 py-2.5 text-left text-[10px] font-mono text-muted-foreground uppercase tracking-wider w-24">
+                  Time
+                </th>
+                <th className="px-3 py-2.5 text-left text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+                  Fixture
+                </th>
                 <th className="px-3 py-2.5 text-left text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
                   {betTypeLabel}
                 </th>
@@ -209,6 +244,7 @@ export default function DiscoveryPage({
                   onSelect={(v) => toggleSelect(fixture.id, v)}
                   onViewMarkets={() => handleViewMarkets(fixture)}
                   onAddSelection={handleAddSelection}
+                  onAddToPool={addToPool}
                   activeBetType={activeBetType}
                 />
               ))}
@@ -220,7 +256,9 @@ export default function DiscoveryPage({
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-4 py-2 border-t border-border/50 shrink-0 text-[10px] font-mono text-muted-foreground">
-          <span>Page {page} of {totalPages}</span>
+          <span>
+            Page {page} of {totalPages}
+          </span>
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
@@ -247,7 +285,10 @@ export default function DiscoveryPage({
       {/* Market Browser Modal */}
       <MarketBrowser
         open={marketBrowserOpen}
-        onClose={() => { setMarketBrowserOpen(false); setSelectedFixtureSlug(null); }}
+        onClose={() => {
+          setMarketBrowserOpen(false);
+          setSelectedFixtureSlug(null);
+        }}
         fixture={selectedFixtureSlug}
       />
     </div>

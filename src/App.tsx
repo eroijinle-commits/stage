@@ -7,9 +7,10 @@ import DiscoveryPage from "@/pages/DiscoveryPage";
 import HistoryPage from "@/pages/HistoryPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import SettingsPage from "@/pages/SettingsPage";
+import BetArchitectPage from "@/pages/BetArchitectPage";
 import SlipPage from "@/components/slip/SlipPage";
 
-type Page = "discovery" | "history" | "analytics" | "settings" | "slip";
+type Page = "discovery" | "history" | "analytics" | "settings" | "slip" | "betarchitect";
 
 const PAGES: Record<Page, React.ComponentType> = {
   discovery: DiscoveryPage,
@@ -17,6 +18,7 @@ const PAGES: Record<Page, React.ComponentType> = {
   analytics: AnalyticsPage,
   settings: SettingsPage,
   slip: SlipPage,
+  betarchitect: BetArchitectPage,
 };
 
 export default function App() {
@@ -54,12 +56,13 @@ export default function App() {
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
       <TopBar activePage={activePage} onNavigate={(p) => setActivePage(p as Page)} />
       <div className="flex flex-1 overflow-hidden">
-        {activePage === "discovery" && (
+        {(activePage === "discovery" || activePage === "betarchitect") && (
           <SideNav
             activeSport={activeSport}
             onSportChange={handleSportChange}
             selectedTournamentSlugs={selectedTournamentSlugs}
             onTournamentToggle={handleTournamentToggle}
+            onNavigate={(p) => setActivePage(p as Page)}
           />
         )}
         <main className="flex-1 overflow-hidden">

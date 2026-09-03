@@ -6,45 +6,139 @@
 
 import { useMemo } from "react";
 import { FixtureRowProps, BetSelection, BetTypeInfo } from "@/lib/contracts/ui.contract";
+import type { PoolFixture } from "@/lib/betarchitect/types";
 import { OddsButton } from "@/components/ui";
 import { cn } from "@/lib/utils/cn";
-import { Radio, ChevronRight, Clock } from "lucide-react";
+import { Radio, ChevronRight, Clock, Layers } from "lucide-react";
 import { useSlipStore } from "@/store/useSlipStore";
 
 function makeSelection(
-  fixtureId: string, slug: string, name: string, tournament: string,
-  startTime: string, betTypeName: string, line: string | null,
+  fixtureId: string,
+  slug: string,
+  name: string,
+  tournament: string,
+  startTime: string,
+  betTypeName: string,
+  line: string | null,
   outcome: { id: string; name: string; odds: number; active: boolean },
   sport?: string,
   stakeUrl?: string,
 ): BetSelection {
   return {
-    id: outcome.id, fixtureSlug: slug, fixtureName: name, fixtureId,
-    tournamentName: tournament, marketId: `${fixtureId}-${betTypeName}`,
-    marketName: betTypeName + (line ? ` ${line}` : ""), outcomeId: outcome.id,
-    outcomeName: outcome.name, odds: outcome.odds, active: outcome.active,
-    startTime, addedAt: Date.now(), betType: betTypeName, betTypeLine: line,
-    sport, stakeUrl,
+    id: outcome.id,
+    fixtureSlug: slug,
+    fixtureName: name,
+    fixtureId,
+    tournamentName: tournament,
+    marketId: `${fixtureId}-${betTypeName}`,
+    marketName: betTypeName + (line ? ` ${line}` : ""),
+    outcomeId: outcome.id,
+    outcomeName: outcome.name,
+    odds: outcome.odds,
+    active: outcome.active,
+    startTime,
+    addedAt: Date.now(),
+    betType: betTypeName,
+    betTypeLine: line,
+    sport,
+    stakeUrl,
   };
 }
 
-function BetTypeColumn({ fixture, info, slipIds, onAdd }: {
-  fixture: FixtureRowProps["fixture"]; info: BetTypeInfo;
-  slipIds: Set<string>; onAdd: (s: BetSelection) => void;
+function toPoolFixture(fixture: FixtureRowProps["fixture"]): PoolFixture {
+  const firstOutcome = fixture.previewMarkets?.[0]?.outcomes?.[0];
+  const marketName = fixture.previewMarkets?.[0]?.name || "Match Winner";
+  const outcomeName = firstOutcome?.name || "Unknown";
+  const odds = firstOutcome?.odds || 1.5;
+  return {
+    id: `pool-${fixture.id}-${marketName}-${outcomeName}`,
+    fixtureSlug: fixture.slug,
+    fixtureName: fixture.name,
+    fixtureId: fixture.id,
+    tournamentName: fixture.tournament.name,
+    marketId: `${fixture.id}-${marketName}`,
+    marketName,
+    outcomeId: `outcome-${fixture.id}`,
+    outcomeName,
+    odds,
+    active: firstOutcome?.active ?? true,
+    startTime: fixture.startTime,
+    addedAt: Date.now(),
+    betType: marketName,
+    betTypeLine: null,
+    sport: fixture.sport || "soccer",
+    matchId: fixture.id,
+    league: fixture.tournament.name,
+    market: marketName,
+    selection: outcomeName,
+    impliedProbability: 1 / odds,
+  };
+}
+
+function BetTypeColumn({
+  fixture,
+  info,
+  slipIds,
+  onAdd,
+}: {
+  fixture: FixtureRowProps["fixture"];
+  info: BetTypeInfo;
+  slipIds: Set<string>;
+  onAdd: (s: BetSelection) => void;
 }) {
   if (!info.available) {
-    return <span className="text-[10px] font-mono text-muted-foreground/60 italic">Not Available</span>;
+    return (
+      <span className="text-[10px] font-mono text-muted-foreground/60 italic">Not Available</span>
+    );
   }
 
   if (info.overOutcome && info.underOutcome) {
     return (
       <div className="flex items-center gap-1.5">
-        <OddsButton odds={info.overOutcome.odds} name={`O ${info.line}`} active={info.overOutcome.active}
+        <OddsButton
+          odds={info.overOutcome.odds}
+          name={`O ${info.line}`}
+          active={info.overOutcome.active}
           selected={slipIds.has(info.overOutcome.id)}
-          onClick={() => onAdd(makeSelection(fixture.id, fixture.slug, fixture.name, fixture.tournament.name, fixture.startTime, info.betTypeName, info.line, info.overOutcome!, fixture.sport, fixture.stakeUrl))} />
-        <OddsButton odds={info.underOutcome.odds} name={`U ${info.line}`} active={info.underOutcome.active}
+          onClick={() =>
+            onAdd(
+              makeSelection(
+                fixture.id,
+                fixture.slug,
+                fixture.name,
+                fixture.tournament.name,
+                fixture.startTime,
+                info.betTypeName,
+                info.line,
+                info.overOutcome!,
+                fixture.sport,
+                fixture.stakeUrl,
+              ),
+            )
+          }
+        />
+        <OddsButton
+          odds={info.underOutcome.odds}
+          name={`U ${info.line}`}
+          active={info.underOutcome.active}
           selected={slipIds.has(info.underOutcome.id)}
-          onClick={() => onAdd(makeSelection(fixture.id, fixture.slug, fixture.name, fixture.tournament.name, fixture.startTime, info.betTypeName, info.line, info.underOutcome!, fixture.sport, fixture.stakeUrl))} />
+          onClick={() =>
+            onAdd(
+              makeSelection(
+                fixture.id,
+                fixture.slug,
+                fixture.name,
+                fixture.tournament.name,
+                fixture.startTime,
+                info.betTypeName,
+                info.line,
+                info.underOutcome!,
+                fixture.sport,
+                fixture.stakeUrl,
+              ),
+            )
+          }
+        />
       </div>
     );
   }
@@ -53,9 +147,29 @@ function BetTypeColumn({ fixture, info, slipIds, onAdd }: {
     return (
       <div className="flex items-center gap-1">
         {info.allOutcomes.map((o) => (
-          <OddsButton key={o.id} odds={o.odds} name={o.name} active={o.active}
+          <OddsButton
+            key={o.id}
+            odds={o.odds}
+            name={o.name}
+            active={o.active}
             selected={slipIds.has(o.id)}
-            onClick={() => onAdd(makeSelection(fixture.id, fixture.slug, fixture.name, fixture.tournament.name, fixture.startTime, info.betTypeName, null, o, fixture.sport, fixture.stakeUrl))} />
+            onClick={() =>
+              onAdd(
+                makeSelection(
+                  fixture.id,
+                  fixture.slug,
+                  fixture.name,
+                  fixture.tournament.name,
+                  fixture.startTime,
+                  info.betTypeName,
+                  null,
+                  o,
+                  fixture.sport,
+                  fixture.stakeUrl,
+                ),
+              )
+            }
+          />
         ))}
       </div>
     );
@@ -63,17 +177,42 @@ function BetTypeColumn({ fixture, info, slipIds, onAdd }: {
 
   if (info.singleOutcome) {
     return (
-      <OddsButton odds={info.singleOutcome.odds} name={info.singleOutcome.name}
-        active={info.singleOutcome.active} selected={slipIds.has(info.singleOutcome.id)}
-        onClick={() => onAdd(makeSelection(fixture.id, fixture.slug, fixture.name, fixture.tournament.name, fixture.startTime, info.betTypeName, null, info.singleOutcome!, fixture.sport, fixture.stakeUrl))} />
+      <OddsButton
+        odds={info.singleOutcome.odds}
+        name={info.singleOutcome.name}
+        active={info.singleOutcome.active}
+        selected={slipIds.has(info.singleOutcome.id)}
+        onClick={() =>
+          onAdd(
+            makeSelection(
+              fixture.id,
+              fixture.slug,
+              fixture.name,
+              fixture.tournament.name,
+              fixture.startTime,
+              info.betTypeName,
+              null,
+              info.singleOutcome!,
+              fixture.sport,
+              fixture.stakeUrl,
+            ),
+          )
+        }
+      />
     );
   }
 
   return null;
 }
 
-function FallbackOdds({ fixture, slipIds, onAdd }: {
-  fixture: FixtureRowProps["fixture"]; slipIds: Set<string>; onAdd: (s: BetSelection) => void;
+function FallbackOdds({
+  fixture,
+  slipIds,
+  onAdd,
+}: {
+  fixture: FixtureRowProps["fixture"];
+  slipIds: Set<string>;
+  onAdd: (s: BetSelection) => void;
 }) {
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
@@ -81,19 +220,36 @@ function FallbackOdds({ fixture, slipIds, onAdd }: {
         market.outcomes.map((outcome) => {
           const selId = `${fixture.id}-${market.name}-${outcome.name}`;
           return (
-            <OddsButton key={selId} odds={outcome.odds} name={outcome.name}
-              active={outcome.active} selected={slipIds.has(selId)}
-              onClick={() => onAdd({
-                id: selId, fixtureSlug: fixture.slug, fixtureName: fixture.name, fixtureId: fixture.id,
-                tournamentName: fixture.tournament.name, marketId: `${fixture.id}-${market.name}`,
-                marketName: market.name, outcomeId: selId, outcomeName: outcome.name,
-                odds: outcome.odds, active: outcome.active, startTime: fixture.startTime,
-                addedAt: Date.now(), betType: market.name, betTypeLine: null, sport: fixture.sport,
-                stakeUrl: fixture.stakeUrl,
-              })}
+            <OddsButton
+              key={selId}
+              odds={outcome.odds}
+              name={outcome.name}
+              active={outcome.active}
+              selected={slipIds.has(selId)}
+              onClick={() =>
+                onAdd({
+                  id: selId,
+                  fixtureSlug: fixture.slug,
+                  fixtureName: fixture.name,
+                  fixtureId: fixture.id,
+                  tournamentName: fixture.tournament.name,
+                  marketId: `${fixture.id}-${market.name}`,
+                  marketName: market.name,
+                  outcomeId: selId,
+                  outcomeName: outcome.name,
+                  odds: outcome.odds,
+                  active: outcome.active,
+                  startTime: fixture.startTime,
+                  addedAt: Date.now(),
+                  betType: market.name,
+                  betTypeLine: null,
+                  sport: fixture.sport,
+                  stakeUrl: fixture.stakeUrl,
+                })
+              }
             />
           );
-        })
+        }),
       )}
     </div>
   );
@@ -129,7 +285,12 @@ function LiveScoreDisplay({ fixture }: { fixture: FixtureRowProps["fixture"] }) 
 /**
  * Format fixture time for display.
  */
-function formatFixtureTime(startTime: string): { date: string; time: string; isToday: boolean; isTomorrow: boolean } {
+function formatFixtureTime(startTime: string): {
+  date: string;
+  time: string;
+  isToday: boolean;
+  isTomorrow: boolean;
+} {
   const d = new Date(startTime);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -153,29 +314,48 @@ function formatFixtureTime(startTime: string): { date: string; time: string; isT
   return { date, time, isToday, isTomorrow };
 }
 
-export default function FixtureRow({ fixture, selected, onSelect, onViewMarkets, onAddSelection }: FixtureRowProps) {
+export default function FixtureRow({
+  fixture,
+  selected,
+  onSelect,
+  onViewMarkets,
+  onAddSelection,
+  onAddToPool,
+}: FixtureRowProps) {
   const selectionIds = useSlipStore((s) =>
     s.slips.flatMap((slip) => slip.selections.map((x) => x.id)).join(","),
   );
-  const slipIds = useMemo(() => new Set(selectionIds ? selectionIds.split(",") : []), [selectionIds]);
+  const slipIds = useMemo(
+    () => new Set(selectionIds ? selectionIds.split(",") : []),
+    [selectionIds],
+  );
 
   const { date, time, isToday, isTomorrow } = formatFixtureTime(fixture.startTime);
 
   return (
-    <tr className={cn(
-      "border-b border-border/50 hover:bg-muted/20 transition-colors group",
-      selected && "bg-primary/5",
-      fixture.isLive && "bg-bet-lost/[0.03]",
-    )}>
+    <tr
+      className={cn(
+        "border-b border-border/50 hover:bg-muted/20 transition-colors group",
+        selected && "bg-primary/5",
+        fixture.isLive && "bg-bet-lost/[0.03]",
+      )}
+    >
       <td className="px-3 py-2.5 w-8">
-        <input type="checkbox" checked={selected} onChange={(e) => onSelect(e.target.checked)} className="accent-primary w-3.5 h-3.5 cursor-pointer" />
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={(e) => onSelect(e.target.checked)}
+          className="accent-primary w-3.5 h-3.5 cursor-pointer"
+        />
       </td>
       <td className="px-3 py-2.5 w-24">
         {fixture.isLive ? (
           <LiveScoreDisplay fixture={fixture} />
         ) : (
           <div className="text-[10px] font-mono text-muted-foreground tabular-nums">
-            <div className={cn(isToday && "text-primary font-medium", isTomorrow && "text-foreground")}>
+            <div
+              className={cn(isToday && "text-primary font-medium", isTomorrow && "text-foreground")}
+            >
               {date}
             </div>
             <div className="flex items-center gap-1">
@@ -187,20 +367,40 @@ export default function FixtureRow({ fixture, selected, onSelect, onViewMarkets,
       </td>
       <td className="px-3 py-2.5 min-w-[200px]">
         <div className="text-xs font-mono text-foreground">
-          {fixture.competitors[0]?.name} <span className="text-muted-foreground">vs</span> {fixture.competitors[1]?.name}
+          {fixture.competitors[0]?.name} <span className="text-muted-foreground">vs</span>{" "}
+          {fixture.competitors[1]?.name}
         </div>
         <div className="text-[10px] font-mono text-muted-foreground mt-0.5">
           {fixture.tournament.category.name} · {fixture.tournament.name}
         </div>
       </td>
       <td className="px-3 py-2.5">
-        {fixture.betTypeInfo
-          ? <BetTypeColumn fixture={fixture} info={fixture.betTypeInfo} slipIds={slipIds} onAdd={onAddSelection} />
-          : <FallbackOdds fixture={fixture} slipIds={slipIds} onAdd={onAddSelection} />
-        }
+        {fixture.betTypeInfo ? (
+          <BetTypeColumn
+            fixture={fixture}
+            info={fixture.betTypeInfo}
+            slipIds={slipIds}
+            onAdd={onAddSelection}
+          />
+        ) : (
+          <FallbackOdds fixture={fixture} slipIds={slipIds} onAdd={onAddSelection} />
+        )}
       </td>
       <td className="px-3 py-2.5 w-8">
-        <button onClick={onViewMarkets} className="text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover:opacity-100" title="View all markets">
+        {onAddToPool && (
+          <button
+            onClick={() => onAddToPool(toPoolFixture(fixture))}
+            className="text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+            title="Add to pool"
+          >
+            <Layers size={14} />
+          </button>
+        )}
+        <button
+          onClick={onViewMarkets}
+          className="text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+          title="View all markets"
+        >
           <ChevronRight size={14} />
         </button>
       </td>

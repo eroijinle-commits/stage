@@ -3,7 +3,7 @@ import { useUIStore } from "@/store/useUIStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { cn } from "@/lib/utils/cn";
 import { getSportIndex } from "@/lib/stake-api";
-import { Trophy, Globe, Tv, Dumbbell, ChevronRight, X, Loader2 } from "lucide-react";
+import { Trophy, Globe, Tv, Dumbbell, ChevronRight, X, Loader2, Layers } from "lucide-react";
 
 const SPORTS = [
   { id: "soccer", label: "Soccer", icon: Trophy },
@@ -24,6 +24,7 @@ interface SideNavProps {
   onSportChange: (s: string) => void;
   selectedTournamentSlugs?: string[];
   onTournamentToggle?: (slug: string) => void;
+  onNavigate?: (page: string) => void;
 }
 
 export default function SideNav({
@@ -31,6 +32,7 @@ export default function SideNav({
   onSportChange,
   selectedTournamentSlugs = [],
   onTournamentToggle,
+  onNavigate,
 }: SideNavProps) {
   const collapsed = useUIStore((s) => s.sidebarCollapsed);
   const apiToken = useSettingsStore((s) => s.apiToken);
@@ -62,16 +64,35 @@ export default function SideNav({
         if (!cancelled) setLoadingTournaments(false);
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [activeSport, apiToken]);
 
   return (
-    <aside className={cn(
-      "flex flex-col border-r border-border bg-card shrink-0 transition-all duration-200 overflow-hidden",
-      collapsed ? "w-0" : "w-48",
-    )}>
+    <aside
+      className={cn(
+        "flex flex-col border-r border-border bg-card shrink-0 transition-all duration-200 overflow-hidden",
+        collapsed ? "w-0" : "w-48",
+      )}
+    >
+      {/* Tools section */}
       <div className="p-2 border-b border-border">
-        <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider px-2 py-1">Sports</p>
+        <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider px-2 py-1">
+          Tools
+        </p>
+        <button
+          onClick={() => onNavigate?.("betarchitect")}
+          className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <Layers size={12} />
+          <span>BetArchitect</span>
+        </button>
+      </div>
+      <div className="p-2 border-b border-border">
+        <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider px-2 py-1">
+          Sports
+        </p>
         {SPORTS.map((s) => {
           const Icon = s.icon;
           return (
@@ -95,7 +116,9 @@ export default function SideNav({
       </div>
       <div className="p-2 flex-1 overflow-y-auto">
         <div className="flex items-center justify-between px-2 py-1">
-          <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Tournaments</p>
+          <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+            Tournaments
+          </p>
           {selectedTournamentSlugs.length > 0 && onTournamentToggle && (
             <button
               onClick={() => selectedTournamentSlugs.forEach((s) => onTournamentToggle(s))}
