@@ -56,6 +56,16 @@ export function classifyError(error: unknown): StakeApiErrorType {
     return "duplicateFixtures";
   }
 
+  // Outcome IDs are invalid (e.g. fabricated IDs like `outcome-${fixtureId}`)
+  if (msg.includes("invaliduuid") || msg.includes("invalid uuid") || msg.includes("this action is not available")) {
+    return "invalidUuid";
+  }
+
+  // Outcome IDs are valid UUIDs but no longer exist (expired / stale)
+  if (msg.includes("outcome cannot be found") || msg.includes("outcome not found") || msg.includes("notfound")) {
+    return "outcomeNotFound";
+  }
+
   return "unknown";
 }
 
@@ -73,6 +83,10 @@ export function getUserFriendlyMessage(errorType: StakeApiErrorType): string {
     networkError: "Network error — check your connection and try again.",
     duplicateFixtures:
       "Parlays cannot combine outcomes from the same match. Switch to Singles mode or remove selections from the same match.",
+    invalidUuid:
+      "One or more selections contain invalid outcome IDs. This can happen with stale data. Clear your slip and re-add selections from the Discovery page.",
+    outcomeNotFound:
+      "One or more outcomes no longer exist — they may have been removed or rescheduled. Re-add the affected selections from the Discovery page.",
     unknown: "An unexpected error occurred. Please try again.",
   };
   return messages[errorType];

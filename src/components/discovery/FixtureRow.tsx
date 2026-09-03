@@ -50,6 +50,9 @@ function toPoolFixture(fixture: FixtureRowProps["fixture"]): PoolFixture {
   const marketName = fixture.previewMarkets?.[0]?.name || "Match Winner";
   const outcomeName = firstOutcome?.name || "Unknown";
   const odds = firstOutcome?.odds || 1.5;
+  // Use the real outcome ID from the API, not a fabricated one.
+  // The backend requires actual outcome UUIDs — `outcome-${fixture.id}` is invalid.
+  const realOutcomeId = firstOutcome?.id ?? "";
   return {
     id: `pool-${fixture.id}-${marketName}-${outcomeName}`,
     fixtureSlug: fixture.slug,
@@ -58,7 +61,7 @@ function toPoolFixture(fixture: FixtureRowProps["fixture"]): PoolFixture {
     tournamentName: fixture.tournament.name,
     marketId: `${fixture.id}-${marketName}`,
     marketName,
-    outcomeId: `outcome-${fixture.id}`,
+    outcomeId: realOutcomeId,
     outcomeName,
     odds,
     active: firstOutcome?.active ?? true,

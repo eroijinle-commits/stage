@@ -48,8 +48,9 @@ function buildRawFixtures() {
     const tournament = TOURNAMENTS[i % TOURNAMENTS.length];
     const isLive = i < 4;
     const slug = `${home.toLowerCase().replace(/\s/g, "-")}-vs-${away.toLowerCase().replace(/\s/g, "-")}-${i}`;
+    const fixtureId = `fixture-${i}`;
     return {
-      id: `fixture-${i}`,
+      id: fixtureId,
       name: `${home} vs ${away}`,
       slug,
       startTime: randomDate(isLive ? 0 : -3),
@@ -63,16 +64,16 @@ function buildRawFixtures() {
         {
           name: "1X2",
           outcomes: [
-            { name: "1", odds: randomOdds(1.4, 3.5), active: true },
-            { name: "X", odds: randomOdds(2.8, 4.2), active: true },
-            { name: "2", odds: randomOdds(1.4, 3.5), active: true },
+            { id: `outcome-${fixtureId}-1x2-1`, name: "1", odds: randomOdds(1.4, 3.5), active: true },
+            { id: `outcome-${fixtureId}-1x2-x`, name: "X", odds: randomOdds(2.8, 4.2), active: true },
+            { id: `outcome-${fixtureId}-1x2-2`, name: "2", odds: randomOdds(1.4, 3.5), active: true },
           ],
         },
         {
           name: "BTTS",
           outcomes: [
-            { name: "Yes", odds: randomOdds(1.6, 2.2), active: true },
-            { name: "No", odds: randomOdds(1.6, 2.2), active: true },
+            { id: `outcome-${fixtureId}-btts-yes`, name: "Yes", odds: randomOdds(1.6, 2.2), active: true },
+            { id: `outcome-${fixtureId}-btts-no`, name: "No", odds: randomOdds(1.6, 2.2), active: true },
           ],
         },
       ],

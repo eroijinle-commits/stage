@@ -51,6 +51,8 @@ export type StakeApiErrorType =
   | "rateLimited"
   | "networkError"
   | "duplicateFixtures"
+  | "invalidUuid"
+  | "outcomeNotFound"
   | "unknown";
 
 export class StakeApiError extends Error {

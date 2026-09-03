@@ -7,6 +7,8 @@
 import type { BetSelection } from "@/lib/contracts/ui.contract";
 import type { SlipMode } from "@/lib/contracts/db.contract";
 import { placeBetMutation } from "@/lib/stake-api/mutations";
+import { StakeApiError } from "@/lib/stake-api/types";
+import { getUserFriendlyMessage } from "@/lib/stake-api/errors";
 import { createBet } from "@/lib/db/repositories/bet.repository";
 import { createOutcome } from "@/lib/db/repositories/outcome.repository";
 import { validateSlip } from "./slipLogic";
@@ -52,6 +54,17 @@ export async function executeBetPlacement(
       selectionId: s.id,
       success: false,
       error: errors[0],
+      placedAt: Date.now(),
+    }));
+  }
+
+  // Pre-flight: validate outcome IDs are present and non-empty
+  const emptyOutcomeIds = selections.filter((s) => !s.outcomeId || s.outcomeId.trim() === "");
+  if (emptyOutcomeIds.length > 0) {
+    return selections.map((s) => ({
+      selectionId: s.id,
+      success: false,
+      error: `Selection "${s.outcomeName}" has no valid outcome ID. Re-add it from the Discovery page.`,
       placedAt: Date.now(),
     }));
   }
@@ -105,7 +118,9 @@ export async function executeBetPlacement(
         });
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Bet placement failed";
+      const message = err instanceof StakeApiError
+        ? getUserFriendlyMessage(err.type)
+        : err instanceof Error ? err.message : "Bet placement failed";
       const placedAt = Date.now();
       for (const sel of selections) {
         results.push({
@@ -161,7 +176,9 @@ export async function executeBetPlacement(
         });
       } catch (err) {
         // Singles: continue placing the rest even if one fails
-        const message = err instanceof Error ? err.message : "Bet placement failed";
+        const message = err instanceof StakeApiError
+          ? getUserFriendlyMessage(err.type)
+          : err instanceof Error ? err.message : "Bet placement failed";
         results.push({
           selectionId: sel.id,
           success: false,

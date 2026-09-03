@@ -126,7 +126,8 @@ export async function executeQuery<T>(options: ExecuteQueryOptions): Promise<T> 
 
           // Partial data: some sub-fields (e.g. markets) may be geo-restricted
           // but the rest of the query data is still valid — return it
-          if (graphql.data) {
+          // Only return partial data for queries (not mutations — mutations are all-or-nothing)
+          if (graphql.data && operationType === "query") {
             console.warn(
               "[stake-api] Partial GraphQL error (returning available data):",
               firstErr.message,
@@ -135,7 +136,17 @@ export async function executeQuery<T>(options: ExecuteQueryOptions): Promise<T> 
             return graphql.data;
           }
 
-          lastError = new Error(firstErr.message);
+          // For mutations or full failures — throw the actual GraphQL error
+          // Include errorType from extensions for proper classification
+          const extensions = firstErr.extensions as Record<string, unknown> | undefined;
+          const err = new Error(firstErr.message);
+          (err as unknown as Record<string, unknown>).graphqlError = {
+            message: firstErr.message,
+            path: firstErr.path,
+            errorType: extensions?.errorType,
+            extensions,
+          };
+          lastError = err;
           // Don't retry on GraphQL errors — they're deterministic
           break;
         }
@@ -156,7 +167,22 @@ export async function executeQuery<T>(options: ExecuteQueryOptions): Promise<T> 
     // All retries exhausted — classify and throw
     if (lastError instanceof StakeApiError) throw lastError;
 
-    const errorType = classifyError(lastError);
+    // Check if the error has a GraphQL errorType from extensions (e.g. "invalidUuid", "notFound")
+    const gqlErr = lastError && typeof lastError === "object"
+      ? (lastError as Record<string, unknown>).graphqlError as Record<string, unknown> | undefined
+      : undefined;
+    const gqlErrorType = gqlErr?.errorType as string | undefined;
+
+    // Map GraphQL errorType to StakeApiErrorType
+    const graphQLErrorTypeMap: Record<string, string> = {
+      invalidUuid: "invalidUuid",
+      notFound: "outcomeNotFound",
+    };
+
+    const errorType = (gqlErrorType && graphQLErrorTypeMap[gqlErrorType])
+      ? (graphQLErrorTypeMap[gqlErrorType] as import("./types").StakeApiErrorType)
+      : classifyError(lastError);
+
     throw new StakeApiError(errorType, getUserFriendlyMessage(errorType), undefined, lastError);
   }) as Promise<T>;
 }

@@ -270,7 +270,7 @@ export interface DiscoveryFixture {
   competitors: Array<{ name: string; iconPath?: string }>;
   previewMarkets?: Array<{
     name: string;
-    outcomes: Array<{ name: string; odds: number; active: boolean }>;
+    outcomes: Array<{ id: string; name: string; odds: number; active: boolean }>;
   }>;
   betTypeInfo?: BetTypeInfo;
   sport?: string;

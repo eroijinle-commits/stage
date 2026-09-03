@@ -141,7 +141,7 @@ function mapFixtureToDiscovery(
   // Build previewMarkets from actual API market data
   const previewMarkets = markets.slice(0, 6).map((m) => ({
     name: m.name,
-    outcomes: m.outcomes.map((o) => ({ name: o.name, odds: o.odds, active: o.active })),
+    outcomes: m.outcomes.map((o) => ({ id: o.id, name: o.name, odds: o.odds, active: o.active })),
   }));
 
   // Build a fixture-like object with markets for bet type matching
