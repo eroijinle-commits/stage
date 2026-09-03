@@ -69,31 +69,43 @@ export function useBetSlip() {
 
   /** Place bets for the currently active slip. */
   const placeBets = useCallback(async (): Promise<BetPlacementResult[]> => {
+    console.log("[placeBets] Starting bet placement...");
     const state = useSlipStore.getState();
     const slip = getActiveSlip(state);
+    console.log("[placeBets] Active slip:", slip?.id, "selections:", slip?.selections.length);
+
     if (!slip || slip.selections.length === 0) {
+      console.log("[placeBets] No selections, aborting");
       setLastError("No selections in the slip.");
       return [];
     }
 
     const balanceAmount = balance?.amount ?? null;
+    console.log("[placeBets] Balance:", balanceAmount);
+
     const slipTotalStake = calculateTotalStake(slip.selections, slip.mode, slip.stakePerLeg);
+    console.log("[placeBets] Total stake:", slipTotalStake);
+
     const validationErrors = validateSlip(
       slip.selections,
       balanceAmount,
       slipTotalStake,
       slip.mode,
     );
+    console.log("[placeBets] Validation errors:", validationErrors);
+
     if (validationErrors.length > 0) {
       setLastError(validationErrors.join("; "));
       return [];
     }
 
+    console.log("[placeBets] Setting isPlacing=true");
     setPlacing(true);
     setLastError(null);
     setPlaceResults([]);
 
     try {
+      console.log("[placeBets] Calling executeBetPlacement...");
       const results = await executeBetPlacement({
         selections: slip.selections,
         mode: slip.mode,
@@ -102,11 +114,13 @@ export function useBetSlip() {
         balance: balanceAmount,
         stakeShieldEnabled: slip.mode === "parlay" ? slip.stakeShieldEnabled : false,
       });
+      console.log("[placeBets] Results:", results);
 
       setPlaceResults(results);
 
       const successCount = results.filter((r) => r.success).length;
       const failCount = results.filter((r) => !r.success).length;
+      console.log("[placeBets] Success:", successCount, "Failed:", failCount);
 
       if (failCount > 0 && successCount > 0) {
         setLastError(`${successCount} bet(s) placed, ${failCount} failed.`);
@@ -120,10 +134,12 @@ export function useBetSlip() {
 
       return results;
     } catch (err) {
+      console.error("[placeBets] Exception:", err);
       const message = err instanceof Error ? err.message : "Bet placement failed";
       setLastError(message);
       return [];
     } finally {
+      console.log("[placeBets] Setting isPlacing=false");
       setPlacing(false);
     }
   }, [currency, balance, totalStake, setPlacing, setLastError, setPlaceResults, refetchBalance]);
