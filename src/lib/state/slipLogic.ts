@@ -117,13 +117,28 @@ export function validateSlip(
   }
 
   // Check for duplicate outcomes — ignore empty/placeholder IDs
-  const validOutcomeIds = selections.filter((s) => s.outcomeId && s.outcomeId.trim() !== "");
-  const outcomeIds = validOutcomeIds.map((s) => s.outcomeId);
+  const validSelections = selections.filter((s) => s.outcomeId && s.outcomeId.trim() !== "");
+  const outcomeIds = validSelections.map((s) => s.outcomeId);
   const uniqueIds = new Set(outcomeIds);
   if (uniqueIds.size !== outcomeIds.length) {
-    const duplicates = outcomeIds.filter((id, idx) => outcomeIds.indexOf(id) !== idx);
+    // Identify which specific selections are duplicates
+    const seen = new Map<string, BetSelection[]>();
+    for (const sel of validSelections) {
+      const existing = seen.get(sel.outcomeId) ?? [];
+      existing.push(sel);
+      seen.set(sel.outcomeId, existing);
+    }
+
+    const duplicateGroups = Array.from(seen.entries())
+      .filter(([, group]) => group.length > 1);
+
+    const duplicateDescriptions = duplicateGroups.map(([outcomeId, group]) => {
+      const names = group.map((s) => `${s.outcomeName} (${s.fixtureName})`);
+      return `ID "${outcomeId.slice(0, 12)}...": ${names.join(" vs ")}`;
+    });
+
     errors.push(
-      `Duplicate selections detected (${duplicates.length} duplicate outcome IDs). Remove duplicates before placing bets.`,
+      `Duplicate selections detected:\n${duplicateDescriptions.join("\n")}\nRemove duplicates before placing bets.`,
     );
   }
 
