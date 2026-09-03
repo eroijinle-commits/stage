@@ -20,17 +20,21 @@ function capitalize(s: string) {
 }
 
 /**
- * Displays a single fixture leg with clear visual hierarchy:
- * - Fixture name prominently displayed
- * - Market name as context
- * - All available odds shown in a row, with the selected one clearly highlighted
- * - Selected outcome gets a checkmark and primary color treatment
+ * Displays a single fixture leg in a clean table-like layout:
+ * ┌─────────────────────────────────────────────┐
+ * │ ● Hannover 96 vs Karlsruher                 │  ← fixture (row 1)
+ * │   Both Teams to Score                       │  ← market  (row 2)
+ * │   Yes              No                       │  ← outcome names  (row 3)
+ * │   1.46 ★           2.55                     │  ← odds, selected highlighted (row 4)
+ * │   CAF Confederations Cup · soccer           │  ← league context (row 5)
+ * └─────────────────────────────────────────────┘
  */
 function FixtureLegRow({ leg }: { leg: PoolFixture }) {
   const colorClass = getFixtureColor(leg.fixtureId);
   const dotClass = getFixtureDot(leg.fixtureId);
   const allOutcomes = leg.allOutcomes ?? [];
   const hasMultipleOutcomes = allOutcomes.length > 1;
+  const outcomeCount = Math.max(allOutcomes.length, 1);
 
   return (
     <div
@@ -48,64 +52,71 @@ function FixtureLegRow({ leg }: { leg: PoolFixture }) {
       </div>
 
       {/* Row 2: Market name */}
-      <div className="text-[10px] font-mono text-muted-foreground ml-4 mb-1.5">
+      <div className="text-[10px] font-mono text-muted-foreground ml-4 mb-1">
         {leg.market || leg.marketName}
       </div>
 
-      {/* Row 3: All odds displayed clearly */}
+      {/* Rows 3–4: Outcome names + odds in a table grid */}
       {hasMultipleOutcomes ? (
-        <div className="ml-4 grid gap-1" style={{ gridTemplateColumns: `repeat(${allOutcomes.length}, minmax(0, 1fr))` }}>
-          {allOutcomes.map((outcome) => {
-            const isSelected = outcome.name === leg.outcomeName && outcome.odds === leg.odds;
-            return (
-              <div
-                key={`${outcome.name}-${outcome.odds}`}
-                className={cn(
-                  "flex flex-col items-center px-2 py-1.5 rounded border text-center",
-                  isSelected
-                    ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                    : "border-border/40 bg-secondary/20",
-                )}
-              >
-                <span
-                  className={cn(
-                    "text-[10px] font-mono leading-tight truncate w-full",
-                    isSelected ? "text-primary font-bold" : "text-muted-foreground/60",
-                  )}
+        <div className="ml-4">
+          {/* Row 3: Outcome names */}
+          <div
+            className="grid gap-x-4 gap-y-0"
+            style={{ gridTemplateColumns: `repeat(${outcomeCount}, minmax(0, 1fr))` }}
+          >
+            {allOutcomes.map((outcome) => {
+              const isSelected = outcome.name === leg.outcomeName && outcome.odds === leg.odds;
+              return (
+                <div
+                  key={`name-${outcome.name}`}
+                  className="text-[10px] font-mono text-muted-foreground/60 leading-tight truncate"
                 >
                   {outcome.name}
-                </span>
-                <span
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Row 4: Odds — selected one gets bold + primary highlight */}
+          <div
+            className="grid gap-x-4 gap-y-0"
+            style={{ gridTemplateColumns: `repeat(${outcomeCount}, minmax(0, 1fr))` }}
+          >
+            {allOutcomes.map((outcome) => {
+              const isSelected = outcome.name === leg.outcomeName && outcome.odds === leg.odds;
+              return (
+                <div
+                  key={`odds-${outcome.name}`}
                   className={cn(
                     "text-xs font-mono font-bold tabular-nums leading-tight",
-                    isSelected ? "text-primary" : "text-muted-foreground/50",
+                    isSelected
+                      ? "text-primary underline decoration-primary/40 underline-offset-2"
+                      : "text-muted-foreground/50",
                   )}
                 >
                   {outcome.odds.toFixed(2)}
-                </span>
-                {isSelected && (
-                  <span className="text-[8px] font-mono text-primary mt-0.5">✓ PICK</span>
-                )}
-              </div>
-            );
-          })}
+                  {isSelected && (
+                    <span className="text-[8px] font-mono text-primary ml-1 no-underline">★</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : (
         /* Single outcome or fallback — show selected clearly */
-        <div className="ml-4 flex items-center gap-3">
-          <div className="flex items-center gap-2 px-2 py-1.5 rounded border border-primary bg-primary/10 ring-1 ring-primary/30">
-            <span className="text-[11px] font-mono font-bold text-primary">
-              {leg.outcomeName || leg.selection}
-            </span>
-            <span className="text-xs font-mono font-bold text-primary tabular-nums">
-              {leg.odds.toFixed(2)}
-            </span>
-            <span className="text-[8px] font-mono text-primary">✓ PICK</span>
-          </div>
+        <div className="ml-4 flex items-center gap-2">
+          <span className="text-[10px] font-mono text-muted-foreground/60">
+            {leg.outcomeName || leg.selection}
+          </span>
+          <span className="text-xs font-mono font-bold text-primary tabular-nums underline decoration-primary/40 underline-offset-2">
+            {leg.odds.toFixed(2)}
+          </span>
+          <span className="text-[8px] font-mono text-primary">★</span>
         </div>
       )}
 
-      {/* Row 4: League / sport context */}
+      {/* Row 5: League / sport context */}
       <div className="text-[9px] font-mono text-muted-foreground/40 ml-4 mt-1">
         {leg.league || leg.tournamentName}
         {leg.sport ? ` · ${leg.sport}` : ""}
