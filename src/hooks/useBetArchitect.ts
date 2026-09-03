@@ -22,17 +22,28 @@ export function useBetArchitect() {
 
   const addSlipToStore = useCallback(
     (slip: ArchitectSlip, mode: SlipMode = "parlay") => {
-      const id = createSlip(slip.strategy);
+      const label = slip.strategy.charAt(0).toUpperCase() + slip.strategy.slice(1);
+      const id = createSlip(label);
       const selections: BetSelection[] = slip.legs.map((leg) => ({
         ...leg,
         addedAt: Date.now(),
       }));
-      useSlipStore.setState((st) => ({
-        slips: st.slips.map((s) =>
-          s.id === id ? { ...s, selections, mode, name: `${slip.strategy} ${slip.id}` } : s,
-        ),
-        activeSlipId: id,
-      }));
+      useSlipStore.setState((st) => {
+        const sameStrategy = st.slips.filter((s) => s.name.startsWith(label)).length;
+        return {
+          slips: st.slips.map((s) =>
+            s.id === id
+              ? {
+                  ...s,
+                  selections,
+                  mode,
+                  name: sameStrategy > 0 ? `${label} ${sameStrategy + 1}` : label,
+                }
+              : s,
+          ),
+          activeSlipId: id,
+        };
+      });
     },
     [createSlip],
   );

@@ -166,7 +166,7 @@ function TabItem({
           />
         ) : (
           <>
-            <span>{tab.label}</span>
+            <span className="max-w-[120px] truncate">{tab.label}</span>
             {count > 0 && (
               <span className="bg-primary/20 text-primary rounded-sm px-1 text-[10px] tabular-nums leading-none">
                 {count}
