@@ -116,11 +116,15 @@ export function validateSlip(
     );
   }
 
-  // Check for duplicate outcomes
-  const outcomeIds = selections.map((s) => s.outcomeId);
+  // Check for duplicate outcomes — ignore empty/placeholder IDs
+  const validOutcomeIds = selections.filter((s) => s.outcomeId && s.outcomeId.trim() !== "");
+  const outcomeIds = validOutcomeIds.map((s) => s.outcomeId);
   const uniqueIds = new Set(outcomeIds);
   if (uniqueIds.size !== outcomeIds.length) {
-    errors.push("Duplicate selections detected. Remove duplicates before placing bets.");
+    const duplicates = outcomeIds.filter((id, idx) => outcomeIds.indexOf(id) !== idx);
+    errors.push(
+      `Duplicate selections detected (${duplicates.length} duplicate outcome IDs). Remove duplicates before placing bets.`,
+    );
   }
 
   // Parlays cannot combine outcomes from the same fixture

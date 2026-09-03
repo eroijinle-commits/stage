@@ -279,22 +279,17 @@ export default function SlipPage() {
       </div>
 
       {activeSlipSelectionCount > 0 && (
-        <div onClick={(e) => console.log("[SlipPage] BottomBar area clicked", e.target)}>
-          <BottomBar
-            selectionCount={activeSlipSelectionCount}
-            currency={currency}
-            totalStake={activeManualTotalStake}
-            displayReturn={activeDisplayReturn}
-            potentialProfit={activeProfit}
-            isPlacing={isPlacing}
-            placed={placed}
-            onPlaceBets={() => {
-              console.log("[SlipPage] onPlaceBets called directly");
-              placeBets();
-            }}
-            onClear={clearSelections}
-          />
-        </div>
+        <BottomBar
+          selectionCount={activeSlipSelectionCount}
+          currency={currency}
+          totalStake={activeManualTotalStake}
+          displayReturn={activeDisplayReturn}
+          potentialProfit={activeProfit}
+          isPlacing={isPlacing}
+          placed={placed}
+          onPlaceBets={placeBets}
+          onClear={clearSelections}
+        />
       )}
     </div>
   );

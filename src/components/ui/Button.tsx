@@ -31,10 +31,7 @@ export default function Button({
   return (
     <button
       type={type}
-      onClick={(e) => {
-        console.log("[Button] Clicked, disabled:", disabled, "loading:", loading, "onClick exists:", !!onClick);
-        onClick?.();
-      }}
+      onClick={onClick}
       disabled={disabled || loading}
       className={cn(
         "inline-flex items-center justify-center font-mono font-medium rounded transition-colors duration-150 select-none",
