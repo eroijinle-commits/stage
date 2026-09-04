@@ -213,10 +213,19 @@ export function useValueScanner(
                 }
             }
 
-            // Only keep fixtures that haven't started yet
-            const upcoming = allFixtures.filter(
-                (f) => f.status === "not_started" || f.status === "scheduled",
-            );
+            // Only keep fixtures that haven't started yet (filter by startTime)
+            const now = Date.now();
+            const upcoming = allFixtures.filter((f) => {
+                const data = f.data;
+                const startTime =
+                    data?.__typename === "SportFixtureDataMatch" && "startTime" in data
+                        ? data.startTime
+                        : data?.__typename === "SportFixtureDataOutright" && "startTime" in data
+                            ? data.startTime
+                            : null;
+                if (!startTime) return false;
+                return new Date(startTime).getTime() > now;
+            });
 
             setRawFixtures(upcoming);
             setMarketsCache(() => new Map());
