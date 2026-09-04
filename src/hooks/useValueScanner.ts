@@ -1,21 +1,22 @@
 /**
  * useValueScanner — fetches fixtures, loads market data, and identifies odds gaps.
+ * State is persisted in useScannerStore so results survive tab switches.
+ * Only refetches when sport changes or user hits refresh.
  * Full error handling at every layer: structured logging, toast notifications,
  * per-fixture resilience, and retry support.
  * @module hooks/useValueScanner
  */
 
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useCallback, useEffect, useRef, useMemo } from "react";
 import type { StakeFixture, StakeMarket, StakeMarketOutcome } from "@/lib/contracts/api.contract";
 import type { DiscoveryFixture } from "@/lib/contracts/ui.contract";
 import {
     getSportIndex,
     getFixtureDetailsQuery,
-    classifyError,
-    getUserFriendlyMessage,
 } from "@/lib/stake-api";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useUIStore } from "@/store/useUIStore";
+import { useScannerStore } from "@/store/useScannerStore";
 import {
     buildScannerErrorContext,
     isRetryable,
@@ -132,19 +133,27 @@ export function useValueScanner(
     dateFrom: number | null,
     dateTo: number | null,
 ): UseValueScannerReturn {
-    const [rawFixtures, setRawFixtures] = useState<StakeFixture[]>([]);
-    const [marketsCache, setMarketsCache] = useState<
-        Map<string, StakeMarket[]>
-    >(new Map());
-    const [failedFixtures, setFailedFixtures] = useState<FixtureFailure[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [phase, setPhase] = useState<ScannerPhase>("idle");
-    const [error, setError] = useState<string | null>(null);
-    const abortRef = useRef<AbortController | null>(null);
-    const detailAbortRef = useRef<AbortController | null>(null);
-    const fetchingRef = useRef<Set<string>>(new Set());
     const apiToken = useSettingsStore((s) => s.apiToken);
     const addToast = useUIStore((s) => s.addToast);
+
+    // Read from persistent store
+    const rawFixtures = useScannerStore((s) => s.rawFixtures);
+    const marketsCache = useScannerStore((s) => s.marketsCache);
+    const failedFixtures = useScannerStore((s) => s.failedFixtures);
+    const isLoading = useScannerStore((s) => s.isLoading);
+    const phase = useScannerStore((s) => s.phase);
+    const error = useScannerStore((s) => s.error);
+    const lastSport = useScannerStore((s) => s.lastSport);
+
+    // Store actions
+    const setRawFixtures = useScannerStore((s) => s.setRawFixtures);
+    const setMarketsCache = useScannerStore((s) => s.setMarketsCache);
+    const appendFailedFixtures = useScannerStore((s) => s.appendFailedFixtures);
+    const setIsLoading = useScannerStore((s) => s.setIsLoading);
+    const setPhase = useScannerStore((s) => s.setPhase);
+    const setError = useScannerStore((s) => s.setError);
+    const setLastSport = useScannerStore((s) => s.setLastSport);
+    const reset = useScannerStore((s) => s.reset);
 
     // Store current filter values for error context
     const filtersRef = useRef<ScannerFilters>({
@@ -156,6 +165,10 @@ export function useValueScanner(
     });
     filtersRef.current = { sport, minGapRatio, outcomeCount, dateFrom, dateTo };
 
+    const abortRef = useRef<AbortController | null>(null);
+    const detailAbortRef = useRef<AbortController | null>(null);
+    const fetchingRef = useRef<Set<string>>(new Set());
+
     // ─── Fetch fixtures ─────────────────────────────────────────────────────
 
     const fetchFixtures = useCallback(async () => {
@@ -166,7 +179,8 @@ export function useValueScanner(
         setIsLoading(true);
         setPhase("fetching");
         setError(null);
-        setFailedFixtures([]);
+        useScannerStore.getState().failedFixtures.length = 0;
+        useScannerStore.setState({ failedFixtures: [] });
 
         try {
             const data = await getSportIndex(sport, "popular", "popular", 1);
@@ -205,9 +219,11 @@ export function useValueScanner(
             );
 
             setRawFixtures(upcoming);
-            setMarketsCache(new Map());
+            setMarketsCache(() => new Map());
+            setLastSport(sport);
+            fetchingRef.current = new Set();
 
-            if (allFixtures.length === 0) {
+            if (upcoming.length === 0) {
                 setPhase("idle");
                 setIsLoading(false);
             }
@@ -234,15 +250,25 @@ export function useValueScanner(
                     : undefined,
             });
         }
-    }, [sport, addToast]);
+    }, [sport, addToast, setRawFixtures, setMarketsCache, setIsLoading, setPhase, setError, setLastSport]);
 
-    // Auto-fetch when sport changes
+    // Auto-fetch: only if no data yet or sport changed
     useEffect(() => {
-        if (apiToken) {
-            fetchFixtures();
+        if (!apiToken) return;
+
+        const hasData = rawFixtures.length > 0 && lastSport === sport;
+        if (hasData) {
+            // Already have data for this sport — skip fetching, go straight to analyzing
+            if (phase !== "analyzing") {
+                setPhase("analyzing");
+                setIsLoading(false);
+            }
+            return;
         }
+
+        fetchFixtures();
         return () => abortRef.current?.abort();
-    }, [sport, apiToken, fetchFixtures]);
+    }, [sport, apiToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ─── Enrich: fetch fixture details sequentially ───────────────────────
 
@@ -254,8 +280,10 @@ export function useValueScanner(
         );
         if (unfetched.length === 0) {
             // All fetched — move to analyzing
-            setPhase("analyzing");
-            setIsLoading(false);
+            if (phase !== "analyzing") {
+                setPhase("analyzing");
+                setIsLoading(false);
+            }
             return;
         }
 
@@ -311,11 +339,8 @@ export function useValueScanner(
             }
 
             if (!cancelled) {
-                setFailedFixtures((prev) => [...prev, ...newFailures]);
-                setPhase("analyzing");
-                setIsLoading(false);
-
                 if (newFailures.length > 0) {
+                    appendFailedFixtures(newFailures);
                     addToast({
                         type: "warning",
                         title: `${newFailures.length} fixture${newFailures.length !== 1 ? "s" : ""} failed to load`,
@@ -323,6 +348,8 @@ export function useValueScanner(
                         duration: 4000,
                     });
                 }
+                setPhase("analyzing");
+                setIsLoading(false);
             }
         })();
 
