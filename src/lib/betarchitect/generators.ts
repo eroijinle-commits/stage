@@ -46,5 +46,8 @@ export function generateAll(
   generators: StrategyGenerator[],
   settings: RuleSettings,
 ): ArchitectSlip[] {
-  return generators.flatMap((gen) => gen(pool, settings));
+  // Filter out pool fixtures with empty outcome IDs before generating.
+  // The Stake API rejects non-UUID outcome IDs, causing silent bet failures.
+  const validPool = pool.filter((f) => f.outcomeId && f.outcomeId.trim() !== "");
+  return generators.flatMap((gen) => gen(validPool, settings));
 }

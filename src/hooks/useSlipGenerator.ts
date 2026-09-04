@@ -19,16 +19,19 @@ export function useSlipGenerator(pool: PoolFixture[], settings: RuleSettings) {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const generate = useCallback(() => {
-    if (pool.length === 0) {
+    // Filter out pool fixtures with empty outcome IDs before generating.
+    // The Stake API rejects non-UUID outcome IDs, causing silent bet failures.
+    const validPool = pool.filter((f) => f.outcomeId && f.outcomeId.trim() !== "");
+    if (validPool.length === 0) {
       setArchitectSlips([]);
       return;
     }
     setIsGenerating(true);
     const results = [
-      ...generateFortress(pool, settings),
-      ...generateGrowth(pool, settings),
-      ...generateUpside(pool, settings),
-      ...generateSystem78(pool, settings),
+      ...generateFortress(validPool, settings),
+      ...generateGrowth(validPool, settings),
+      ...generateUpside(validPool, settings),
+      ...generateSystem78(validPool, settings),
     ];
     setArchitectSlips(results);
     setIsGenerating(false);
