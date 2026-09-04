@@ -4,9 +4,10 @@
  * @module components/scanner/ScannerFilterBar
  */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils/cn";
 import { Modal, Button } from "@/components/ui";
+import Select from "@/components/ui/Select";
 import { Search, X, Calendar } from "lucide-react";
 import { DATE_PRESETS, type DatePreset } from "@/components/discovery/types";
 import { getDateRangeForPreset } from "@/hooks/useDiscovery";
@@ -48,14 +49,16 @@ export interface ScannerFilters {
     outcomeCount: number | null;
     dateFrom: number | null;
     dateTo: number | null;
+    marketType: string;
 }
 
 interface ScannerFilterBarProps {
     filters: ScannerFilters;
     onChange: (partial: Partial<ScannerFilters>) => void;
+    availableMarkets: string[];
 }
 
-export default function ScannerFilterBar({ filters, onChange }: ScannerFilterBarProps) {
+export default function ScannerFilterBar({ filters, onChange, availableMarkets }: ScannerFilterBarProps) {
     const [datePreset, setDatePreset] = useState<DatePreset | null>("today");
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [customDateFrom, setCustomDateFrom] = useState("");
@@ -97,6 +100,7 @@ export default function ScannerFilterBar({ filters, onChange }: ScannerFilterBar
             outcomeCount: null,
             dateFrom: null,
             dateTo: null,
+            marketType: "",
         });
     }, [onChange]);
 
@@ -104,7 +108,14 @@ export default function ScannerFilterBar({ filters, onChange }: ScannerFilterBar
         filters.minGapRatio !== 5 ||
         filters.outcomeCount !== null ||
         filters.dateFrom !== null ||
-        filters.dateTo !== null;
+        filters.dateTo !== null ||
+        filters.marketType !== "";
+
+    // Market type dropdown options
+    const marketTypeOptions = useMemo(
+        () => availableMarkets.map((m) => ({ value: m, label: m })),
+        [availableMarkets],
+    );
 
     return (
         <div className="px-4 py-3 border-b border-border space-y-3 shrink-0">
@@ -125,6 +136,21 @@ export default function ScannerFilterBar({ filters, onChange }: ScannerFilterBar
                             </option>
                         ))}
                     </select>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
+                        Market Type
+                    </label>
+                    <Select
+                        value={filters.marketType}
+                        onChange={(v) => onChange({ marketType: v as string })}
+                        placeholder="All Markets"
+                        clearable
+                        options={marketTypeOptions}
+                        disabled={availableMarkets.length === 0}
+                        className="min-w-[160px]"
+                    />
                 </div>
 
                 <div className="flex flex-col gap-1">

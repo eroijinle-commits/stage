@@ -25,6 +25,7 @@ const DEFAULT_FILTERS: ScannerFilters = {
     outcomeCount: null,
     dateFrom: null,
     dateTo: null,
+    marketType: "",
 };
 
 export default function ValueScannerPage() {
@@ -42,6 +43,7 @@ export default function ValueScannerPage() {
         error,
         totalFixtures,
         totalFlaggedMarkets,
+        availableMarketNames,
         refetch,
     } = useValueScanner(
         filters.sport,
@@ -49,6 +51,7 @@ export default function ValueScannerPage() {
         filters.outcomeCount,
         filters.dateFrom,
         filters.dateTo,
+        filters.marketType,
     );
 
     const handleAddSelection = useCallback(
@@ -96,7 +99,11 @@ export default function ValueScannerPage() {
     return (
         <div className="flex flex-col h-full overflow-hidden">
             {/* Filter Bar */}
-            <ScannerFilterBar filters={filters} onChange={handleFilterChange} />
+            <ScannerFilterBar
+                filters={filters}
+                onChange={handleFilterChange}
+                availableMarkets={availableMarketNames}
+            />
 
             {/* Status Bar */}
             <div className="flex items-center gap-3 px-4 py-1.5 border-b border-border/50 shrink-0 text-[10px] font-mono text-muted-foreground">

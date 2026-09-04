@@ -42,6 +42,7 @@ interface UseValueScannerReturn {
     error: string | null;
     totalFixtures: number;
     totalFlaggedMarkets: number;
+    availableMarketNames: string[];
     refetch: () => void;
 }
 
@@ -132,6 +133,7 @@ export function useValueScanner(
     outcomeCount: number | null,
     dateFrom: number | null,
     dateTo: number | null,
+    marketType: string = "",
 ): UseValueScannerReturn {
     const apiToken = useSettingsStore((s) => s.apiToken);
     const addToast = useUIStore((s) => s.addToast);
@@ -164,8 +166,9 @@ export function useValueScanner(
         outcomeCount,
         dateFrom,
         dateTo,
+        marketType,
     });
-    filtersRef.current = { sport, minGapRatio, outcomeCount, dateFrom, dateTo };
+    filtersRef.current = { sport, minGapRatio, outcomeCount, dateFrom, dateTo, marketType };
 
     const abortRef = useRef<AbortController | null>(null);
     const detailAbortRef = useRef<AbortController | null>(null);
@@ -410,6 +413,9 @@ export function useValueScanner(
             for (const market of markets) {
                 if (market.status !== "active") continue;
 
+                // Market type filter
+                if (marketType !== "" && market.name !== marketType) continue;
+
                 const activeOutcomes = market.outcomes.filter(
                     (o: StakeMarketOutcome) => o.active,
                 );
@@ -450,7 +456,36 @@ export function useValueScanner(
         );
 
         return results;
-    }, [rawFixtures, marketsCache, failedFixtures, phase, minGapRatio, outcomeCount, dateFrom, dateTo]);
+    }, [rawFixtures, marketsCache, failedFixtures, phase, minGapRatio, outcomeCount, dateFrom, dateTo, marketType]);
+
+    // ─── Available market names (computed from flagged results) ──────────
+    // Only shows market types that have at least one flagged market.
+    // Excludes team-specific names (e.g. "Over 2.5 Goals - Arsenal") by
+    // filtering out any market name that contains a competitor name.
+
+    const availableMarketNames = useMemo(() => {
+        // Collect all competitor names across fixtures
+        const teamNames = new Set<string>();
+        for (const f of rawFixtures) {
+            const data = f.data;
+            const isMatch = data?.__typename === "SportFixtureDataMatch";
+            if (isMatch && "competitors" in data) {
+                for (const c of data.competitors) {
+                    if (c.name) teamNames.add(c.name.toLowerCase());
+                }
+            }
+        }
+
+        const names = new Set<string>();
+        for (const result of flaggedResults) {
+            for (const fm of result.flaggedMarkets) {
+                const lower = fm.market.name.toLowerCase();
+                const isTeamSpecific = [...teamNames].some((t) => lower.includes(t));
+                if (!isTeamSpecific) names.add(fm.market.name);
+            }
+        }
+        return [...names].sort();
+    }, [flaggedResults, rawFixtures]);
 
     // ─── Stats ────────────────────────────────────────────────────────────
 
@@ -482,6 +517,7 @@ export function useValueScanner(
         error,
         totalFixtures,
         totalFlaggedMarkets,
+        availableMarketNames,
         refetch: fetchFixtures,
     };
 }

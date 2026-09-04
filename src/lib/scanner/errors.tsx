@@ -22,6 +22,7 @@ export interface ScannerFilters {
     outcomeCount: number | null;
     dateFrom: number | null;
     dateTo: number | null;
+    marketType: string;
 }
 
 export interface ScannerErrorContext {
@@ -138,23 +139,23 @@ export class ScannerErrorBoundary extends Component<FallbackProps, FallbackState
     render() {
         if (this.state.hasError) {
             return (
-                <div className= "flex flex-col items-center justify-center h-full bg-background text-foreground p-8" >
-                <div className="max-w-md text-center" >
-                    <AlertTriangle size={ 32 } className = "mx-auto mb-3 text-bet-lost" />
+                <div className="flex flex-col items-center justify-center h-full bg-background text-foreground p-8" >
+                    <div className="max-w-md text-center" >
+                        <AlertTriangle size={32} className="mx-auto mb-3 text-bet-lost" />
                         <h2 className="text-lg font-mono font-semibold mb-2" > Scanner Crashed </h2>
-                            < p className = "text-muted-foreground text-xs font-mono mb-4" >
-                                { this.state.error?.message ?? "An unexpected error occurred in the Value Scanner." }
-                                </p>
-                                < button
-            onClick = { this.handleReset }
-            className = "flex items-center gap-2 mx-auto px-3 py-1.5 bg-primary text-primary-foreground rounded text-xs font-mono hover:opacity-90 transition-opacity"
-                >
-                <RefreshCw size={ 12 } />
-              Try again
-                </button>
+                        < p className="text-muted-foreground text-xs font-mono mb-4" >
+                            {this.state.error?.message ?? "An unexpected error occurred in the Value Scanner."}
+                        </p>
+                        < button
+                            onClick={this.handleReset}
+                            className="flex items-center gap-2 mx-auto px-3 py-1.5 bg-primary text-primary-foreground rounded text-xs font-mono hover:opacity-90 transition-opacity"
+                        >
+                            <RefreshCw size={12} />
+                            Try again
+                        </button>
+                    </div>
                 </div>
-                </div>
-      );
+            );
         }
 
         return this.props.children;
