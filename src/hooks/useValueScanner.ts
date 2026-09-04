@@ -199,7 +199,12 @@ export function useValueScanner(
                 }
             }
 
-            setRawFixtures(allFixtures);
+            // Only keep fixtures that haven't started yet
+            const upcoming = allFixtures.filter(
+                (f) => f.status === "not_started" || f.status === "scheduled",
+            );
+
+            setRawFixtures(upcoming);
             setMarketsCache(new Map());
 
             if (allFixtures.length === 0) {
