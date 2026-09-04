@@ -200,6 +200,9 @@ export const useSlipStore = create<SlipStore>()(
       },
 
       addSelection: (s) => {
+        // Reject selections with empty or whitespace-only outcome IDs.
+        // The Stake API rejects non-UUID outcome IDs, causing silent bet failures.
+        if (!s?.id || s.id.trim() === "") return;
         set((st) => ({
           slips: st.slips.map((slip) => {
             if (slip.id !== st.activeSlipId) return slip;
@@ -221,7 +224,9 @@ export const useSlipStore = create<SlipStore>()(
           slips: st.slips.map((slip) => {
             if (slip.id !== st.activeSlipId) return slip;
             const existingIds = new Set(slip.selections.map((x) => x.id));
-            const toAdd = newSelections.filter((s) => s && s.id && !existingIds.has(s.id));
+            const toAdd = newSelections.filter(
+              (s) => s && s.id && s.id.trim() !== "" && !existingIds.has(s.id),
+            );
             if (toAdd.length === 0) return slip;
             return { ...slip, selections: [...slip.selections, ...toAdd] };
           }),
@@ -446,6 +451,9 @@ export const useSlipStore = create<SlipStore>()(
       partialize: (state) => ({
         slips: state.slips.map((slip) => ({
           ...slip,
+          // Strip selections with empty outcome IDs before persisting to localStorage.
+          // The Stake API rejects non-UUID outcome IDs, causing silent bet failures.
+          selections: slip.selections.filter((s) => s.id && s.id.trim() !== ""),
           isPlacing: false,
           placeResults: [],
           lastError: null,
@@ -471,8 +479,19 @@ export const useSlipStore = create<SlipStore>()(
             Array.isArray(anyState.selections) || Array.isArray(anyState.savedSlips);
 
           if (!hasLegacyShape || (anyState.slips && anyState.slips.length > 0)) {
-            if (!state.activeSlipId && state.slips.length > 0) {
-              useSlipStore.setState({ activeSlipId: state.slips[0].id });
+            // Strip selections with empty outcome IDs from rehydrated slips.
+            // These are stale entries from before the fix that cause silent bet failures.
+            const cleanedSlips = (anyState.slips ?? []).map((slip: any) => ({
+              ...slip,
+              selections: (slip.selections ?? []).filter(
+                (s: any) => s.id && s.id.trim() !== "",
+              ),
+            }));
+            if (cleanedSlips.length > 0 || anyState.slips?.length > 0) {
+              useSlipStore.setState({
+                slips: cleanedSlips.length > 0 ? cleanedSlips : [createDefaultSlip()],
+                activeSlipId: state.activeSlipId ?? cleanedSlips[0]?.id ?? "default",
+              });
             }
             return;
           }
@@ -480,25 +499,33 @@ export const useSlipStore = create<SlipStore>()(
           const migrated: SlipData[] = [];
 
           if (anyState.selections?.length > 0) {
-            migrated.push({
-              id: `manual-${Date.now()}`,
-              name: "Manual",
-              selections: anyState.selections,
-              mode: anyState.mode ?? "singles",
-              stakePerLeg: anyState.stakePerLeg ?? 1000,
-              stakeShieldEnabled: anyState.stakeShieldEnabled ?? false,
-              isPlacing: false,
-              placeResults: [],
-              lastError: null,
-              createdAt: Date.now(),
-            });
+            const validSelections = anyState.selections.filter(
+              (s: any) => s.id && s.id.trim() !== "",
+            );
+            if (validSelections.length > 0) {
+              migrated.push({
+                id: `manual-${Date.now()}`,
+                name: "Manual",
+                selections: validSelections,
+                mode: anyState.mode ?? "singles",
+                stakePerLeg: anyState.stakePerLeg ?? 1000,
+                stakeShieldEnabled: anyState.stakeShieldEnabled ?? false,
+                isPlacing: false,
+                placeResults: [],
+                lastError: null,
+                createdAt: Date.now(),
+              });
+            }
           }
 
           for (const ss of anyState.savedSlips ?? []) {
+            const validSelections = (ss.selections ?? []).filter(
+              (s: any) => s.id && s.id.trim() !== "",
+            );
             migrated.push({
               id: ss.id,
               name: ss.name || "Saved slip",
-              selections: ss.selections ?? [],
+              selections: validSelections,
               mode: ss.mode ?? "singles",
               stakePerLeg: ss.stakePerLeg ?? 1000,
               stakeShieldEnabled: false,

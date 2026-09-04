@@ -66,6 +66,8 @@ function buildSelectionFromFixture(
 ): BetSelection | null {
   const outcome = resolveOutcome(info, direction, specificOutcomeId);
   if (!outcome) return null;
+  // Reject outcomes with empty IDs — the Stake API requires valid UUIDs.
+  if (!outcome.id || outcome.id.trim() === "") return null;
   return {
     id: outcome.id,
     fixtureSlug: fixture.slug,
