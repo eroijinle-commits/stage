@@ -144,6 +144,7 @@ export function useValueScanner(
     const phase = useScannerStore((s) => s.phase);
     const error = useScannerStore((s) => s.error);
     const lastSport = useScannerStore((s) => s.lastSport);
+    const fetchedSports = useScannerStore((s) => s.fetchedSports);
 
     // Store actions
     const setRawFixtures = useScannerStore((s) => s.setRawFixtures);
@@ -153,6 +154,7 @@ export function useValueScanner(
     const setPhase = useScannerStore((s) => s.setPhase);
     const setError = useScannerStore((s) => s.setError);
     const setLastSport = useScannerStore((s) => s.setLastSport);
+    const markSportFetched = useScannerStore((s) => s.markSportFetched);
     const reset = useScannerStore((s) => s.reset);
 
     // Store current filter values for error context
@@ -265,9 +267,9 @@ export function useValueScanner(
     useEffect(() => {
         if (!apiToken) return;
 
-        const hasData = rawFixtures.length > 0 && lastSport === sport;
-        if (hasData) {
-            // Already have data for this sport — skip fetching, go straight to analyzing
+        // Skip if we already fetched for this sport in this session (persisted in store)
+        const alreadyFetched = fetchedSports.includes(sport) && rawFixtures.length > 0;
+        if (alreadyFetched) {
             if (phase !== "analyzing") {
                 setPhase("analyzing");
                 setIsLoading(false);
@@ -275,6 +277,7 @@ export function useValueScanner(
             return;
         }
 
+        markSportFetched(sport);
         fetchFixtures();
         return () => abortRef.current?.abort();
     }, [sport, apiToken]); // eslint-disable-line react-hooks/exhaustive-deps

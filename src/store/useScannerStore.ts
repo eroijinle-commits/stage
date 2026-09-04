@@ -16,6 +16,8 @@ interface ScannerStore {
     phase: ScannerPhase;
     error: string | null;
     lastSport: string | null;
+    /** Tracks which sports have been fetched in this session to prevent remount refetch */
+    fetchedSports: string[];
 
     setRawFixtures: (fixtures: StakeFixture[]) => void;
     setMarketsCache: (updater: (prev: Map<string, StakeMarket[]>) => Map<string, StakeMarket[]>) => void;
@@ -25,10 +27,11 @@ interface ScannerStore {
     setPhase: (p: ScannerPhase) => void;
     setError: (e: string | null) => void;
     setLastSport: (s: string) => void;
+    markSportFetched: (sport: string) => void;
     reset: () => void;
 }
 
-const INITIAL: Pick<ScannerStore, "rawFixtures" | "marketsCache" | "failedFixtures" | "isLoading" | "phase" | "error" | "lastSport"> = {
+const INITIAL: Pick<ScannerStore, "rawFixtures" | "marketsCache" | "failedFixtures" | "isLoading" | "phase" | "error" | "lastSport" | "fetchedSports"> = {
     rawFixtures: [],
     marketsCache: new Map(),
     failedFixtures: [],
@@ -36,6 +39,7 @@ const INITIAL: Pick<ScannerStore, "rawFixtures" | "marketsCache" | "failedFixtur
     phase: "idle",
     error: null,
     lastSport: null,
+    fetchedSports: [],
 };
 
 export const useScannerStore = create<ScannerStore>((set) => ({
@@ -53,5 +57,11 @@ export const useScannerStore = create<ScannerStore>((set) => ({
     setPhase: (phase) => set({ phase }),
     setError: (error) => set({ error }),
     setLastSport: (lastSport) => set({ lastSport }),
+    markSportFetched: (sport) =>
+        set((state) => ({
+            fetchedSports: state.fetchedSports.includes(sport)
+                ? state.fetchedSports
+                : [...state.fetchedSports, sport],
+        })),
     reset: () => set(INITIAL),
 }));
