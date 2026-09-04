@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { PoolFixture } from "@/lib/betarchitect/types";
+import OddsGapBadge from "@/components/scanner/OddsGapBadge";
 
 interface PoolBuilderProps {
   pool: PoolFixture[];
@@ -31,7 +32,7 @@ export default function PoolBuilder({ pool, onRemove, onClear }: PoolBuilderProp
 
       {pool.length === 0 ? (
         <p className="text-[10px] font-mono text-muted-foreground/60 italic py-2">
-          No fixtures in pool. Add from Discovery.
+          No fixtures in pool. Add from Discovery or Value Scanner.
         </p>
       ) : (
         <div className="space-y-1">
@@ -52,6 +53,9 @@ export default function PoolBuilder({ pool, onRemove, onClear }: PoolBuilderProp
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                {fixture.source === "value-scanner" && fixture.gapRatio != null && (
+                  <OddsGapBadge ratio={fixture.gapRatio} />
+                )}
                 <span className="text-[11px] font-mono font-medium text-foreground tabular-nums">
                   {fixture.odds.toFixed(2)}
                 </span>

@@ -28,6 +28,14 @@ export interface PoolFixture extends BetSelection {
   impliedProbability: number;
   /** All available outcomes for this market, used for rich slip display */
   allOutcomes?: Array<{ name: string; odds: number; active: boolean }>;
+  /** Where this pool leg came from — affects display and future rules */
+  source?: "discovery" | "value-scanner";
+  /** Odds gap ratio that flagged this leg in the Value Scanner (scanner-sourced only) */
+  gapRatio?: number;
+  /** Min odds across the flagged market at scan time (scanner-sourced only) */
+  gapMinOdds?: number;
+  /** Max odds across the flagged market at scan time (scanner-sourced only) */
+  gapMaxOdds?: number;
 }
 
 // ─── Generated Slip ───────────────────────────────────────────────────────
