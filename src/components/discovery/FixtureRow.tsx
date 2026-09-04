@@ -100,6 +100,11 @@ function toPoolFixture(fixture: FixtureRowProps["fixture"]): PoolFixture {
   };
 }
 
+/** Check if an outcome has a valid (non-empty) ID suitable for bet placement. */
+function hasValidOutcomeId(outcome: { id: string } | undefined): boolean {
+  return !!outcome?.id && outcome.id.trim() !== "";
+}
+
 function BetTypeColumn({
   fixture,
   info,
@@ -126,7 +131,9 @@ function BetTypeColumn({
             name={`O ${info.line}`}
             active={info.overOutcome.active}
             selected={slipIds.has(info.overOutcome.id)}
-            onClick={() =>
+            suspended={!hasValidOutcomeId(info.overOutcome)}
+            onClick={() => {
+              if (!hasValidOutcomeId(info.overOutcome)) return;
               onAdd(
                 makeSelection(
                   fixture.id,
@@ -140,8 +147,8 @@ function BetTypeColumn({
                   fixture.sport,
                   fixture.stakeUrl,
                 ),
-              )
-            }
+              );
+            }}
           />
         )}
         {info.underOutcome && (
@@ -150,7 +157,9 @@ function BetTypeColumn({
             name={`U ${info.line}`}
             active={info.underOutcome.active}
             selected={slipIds.has(info.underOutcome.id)}
-            onClick={() =>
+            suspended={!hasValidOutcomeId(info.underOutcome)}
+            onClick={() => {
+              if (!hasValidOutcomeId(info.underOutcome)) return;
               onAdd(
                 makeSelection(
                   fixture.id,
@@ -164,8 +173,8 @@ function BetTypeColumn({
                   fixture.sport,
                   fixture.stakeUrl,
                 ),
-              )
-            }
+              );
+            }}
           />
         )}
       </div>
@@ -182,7 +191,9 @@ function BetTypeColumn({
             name={o.name}
             active={o.active}
             selected={slipIds.has(o.id)}
-            onClick={() =>
+            suspended={!hasValidOutcomeId(o)}
+            onClick={() => {
+              if (!hasValidOutcomeId(o)) return;
               onAdd(
                 makeSelection(
                   fixture.id,
@@ -196,8 +207,8 @@ function BetTypeColumn({
                   fixture.sport,
                   fixture.stakeUrl,
                 ),
-              )
-            }
+              );
+            }}
           />
         ))}
       </div>
@@ -211,7 +222,9 @@ function BetTypeColumn({
         name={info.singleOutcome.name}
         active={info.singleOutcome.active}
         selected={slipIds.has(info.singleOutcome.id)}
-        onClick={() =>
+        suspended={!hasValidOutcomeId(info.singleOutcome)}
+        onClick={() => {
+          if (!hasValidOutcomeId(info.singleOutcome)) return;
           onAdd(
             makeSelection(
               fixture.id,
@@ -225,8 +238,8 @@ function BetTypeColumn({
               fixture.sport,
               fixture.stakeUrl,
             ),
-          )
-        }
+          );
+        }}
       />
     );
   }

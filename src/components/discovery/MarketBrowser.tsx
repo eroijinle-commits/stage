@@ -102,6 +102,8 @@ export default function MarketBrowser({ open, onClose, fixture }: MarketBrowserP
     marketName: string,
   ) => {
     if (!fixture || !active) return;
+    // Prevent adding selections with empty outcome IDs (Stake API rejects them)
+    if (!outcomeId || outcomeId.trim() === "") return;
     addSelection({
       id: outcomeId,
       fixtureSlug: fixture.slug,

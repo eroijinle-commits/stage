@@ -138,10 +138,12 @@ function mapFixtureToDiscovery(
   // Use cached markets (from fixture details) or fixture's own markets if available
   const markets = cachedMarkets ?? fixture.markets ?? [];
 
-  // Build previewMarkets from actual API market data
+  // Build previewMarkets from actual API market data — filter out outcomes with empty IDs
   const previewMarkets = markets.slice(0, 6).map((m) => ({
     name: m.name,
-    outcomes: m.outcomes.map((o) => ({ id: o.id, name: o.name, odds: o.odds, active: o.active })),
+    outcomes: m.outcomes
+      .filter((o) => o.id && o.id.trim() !== "")
+      .map((o) => ({ id: o.id, name: o.name, odds: o.odds, active: o.active })),
   }));
 
   // Build a fixture-like object with markets for bet type matching
@@ -253,7 +255,8 @@ function findMatchingOutcomes(
             if (marketLine && marketLine !== line) continue;
           }
 
-          matchingOutcomes.push(...market.outcomes);
+          // Only include outcomes with valid IDs (Stake API rejects empty IDs)
+          matchingOutcomes.push(...market.outcomes.filter((o) => o.id && o.id.trim() !== ""));
         }
       }
     }
@@ -280,7 +283,8 @@ function findMatchingOutcomes(
       if (marketLine && marketLine !== line) continue;
     }
 
-    matchingOutcomes.push(...market.outcomes);
+    // Only include outcomes with valid IDs (Stake API rejects empty IDs)
+    matchingOutcomes.push(...market.outcomes.filter((o) => o.id && o.id.trim() !== ""));
   }
 
   return matchingOutcomes;
@@ -292,7 +296,8 @@ function buildBetTypeInfoFromOutcomes(
   line: string | null,
   outcomes: StakeMarketOutcome[],
 ): BetTypeInfo {
-  const activeOutcomes = outcomes.filter((o) => o.active);
+  // Filter out outcomes with empty/missing IDs — the Stake API rejects these
+  const activeOutcomes = outcomes.filter((o) => o.active && o.id && o.id.trim() !== "");
 
   if (betType.hasLines && line) {
     const overOutcome = activeOutcomes.find((o) => o.name.toLowerCase().includes("over"));
