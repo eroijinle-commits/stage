@@ -55,6 +55,13 @@ interface SlipStore {
   // ── Per-slip mutations (applied to active slip) ───────────────────────
   addSelection: (s: BetSelection) => void;
   addMultipleSelections: (selections: BetSelection[]) => void;
+  /**
+   * Replace ALL selections on a specific slip, filtering out any with
+   * empty/invalid outcome IDs. This is the ONLY safe way for external
+   * features (Compute, BetArchitect) to populate a slip — bypassing
+   * addSelection via setState is prohibited.
+   */
+  setSlipSelections: (slipId: string, selections: BetSelection[]) => void;
   removeSelection: (id: string) => void;
   clearSelections: () => void;
   setMode: (mode: SlipMode) => void;
@@ -133,6 +140,21 @@ function createEmptySlip(name?: string, index = 1): SlipData {
     lastError: null,
     createdAt: Date.now(),
   };
+}
+
+/**
+ * Check whether a selection has a valid, non-empty outcome ID.
+ * The Stake API rejects non-UUID outcome IDs, causing silent bet failures.
+ */
+export function isValidSelection(s: BetSelection): boolean {
+  return !!s?.id && s.id.trim() !== "" && !!s?.outcomeId && s.outcomeId.trim() !== "";
+}
+
+/**
+ * Filter out selections with empty or invalid outcome IDs.
+ */
+export function filterValidSelections(selections: BetSelection[]): BetSelection[] {
+  return selections.filter(isValidSelection);
 }
 
 function cloneSlip(slip: SlipData, index: number): SlipData {
@@ -230,6 +252,22 @@ export const useSlipStore = create<SlipStore>()(
             if (toAdd.length === 0) return slip;
             return { ...slip, selections: [...slip.selections, ...toAdd] };
           }),
+        }));
+      },
+
+      setSlipSelections: (slipId, selections) => {
+        const valid = filterValidSelections(selections);
+        const rejected = selections.length - valid.length;
+        if (rejected > 0) {
+          console.warn(
+            `[useSlipStore] setSlipSelections: rejected ${rejected} selection(s) with empty outcome IDs`,
+            selections.filter((s) => !isValidSelection(s)).map((s) => s.outcomeName),
+          );
+        }
+        set((st) => ({
+          slips: st.slips.map((slip) =>
+            slip.id === slipId ? { ...slip, selections: valid } : slip,
+          ),
         }));
       },
 
@@ -363,10 +401,14 @@ export const useSlipStore = create<SlipStore>()(
           };
           if (!payload.selections || payload.selections.length === 0) return;
 
+          // Filter out selections with empty outcome IDs from shared slips
+          const validSelections = filterValidSelections(payload.selections);
+          if (validSelections.length === 0) return;
+
           const newSlip: SlipData = {
             id: `slip-${Date.now()}-${++_slipIdCounter}`,
             name: "Restored slip",
-            selections: payload.selections,
+            selections: validSelections,
             mode: payload.mode ?? "singles",
             stakePerLeg: payload.stakePerLeg ?? 1000,
             stakeShieldEnabled: false,
@@ -410,11 +452,14 @@ export const useSlipStore = create<SlipStore>()(
       // ── BetArchitect pool ──────────────────────────────────────────────
       betArchitectPool: [],
 
-      addToPool: (fixture) =>
+      addToPool: (fixture) => {
+        // Reject pool fixtures with empty outcome IDs
+        if (!fixture?.outcomeId || fixture.outcomeId.trim() === "") return;
         set((st) => {
           if (st.betArchitectPool.some((f) => f.id === fixture.id)) return {};
           return { betArchitectPool: [...st.betArchitectPool, fixture] };
-        }),
+        });
+      },
 
       removeFromPool: (id) =>
         set((st) => ({

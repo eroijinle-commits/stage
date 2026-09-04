@@ -28,17 +28,19 @@ export function useBetArchitect() {
         ...leg,
         addedAt: Date.now(),
       }));
+      // Filter out legs with empty outcome IDs before adding to the slip.
+      // Use the validated setSlipSelections action — never bypass via setState.
+      useSlipStore.getState().setSlipSelections(id, selections);
       useSlipStore.setState((st) => {
         const sameStrategy = st.slips.filter((s) => s.name.startsWith(label)).length;
         return {
           slips: st.slips.map((s) =>
             s.id === id
               ? {
-                  ...s,
-                  selections,
-                  mode,
-                  name: sameStrategy > 0 ? `${label} ${sameStrategy + 1}` : label,
-                }
+                ...s,
+                mode,
+                name: sameStrategy > 0 ? `${label} ${sameStrategy + 1}` : label,
+              }
               : s,
           ),
           activeSlipId: id,

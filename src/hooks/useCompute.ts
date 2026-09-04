@@ -37,25 +37,27 @@ export function computeSlipToBetSelections(
   slip: ComputeSlip,
   fixture: DiscoveryFixture,
 ): BetSelection[] {
-  return slip.selections.map((sel) => ({
-    id: `${slip.id}-${sel.outcomeId}`,
-    fixtureSlug: fixture.slug,
-    fixtureName: fixture.name,
-    fixtureId: fixture.id,
-    tournamentName: fixture.tournament?.name ?? "",
-    marketId: sel.marketId,
-    marketName: sel.marketName,
-    outcomeId: sel.outcomeId,
-    outcomeName: sel.outcomeName,
-    odds: sel.odds,
-    active: true,
-    startTime: fixture.startTime,
-    addedAt: Date.now(),
-    betType: "compute",
-    betTypeLine: null,
-    sport: fixture.sport,
-    stakeUrl: fixture.stakeUrl,
-  }));
+  return slip.selections
+    .filter((sel) => sel.outcomeId && sel.outcomeId.trim() !== "")
+    .map((sel) => ({
+      id: `${slip.id}-${sel.outcomeId}`,
+      fixtureSlug: fixture.slug,
+      fixtureName: fixture.name,
+      fixtureId: fixture.id,
+      tournamentName: fixture.tournament?.name ?? "",
+      marketId: sel.marketId,
+      marketName: sel.marketName,
+      outcomeId: sel.outcomeId,
+      outcomeName: sel.outcomeName,
+      odds: sel.odds,
+      active: true,
+      startTime: fixture.startTime,
+      addedAt: Date.now(),
+      betType: "compute",
+      betTypeLine: null,
+      sport: fixture.sport,
+      stakeUrl: fixture.stakeUrl,
+    }));
 }
 
 // ─── Hook return type ────────────────────────────────────────────────────────
@@ -231,12 +233,11 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
     (slip: ComputeSlip) => {
       if (!fixture) return;
       const selections = computeSlipToBetSelections(slip, fixture);
+      if (selections.length === 0) return;
       const newId = createSlip(`Slip`);
-      // Populate the newly created slip's selections and switch to it.
-      useSlipStore.setState((st) => ({
-        slips: st.slips.map((s) => (s.id === newId ? { ...s, selections, name: "Slip" } : s)),
-        activeSlipId: newId,
-      }));
+      // Use the validated setSlipSelections action — never bypass via setState.
+      useSlipStore.getState().setSlipSelections(newId, selections);
+      useSlipStore.setState({ activeSlipId: newId });
     },
     [fixture, createSlip],
   );
@@ -249,10 +250,9 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
       let lastId = "";
       for (const slip of selectedSlips) {
         const selections = computeSlipToBetSelections(slip, fixture);
+        if (selections.length === 0) continue;
         const newId = createSlip(`Slip`);
-        useSlipStore.setState((st) => ({
-          slips: st.slips.map((s) => (s.id === newId ? { ...s, selections, name: "Slip" } : s)),
-        }));
+        useSlipStore.getState().setSlipSelections(newId, selections);
         lastId = newId;
       }
       if (lastId) {
@@ -269,12 +269,9 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
     for (let i = 0; i < result.slips.length; i++) {
       const slip = result.slips[i];
       const selections = computeSlipToBetSelections(slip, fixture);
+      if (selections.length === 0) continue;
       const newId = createSlip(`Slip ${i + 1}`);
-      useSlipStore.setState((st) => ({
-        slips: st.slips.map((s) =>
-          s.id === newId ? { ...s, selections, name: `Slip ${i + 1}` } : s,
-        ),
-      }));
+      useSlipStore.getState().setSlipSelections(newId, selections);
       lastId = newId;
     }
     if (lastId) {
