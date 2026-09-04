@@ -69,6 +69,18 @@ export async function executeBetPlacement(
     }));
   }
 
+  // Pre-flight: validate outcome IDs are proper UUIDs (Stake API rejects non-UUIDs)
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const invalidOutcomeIds = selections.filter((s) => !UUID_RE.test(s.outcomeId));
+  if (invalidOutcomeIds.length > 0) {
+    return selections.map((s) => ({
+      selectionId: s.id,
+      success: false,
+      error: `Selection "${s.outcomeName}" has an invalid outcome ID. Clear your slip and re-add selections from the Discovery page.`,
+      placedAt: Date.now(),
+    }));
+  }
+
   const results: BetPlacementResult[] = [];
 
   if (mode === "parlay") {

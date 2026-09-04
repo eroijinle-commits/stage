@@ -63,10 +63,10 @@ export function useBetPlacement(): UseBetPlacementReturn {
               betType: "sports",
             });
             results.push(result);
-          } catch {
+          } catch (err) {
             // For singles, continue placing the rest even if one fails
-            // The error is surfaced per-selection via the error classification
-            const errorType = classifyError(new Error("Bet placement failed"));
+            // Classify the ACTUAL error from the API, not a generic one
+            const errorType = classifyError(err);
             throw new Error(getUserFriendlyMessage(errorType));
           }
 

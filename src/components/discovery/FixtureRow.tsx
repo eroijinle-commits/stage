@@ -243,24 +243,30 @@ function FallbackOdds({
     <div className="flex items-center gap-1.5 flex-wrap">
       {fixture.previewMarkets?.flatMap((market) =>
         market.outcomes.map((outcome) => {
-          const selId = `${fixture.id}-${market.name}-${outcome.name}`;
+          // Use the real API outcome ID (UUID) — never fabricate IDs.
+          // The Stake API rejects non-UUID outcome IDs with "invalidUuid".
+          const outcomeId = outcome.id;
+          const hasValidId = !!outcomeId && outcomeId.trim() !== "";
+
           return (
             <OddsButton
-              key={selId}
+              key={outcomeId || `${fixture.id}-${market.name}-${outcome.name}`}
               odds={outcome.odds}
               name={outcome.name}
-              active={outcome.active}
-              selected={slipIds.has(selId)}
-              onClick={() =>
+              active={outcome.active && hasValidId}
+              selected={slipIds.has(outcomeId)}
+              suspended={!hasValidId}
+              onClick={() => {
+                if (!hasValidId) return;
                 onAdd({
-                  id: selId,
+                  id: outcomeId,
                   fixtureSlug: fixture.slug,
                   fixtureName: fixture.name,
                   fixtureId: fixture.id,
                   tournamentName: fixture.tournament.name,
                   marketId: `${fixture.id}-${market.name}`,
                   marketName: market.name,
-                  outcomeId: selId,
+                  outcomeId,
                   outcomeName: outcome.name,
                   odds: outcome.odds,
                   active: outcome.active,
@@ -270,8 +276,8 @@ function FallbackOdds({
                   betTypeLine: null,
                   sport: fixture.sport,
                   stakeUrl: fixture.stakeUrl,
-                })
-              }
+                });
+              }}
             />
           );
         }),
