@@ -8,9 +8,10 @@ import HistoryPage from "@/pages/HistoryPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import BetArchitectPage from "@/pages/BetArchitectPage";
+import { ValueScannerPageWithErrorBoundary } from "@/pages/ValueScannerPage";
 import SlipPage from "@/components/slip/SlipPage";
 
-type Page = "discovery" | "history" | "analytics" | "settings" | "slip" | "betarchitect";
+type Page = "discovery" | "history" | "analytics" | "settings" | "slip" | "betarchitect" | "valuescanner";
 
 const PAGES: Record<Page, React.ComponentType> = {
   discovery: DiscoveryPage,
@@ -19,6 +20,7 @@ const PAGES: Record<Page, React.ComponentType> = {
   settings: SettingsPage,
   slip: SlipPage,
   betarchitect: BetArchitectPage,
+  valuescanner: ValueScannerPageWithErrorBoundary,
 };
 
 export default function App() {
@@ -56,7 +58,7 @@ export default function App() {
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
       <TopBar activePage={activePage} onNavigate={(p) => setActivePage(p as Page)} />
       <div className="flex flex-1 overflow-hidden">
-        {(activePage === "discovery" || activePage === "betarchitect") && (
+        {(activePage === "discovery" || activePage === "betarchitect" || activePage === "valuescanner") && (
           <SideNav
             activeSport={activeSport}
             onSportChange={handleSportChange}

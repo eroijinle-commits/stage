@@ -12,6 +12,7 @@ interface TopBarProps {
 
 const NAV = [
   { id: "discovery", label: "Discovery" },
+  { id: "valuescanner", label: "Value Scanner" },
   { id: "history", label: "History" },
   { id: "analytics", label: "Analytics" },
   { id: "settings", label: "Settings" },
