@@ -375,6 +375,8 @@ export function useValueScanner(
 
         const results: FlaggedResult[] = [];
 
+        const now = Date.now();
+
         for (const fixture of rawFixtures) {
             // Skip failed fixtures
             if (failedFixtures.some((f) => f.fixtureId === fixture.id)) continue;
@@ -391,6 +393,8 @@ export function useValueScanner(
 
             if (startTime) {
                 const t = new Date(startTime).getTime();
+                // Skip fixtures that have already started (live or past)
+                if (t <= now) continue;
                 if (dateFrom !== null && t < dateFrom) continue;
                 if (dateTo !== null && t > dateTo) continue;
             }
