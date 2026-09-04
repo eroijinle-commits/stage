@@ -44,12 +44,30 @@ export async function executeBetPlacement(
 ): Promise<BetPlacementResult[]> {
   const { selections, mode, stakePerLeg, currency, balance, stakeShieldEnabled } = params;
 
+  console.log("[betPlacement] Starting placement", {
+    mode,
+    selectionCount: selections.length,
+    stakePerLeg,
+    currency,
+    balance,
+    selections: selections.map((s) => ({
+      id: s.id,
+      outcomeId: s.outcomeId,
+      outcomeName: s.outcomeName,
+      odds: s.odds,
+      active: s.active,
+      fixtureName: s.fixtureName,
+      marketName: s.marketName,
+    })),
+  });
+
   // Validate
   const totalStake =
     mode === "parlay" ? stakePerLeg : selections.reduce((acc, s) => acc + stakePerLeg, 0);
 
   const errors = validateSlip(selections, balance, totalStake, mode);
   if (errors.length > 0) {
+    console.error("[betPlacement] Validation failed:", errors);
     return selections.map((s) => ({
       selectionId: s.id,
       success: false,
@@ -61,6 +79,7 @@ export async function executeBetPlacement(
   // Pre-flight: validate outcome IDs are present and non-empty
   const emptyOutcomeIds = selections.filter((s) => !s.outcomeId || s.outcomeId.trim() === "");
   if (emptyOutcomeIds.length > 0) {
+    console.error("[betPlacement] Empty outcome IDs:", emptyOutcomeIds.map((s) => s.outcomeName));
     return selections.map((s) => ({
       selectionId: s.id,
       success: false,
@@ -73,6 +92,10 @@ export async function executeBetPlacement(
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const invalidOutcomeIds = selections.filter((s) => !UUID_RE.test(s.outcomeId));
   if (invalidOutcomeIds.length > 0) {
+    console.error("[betPlacement] Invalid UUID outcome IDs:", invalidOutcomeIds.map((s) => ({
+      name: s.outcomeName,
+      id: s.outcomeId,
+    })));
     return selections.map((s) => ({
       selectionId: s.id,
       success: false,
@@ -81,6 +104,8 @@ export async function executeBetPlacement(
     }));
   }
 
+  console.log("[betPlacement] Pre-flight checks passed, calling API...");
+
   const results: BetPlacementResult[] = [];
 
   if (mode === "parlay") {
@@ -88,6 +113,8 @@ export async function executeBetPlacement(
     const outcomeIds = selections.map((s) => s.outcomeId);
     const amounts = selections.map(() => stakePerLeg / selections.length);
     const odds = selections.map((s) => s.odds);
+
+    console.log("[betPlacement] Placing parlay bet:", { outcomeIds, amounts, currency, odds });
 
     try {
       const apiResult = await placeBetMutation({
@@ -98,6 +125,8 @@ export async function executeBetPlacement(
         betType: "multi",
         stakeShieldEnabled,
       });
+
+      console.log("[betPlacement] Parlay API success:", { id: apiResult.id, status: apiResult.status });
 
       // Persist to DB
       await persistBetToDb(apiResult.id, {
@@ -130,6 +159,7 @@ export async function executeBetPlacement(
         });
       }
     } catch (err) {
+      console.error("[betPlacement] Parlay API error:", err);
       const message = err instanceof StakeApiError
         ? getUserFriendlyMessage(err.type)
         : err instanceof Error ? err.message : "Bet placement failed";
@@ -147,6 +177,12 @@ export async function executeBetPlacement(
     // Singles — place each selection sequentially
     for (let i = 0; i < selections.length; i++) {
       const sel = selections[i];
+      console.log(`[betPlacement] Placing single bet ${i + 1}/${selections.length}:`, {
+        outcomeId: sel.outcomeId,
+        outcomeName: sel.outcomeName,
+        odds: sel.odds,
+        stake: stakePerLeg,
+      });
       try {
         const apiResult = await placeBetMutation({
           outcomeIds: [sel.outcomeId],
@@ -156,6 +192,8 @@ export async function executeBetPlacement(
           betType: "sports",
           // Stake Shield is parlay-only; singles never use it
         });
+
+        console.log(`[betPlacement] Single bet ${i + 1} success:`, { id: apiResult.id, status: apiResult.status });
 
         // Persist to DB
         await persistBetToDb(apiResult.id, {
@@ -188,6 +226,7 @@ export async function executeBetPlacement(
         });
       } catch (err) {
         // Singles: continue placing the rest even if one fails
+        console.error(`[betPlacement] Single bet error for "${sel.outcomeName}":`, err);
         const message = err instanceof StakeApiError
           ? getUserFriendlyMessage(err.type)
           : err instanceof Error ? err.message : "Bet placement failed";

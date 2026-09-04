@@ -124,6 +124,13 @@ export async function executeQuery<T>(options: ExecuteQueryOptions): Promise<T> 
         if (graphql.errors && graphql.errors.length > 0) {
           const firstErr = graphql.errors[0];
 
+          console.error("[stake-api] GraphQL error:", {
+            operation: operationName,
+            message: firstErr.message,
+            path: firstErr.path,
+            extensions: firstErr.extensions,
+          });
+
           // Partial data: some sub-fields (e.g. markets) may be geo-restricted
           // but the rest of the query data is still valid — return it
           // Only return partial data for queries (not mutations — mutations are all-or-nothing)
@@ -156,6 +163,7 @@ export async function executeQuery<T>(options: ExecuteQueryOptions): Promise<T> 
           break;
         }
 
+        console.log("[stake-api] GraphQL success:", { operation: operationName, hasData: !!graphql.data });
         return graphql.data;
       } catch (err) {
         // Network errors — retry

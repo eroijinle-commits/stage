@@ -67,19 +67,25 @@ export async function placeBetMutation(params: PlaceBetParams): Promise<PlaceRes
     }
   `;
 
+  const variables = {
+    outcomeIds,
+    amount: totalAmount,
+    currency: currency.toLowerCase(),
+    betType: "sports",
+    oddsChange: "higher",
+    stakeShieldEnabled: stakeShieldEnabled ?? false,
+  };
+
+  console.log("[mutations] sportBet variables:", variables);
+
   const data = await executeQuery<{ sportBet: PlaceResult }>({
     query,
-    variables: {
-      outcomeIds,
-      amount: totalAmount,
-      currency: currency.toLowerCase(),
-      betType: "sports",
-      oddsChange: "higher",
-      stakeShieldEnabled: stakeShieldEnabled ?? false,
-    },
+    variables,
     operationName: "SportBetSlip",
     operationType: "mutation",
   });
+
+  console.log("[mutations] sportBet response:", data.sportBet);
 
   return data.sportBet;
 }

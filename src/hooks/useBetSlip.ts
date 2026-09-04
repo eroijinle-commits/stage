@@ -72,10 +72,12 @@ export function useBetSlip() {
 
   /** Place bets for the currently active slip. */
   const placeBets = useCallback(async (): Promise<BetPlacementResult[]> => {
+    console.log("[useBetSlip] placeBets called");
     const state = useSlipStore.getState();
     const slip = getActiveSlip(state);
 
     if (!slip || slip.selections.length === 0) {
+      console.warn("[useBetSlip] No slip or empty selections");
       setLastError("No selections in the slip.");
       return [];
     }
@@ -90,9 +92,17 @@ export function useBetSlip() {
     );
 
     if (validationErrors.length > 0) {
+      console.warn("[useBetSlip] Validation errors:", validationErrors);
       setLastError(validationErrors.join("; "));
       return [];
     }
+
+    console.log("[useBetSlip] Starting bet placement...", {
+      mode: slip.mode,
+      selectionCount: slip.selections.length,
+      stakePerLeg: slip.stakePerLeg,
+      balance: balanceAmount,
+    });
 
     setPlacing(true);
     setLastError(null);
@@ -107,6 +117,13 @@ export function useBetSlip() {
         balance: balanceAmount,
         stakeShieldEnabled: slip.mode === "parlay" ? slip.stakeShieldEnabled : false,
       });
+
+      console.log("[useBetSlip] Placement results:", results.map((r) => ({
+        selectionId: r.selectionId,
+        success: r.success,
+        error: r.error,
+        betId: r.betId,
+      })));
 
       setPlaceResults(results);
 
@@ -125,6 +142,7 @@ export function useBetSlip() {
 
       return results;
     } catch (err) {
+      console.error("[useBetSlip] Unexpected error:", err);
       const errType = classifyError(err);
       const message = getUserFriendlyMessage(errType);
       setLastError(message);

@@ -117,53 +117,57 @@ function BetTypeColumn({
     );
   }
 
-  if (info.overOutcome && info.underOutcome) {
+  if (info.overOutcome || info.underOutcome) {
     return (
       <div className="flex items-center gap-1.5">
-        <OddsButton
-          odds={info.overOutcome.odds}
-          name={`O ${info.line}`}
-          active={info.overOutcome.active}
-          selected={slipIds.has(info.overOutcome.id)}
-          onClick={() =>
-            onAdd(
-              makeSelection(
-                fixture.id,
-                fixture.slug,
-                fixture.name,
-                fixture.tournament.name,
-                fixture.startTime,
-                info.betTypeName,
-                info.line,
-                info.overOutcome!,
-                fixture.sport,
-                fixture.stakeUrl,
-              ),
-            )
-          }
-        />
-        <OddsButton
-          odds={info.underOutcome.odds}
-          name={`U ${info.line}`}
-          active={info.underOutcome.active}
-          selected={slipIds.has(info.underOutcome.id)}
-          onClick={() =>
-            onAdd(
-              makeSelection(
-                fixture.id,
-                fixture.slug,
-                fixture.name,
-                fixture.tournament.name,
-                fixture.startTime,
-                info.betTypeName,
-                info.line,
-                info.underOutcome!,
-                fixture.sport,
-                fixture.stakeUrl,
-              ),
-            )
-          }
-        />
+        {info.overOutcome && (
+          <OddsButton
+            odds={info.overOutcome.odds}
+            name={`O ${info.line}`}
+            active={info.overOutcome.active}
+            selected={slipIds.has(info.overOutcome.id)}
+            onClick={() =>
+              onAdd(
+                makeSelection(
+                  fixture.id,
+                  fixture.slug,
+                  fixture.name,
+                  fixture.tournament.name,
+                  fixture.startTime,
+                  info.betTypeName,
+                  info.line,
+                  info.overOutcome!,
+                  fixture.sport,
+                  fixture.stakeUrl,
+                ),
+              )
+            }
+          />
+        )}
+        {info.underOutcome && (
+          <OddsButton
+            odds={info.underOutcome.odds}
+            name={`U ${info.line}`}
+            active={info.underOutcome.active}
+            selected={slipIds.has(info.underOutcome.id)}
+            onClick={() =>
+              onAdd(
+                makeSelection(
+                  fixture.id,
+                  fixture.slug,
+                  fixture.name,
+                  fixture.tournament.name,
+                  fixture.startTime,
+                  info.betTypeName,
+                  info.line,
+                  info.underOutcome!,
+                  fixture.sport,
+                  fixture.stakeUrl,
+                ),
+              )
+            }
+          />
+        )}
       </div>
     );
   }
