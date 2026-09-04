@@ -298,46 +298,34 @@ function buildBetTypeInfoFromOutcomes(
     const overOutcome = activeOutcomes.find((o) => o.name.toLowerCase().includes("over"));
     const underOutcome = activeOutcomes.find((o) => o.name.toLowerCase().includes("under"));
 
-    if (overOutcome && underOutcome) {
+    // Show whichever outcome(s) exist — don't require both to be present.
+    // Some fixtures only have one side of a line market (e.g. Over but no Under).
+    if (overOutcome || underOutcome) {
       return {
         betTypeName: betType.name,
         line,
-        overOutcome: {
-          id: overOutcome.id,
-          name: overOutcome.name,
-          odds: overOutcome.odds,
-          active: overOutcome.active,
-        },
-        underOutcome: {
-          id: underOutcome.id,
-          name: underOutcome.name,
-          odds: underOutcome.odds,
-          active: underOutcome.active,
-        },
+        ...(overOutcome
+          ? { overOutcome: { id: overOutcome.id, name: overOutcome.name, odds: overOutcome.odds, active: overOutcome.active } }
+          : {}),
+        ...(underOutcome
+          ? { underOutcome: { id: underOutcome.id, name: underOutcome.name, odds: underOutcome.odds, active: underOutcome.active } }
+          : {}),
         available: true,
       };
     }
   }
 
   if (!betType.hasLines && activeOutcomes.length > 0) {
-    if (activeOutcomes.length <= 3) {
-      return {
-        betTypeName: betType.name,
-        line,
-        allOutcomes: activeOutcomes.map((o) => ({
-          id: o.id,
-          name: o.name,
-          odds: o.odds,
-          active: o.active,
-        })),
-        available: true,
-      };
-    }
-    const first = activeOutcomes[0];
+    // Show all outcomes (up to a reasonable limit) — never discard valid odds.
     return {
       betTypeName: betType.name,
       line,
-      singleOutcome: { id: first.id, name: first.name, odds: first.odds, active: first.active },
+      allOutcomes: activeOutcomes.slice(0, 6).map((o) => ({
+        id: o.id,
+        name: o.name,
+        odds: o.odds,
+        active: o.active,
+      })),
       available: true,
     };
   }
