@@ -1,17 +1,30 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import { useSlipStore } from "@/store/useSlipStore";
 import TopBar from "@/components/layout/TopBar";
 import SideNav from "@/components/layout/SideNav";
 import BetSlipDrawer from "@/components/layout/BetSlipDrawer";
-import DiscoveryPage from "@/pages/DiscoveryPage";
-import HistoryPage from "@/pages/HistoryPage";
-import AnalyticsPage from "@/pages/AnalyticsPage";
-import SettingsPage from "@/pages/SettingsPage";
-import BetArchitectPage from "@/pages/BetArchitectPage";
-import { ValueScannerPageWithErrorBoundary } from "@/pages/ValueScannerPage";
-import SlipPage from "@/components/slip/SlipPage";
 
-type Page = "discovery" | "history" | "analytics" | "settings" | "slip" | "betarchitect" | "valuescanner";
+// ─── Lazy-loaded page chunks ───
+const DiscoveryPage = lazy(() => import("@/pages/DiscoveryPage"));
+const HistoryPage = lazy(() => import("@/pages/HistoryPage"));
+const AnalyticsPage = lazy(() => import("@/pages/AnalyticsPage"));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const BetArchitectPage = lazy(() => import("@/pages/BetArchitectPage"));
+const ValueScannerPage = lazy(() =>
+  import("@/pages/ValueScannerPage").then((m) => ({
+    default: m.ValueScannerPageWithErrorBoundary,
+  })),
+);
+const SlipPage = lazy(() => import("@/components/slip/SlipPage"));
+
+type Page =
+  | "discovery"
+  | "history"
+  | "analytics"
+  | "settings"
+  | "slip"
+  | "betarchitect"
+  | "valuescanner";
 
 const PAGES: Record<Page, React.ComponentType> = {
   discovery: DiscoveryPage,
@@ -20,13 +33,26 @@ const PAGES: Record<Page, React.ComponentType> = {
   settings: SettingsPage,
   slip: SlipPage,
   betarchitect: BetArchitectPage,
-  valuescanner: ValueScannerPageWithErrorBoundary,
+  valuescanner: ValueScannerPage,
 };
+
+/** Lightweight loading fallback while chunks download */
+function PageSkeleton() {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <div className="animate-pulse text-muted-foreground text-sm font-mono">
+        Loading...
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const [activePage, setActivePage] = useState<Page>("discovery");
   const [activeSport, setActiveSport] = useState("soccer");
-  const [selectedTournamentSlugs, setSelectedTournamentSlugs] = useState<string[]>([]);
+  const [selectedTournamentSlugs, setSelectedTournamentSlugs] = useState<
+    string[]
+  >([]);
   const restoreSlip = useSlipStore((s) => s.restoreSlip);
   const ActivePage = PAGES[activePage];
 
@@ -68,14 +94,16 @@ export default function App() {
           />
         )}
         <main className="flex-1 overflow-hidden">
-          {activePage === "discovery" ? (
-            <DiscoveryPage
-              activeSport={activeSport}
-              selectedTournamentSlugs={selectedTournamentSlugs}
-            />
-          ) : (
-            <ActivePage />
-          )}
+          <Suspense fallback={<PageSkeleton />}>
+            {activePage === "discovery" ? (
+              <DiscoveryPage
+                activeSport={activeSport}
+                selectedTournamentSlugs={selectedTournamentSlugs}
+              />
+            ) : (
+              <ActivePage />
+            )}
+          </Suspense>
         </main>
       </div>
       <BetSlipDrawer />

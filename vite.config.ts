@@ -13,6 +13,21 @@ export default defineConfig({
   build: {
     // Remove crossorigin attribute from asset tags to avoid CORS issues on same-origin deployments
     modulePreload: { polyfill: false },
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/react-dom") || id.includes("node_modules/react/")) {
+            return "vendor-react";
+          }
+          if (id.includes("node_modules/@radix-ui")) {
+            return "vendor-radix";
+          }
+          if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-")) {
+            return "vendor-charts";
+          }
+        },
+      },
+    },
   },
   server: {
     host: "0.0.0.0",
