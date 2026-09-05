@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type {
   KPIOverview,
   ChartDataPoint,
@@ -29,14 +30,64 @@ import {
 } from "@/lib/analytics/aggregator";
 import { exportToCSV, exportToJSON, downloadFile } from "@/lib/analytics/export";
 
+interface AnalyticsData {
+  rawBets: BetRecord[];
+  outcomeMap: Map<string, OutcomeInfo[]>;
+}
+
+async function fetchAnalytics(
+  dateFrom: Date | null,
+  dateTo: Date | null,
+): Promise<AnalyticsData> {
+  const dbBets = await getBets({
+    limit: 1000,
+    dateFrom: dateFrom ? Math.floor(dateFrom.getTime() / 1000) : undefined,
+    dateTo: dateTo ? Math.floor(dateTo.getTime() / 1000) : undefined,
+  });
+
+  const om = new Map<string, OutcomeInfo[]>();
+  await Promise.all(
+    dbBets.map(async (bet) => {
+      const outcomes = await getOutcomesByBetId(bet.id);
+      om.set(
+        bet.id,
+        outcomes.map((o) => ({
+          marketName: o.marketName,
+          fixtureName: o.fixtureName,
+          fixtureSlug: o.fixtureSlug,
+        })),
+      );
+    }),
+  );
+
+  return { rawBets: dbBets, outcomeMap: om };
+}
+
 export function useAnalytics() {
-  const [rawBets, setRawBets] = useState<BetRecord[]>([]);
-  const [outcomeMap, setOutcomeMap] = useState<Map<string, OutcomeInfo[]>>(new Map());
-  const [isLoading, setIsLoading] = useState(true);
   const [dateRange, setDateRange] = useState<{
     from: Date | null;
     to: Date | null;
   }>({ from: null, to: null });
+
+  // Serialize dates for stable query key
+  const dateKey = useMemo(
+    () => ({
+      from: dateRange.from?.getTime() ?? null,
+      to: dateRange.to?.getTime() ?? null,
+    }),
+    [dateRange.from, dateRange.to],
+  );
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["analytics", dateKey],
+    queryFn: () => fetchAnalytics(dateRange.from, dateRange.to),
+    staleTime: 60_000,
+    // Analytics are non-critical — silently handle errors
+    throwOnError: false,
+  });
+
+  const rawBets = data?.rawBets ?? [];
+  const outcomeMap = data?.outcomeMap ?? new Map<string, OutcomeInfo[]>();
 
   // Default 30-day range for chart axes
   const chartFrom = useMemo(() => {
@@ -49,44 +100,6 @@ export function useAnalytics() {
   const chartTo = useMemo(() => {
     return dateRange.to ?? new Date();
   }, [dateRange.to]);
-
-  const fetchAnalytics = useCallback(async () => {
-    try {
-      setIsLoading(true);
-
-      const dbBets = await getBets({
-        limit: 1000,
-        dateFrom: dateRange.from ? Math.floor(dateRange.from.getTime() / 1000) : undefined,
-        dateTo: dateRange.to ? Math.floor(dateRange.to.getTime() / 1000) : undefined,
-      });
-
-      const om = new Map<string, OutcomeInfo[]>();
-      await Promise.all(
-        dbBets.map(async (bet) => {
-          const outcomes = await getOutcomesByBetId(bet.id);
-          om.set(
-            bet.id,
-            outcomes.map((o) => ({
-              marketName: o.marketName,
-              fixtureName: o.fixtureName,
-              fixtureSlug: o.fixtureSlug,
-            })),
-          );
-        }),
-      );
-
-      setRawBets(dbBets);
-      setOutcomeMap(om);
-    } catch {
-      // Analytics are non-critical
-    } finally {
-      setIsLoading(false);
-    }
-  }, [dateRange]);
-
-  useEffect(() => {
-    fetchAnalytics();
-  }, [fetchAnalytics]);
 
   // ─── Derived analytics (memoized) ───
 

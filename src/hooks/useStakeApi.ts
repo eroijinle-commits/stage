@@ -5,9 +5,10 @@
  * @module hooks/useStakeApi
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSettingsStore } from "@/store/useSettingsStore";
-import { testConnection } from "@/lib/stake-api/auth";
+import { testConnection as testStakeConnection } from "@/lib/stake-api/auth";
 import { classifyError, getUserFriendlyMessage } from "@/lib/stake-api/errors";
 import { useUIStore } from "@/store/useUIStore";
 
@@ -22,6 +23,11 @@ interface UseStakeApiReturn {
   testConnection: () => Promise<boolean>;
 }
 
+async function fetchConnection(): Promise<boolean> {
+  const result = await testStakeConnection();
+  return result;
+}
+
 /**
  * Hook that wraps API connection state.
  * Reads the token from the settings store and provides connection-testing logic.
@@ -29,59 +35,67 @@ interface UseStakeApiReturn {
 export function useStakeApi(): UseStakeApiReturn {
   const apiToken = useSettingsStore((s) => s.apiToken);
   const addToast = useUIStore((s) => s.addToast);
-  const [isConnected, setIsConnected] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  // Auto-test connection when token changes
+  const {
+    data: isConnected = false,
+    isLoading,
+    error: queryError,
+    refetch: rawRefetch,
+  } = useQuery({
+    queryKey: ["stakeConnection", apiToken],
+    queryFn: fetchConnection,
+    enabled: !!apiToken,
+    staleTime: 120_000,
+    retry: 1,
+  });
+
+  const error = queryError ? getUserFriendlyMessage(classifyError(queryError)) : null;
+
+  // Toast on error (consistent with useBalance pattern)
   useEffect(() => {
-    if (apiToken) {
-      handleTestConnection();
-    } else {
-      setIsConnected(false);
-      setError(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiToken]);
-
-  const handleTestConnection = useCallback(async (): Promise<boolean> => {
-    if (!apiToken) {
-      setIsConnected(false);
-      setError("No API token configured. Add one in Settings.");
-      return false;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const result = await testConnection();
-      setIsConnected(result);
-      if (!result) {
-        setError("Connection failed. Check your token and try again.");
-      }
-      return result;
-    } catch (err) {
-      setIsConnected(false);
-      const errType = classifyError(err);
+    if (queryError) {
+      const errType = classifyError(queryError);
       const message = getUserFriendlyMessage(errType);
-      setError(message);
       const isTransient = errType === "networkError" || errType === "rateLimited";
       addToast({
         type: "error",
         title: "Connection",
         description: message,
         duration: 5000,
-        ...(isTransient ? { action: { label: "Retry", onClick: () => handleTestConnection() } } : {}),
+        ...(isTransient
+          ? {
+            action: {
+              label: "Retry",
+              onClick: () =>
+                queryClient.refetchQueries({ queryKey: ["stakeConnection"] }),
+            },
+          }
+          : {}),
       });
-      return false;
-    } finally {
-      setIsLoading(false);
     }
-  }, [apiToken]);
+  }, [queryError, addToast, queryClient]);
+
+  const handleTestConnection = async (): Promise<boolean> => {
+    if (!apiToken) {
+      return false;
+    }
+    const result = await rawRefetch();
+    return result.data ?? false;
+  };
+
+  // No token → return error state directly without depending on query
+  if (!apiToken) {
+    return {
+      isConnected: false,
+      isLoading: false,
+      error: "No API token configured. Add one in Settings.",
+      testConnection: handleTestConnection,
+    };
+  }
 
   return {
-    isConnected,
+    isConnected: isConnected ?? false,
     isLoading,
     error,
     testConnection: handleTestConnection,

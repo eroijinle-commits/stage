@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { BetHistoryRow } from "@/lib/contracts/ui.contract";
 import { BetStatus, BetRecord } from "@/lib/contracts/db.contract";
 import { getBets, getBetStats, getBetCount } from "@/lib/db/repositories/bet.repository";
@@ -29,69 +30,113 @@ function betToHistoryRow(
     market,
     stake: bet.amount,
     totalOdds: bet.totalOdds,
-    status: bet.status,
+    status: bet.status as BetStatus,
     return: returnAmount,
     profit,
     currency: bet.currency,
   };
 }
 
+interface BetsResult {
+  rows: BetHistoryRow[];
+  totalCount: number;
+}
+
+const EMPTY_STATS = {
+  totalBets: 0,
+  totalWagered: 0,
+  totalReturned: 0,
+  winRate: 0,
+  avgOdds: 0,
+};
+
+async function fetchBets(
+  page: number,
+  pageSize: number,
+  status?: BetStatus,
+): Promise<BetsResult> {
+  const offset = (page - 1) * pageSize;
+  const [dbBets, count] = await Promise.all([
+    getBets({ limit: pageSize, offset, status }),
+    getBetCount(),
+  ]);
+
+  const rows: BetHistoryRow[] = await Promise.all(
+    dbBets.map(async (bet) => {
+      const outcomes = await getOutcomesByBetId(bet.id);
+      return betToHistoryRow(bet, outcomes);
+    }),
+  );
+
+  return { rows, totalCount: count };
+}
+
+async function fetchStats() {
+  return getBetStats();
+}
+
 export function useBetHistory() {
   const addToast = useUIStore((s) => s.addToast);
-  const [bets, setBets] = useState<BetHistoryRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<{ status: BetStatus | null }>({ status: null });
   const pageSize = 20;
 
-  const [stats, setStats] = useState({
-    totalBets: 0,
-    totalWagered: 0,
-    totalReturned: 0,
-    winRate: 0,
-    avgOdds: 0,
+  const {
+    data: betsData,
+    isLoading: betsLoading,
+    error: betsError,
+    refetch: refetchBets,
+  } = useQuery({
+    queryKey: ["bets", { page, status: filter.status, pageSize }],
+    queryFn: () => fetchBets(page, pageSize, filter.status ?? undefined),
+    staleTime: 30_000,
   });
 
-  const fetchBets = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    error: statsError,
+    refetch: refetchStats,
+  } = useQuery({
+    queryKey: ["betStats"],
+    queryFn: fetchStats,
+    staleTime: 5 * 60_000,
+  });
 
-      const offset = (page - 1) * pageSize;
-      const statusFilter = filter.status ?? undefined;
+  const bets = betsData?.rows ?? [];
+  const totalCount = betsData?.totalCount ?? 0;
+  const isLoading = betsLoading || statsLoading;
+  const error = betsError
+    ? getUserFriendlyMessage(classifyError(betsError))
+    : statsError
+      ? getUserFriendlyMessage(classifyError(statsError))
+      : null;
 
-      const [dbBets, betStats, count] = await Promise.all([
-        getBets({ limit: pageSize, offset, status: statusFilter }),
-        getBetStats(),
-        getBetCount(),
-      ]);
-
-      // Fetch outcomes for each bet to build history rows
-      const rows: BetHistoryRow[] = await Promise.all(
-        dbBets.map(async (bet) => {
-          const outcomes = await getOutcomesByBetId(bet.id);
-          return betToHistoryRow(bet, outcomes);
-        }),
-      );
-
-      setBets(rows);
-      setTotalCount(count);
-      setStats(betStats);
-    } catch (e) {
-      const errType = classifyError(e);
-      const message = getUserFriendlyMessage(errType);
-      setError(message);
+  // Error toasts (consistent with useBalance/useStakeApi pattern)
+  useEffect(() => {
+    if (betsError) {
+      const message = getUserFriendlyMessage(classifyError(betsError));
       addToast({ type: "error", title: "Bet History", description: message, duration: 5000 });
-    } finally {
-      setIsLoading(false);
     }
-  }, [page, filter, pageSize]);
+  }, [betsError, addToast]);
 
   useEffect(() => {
-    fetchBets();
-  }, [fetchBets]);
+    if (statsError) {
+      const message = getUserFriendlyMessage(classifyError(statsError));
+      addToast({ type: "error", title: "Bet Stats", description: message, duration: 5000 });
+    }
+  }, [statsError, addToast]);
+
+  // Filter changes reset page to 1 (mitigation: avoid stale page with new filter)
+  const handleSetFilter = (f: { status: BetStatus | null }) => {
+    setFilter(f);
+    setPage(1);
+  };
+
+  const refetch = () => {
+    refetchBets();
+    refetchStats();
+  };
 
   return {
     bets,
@@ -102,8 +147,8 @@ export function useBetHistory() {
     pageSize,
     setPage,
     filter,
-    setFilter,
-    stats,
-    refetch: fetchBets,
+    setFilter: handleSetFilter,
+    stats: stats ?? EMPTY_STATS,
+    refetch,
   };
 }

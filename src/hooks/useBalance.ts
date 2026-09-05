@@ -4,7 +4,8 @@
  * @module hooks/useBalance
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { getBalance } from "@/lib/stake-api/auth";
 import { classifyError, getUserFriendlyMessage } from "@/lib/stake-api/errors";
@@ -23,7 +24,25 @@ interface UseBalanceReturn {
   /** Error message if fetch failed */
   error: string | null;
   /** Trigger a manual refetch */
-  refetch: () => Promise<void>;
+  refetch: () => void;
+}
+
+async function fetchBalanceData(currency: string): Promise<BalanceData | null> {
+  const response = await getBalance(true, false);
+  const target = currency.toLowerCase();
+  const match = response.balances.find((b) => b.currency.toLowerCase() === target);
+  if (match) {
+    return { currency: match.currency, amount: parseFloat(match.available) || 0 };
+  }
+  // Fallback: pick the currency with the highest balance
+  const sorted = [...response.balances].sort(
+    (a, b) => (parseFloat(b.available) || 0) - (parseFloat(a.available) || 0),
+  );
+  const best = sorted[0];
+  if (best && (parseFloat(best.available) || 0) > 0) {
+    return { currency: best.currency, amount: parseFloat(best.available) || 0 };
+  }
+  return null;
 }
 
 /**
@@ -34,73 +53,49 @@ export function useBalance(): UseBalanceReturn {
   const apiToken = useSettingsStore((s) => s.apiToken);
   const currency = useSettingsStore((s) => s.currency);
   const addToast = useUIStore((s) => s.addToast);
-  const [balance, setBalance] = useState<BalanceData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchBalance = useCallback(async (): Promise<void> => {
-    if (!apiToken) {
-      setBalance(null);
-      setError("No API token configured");
-      return;
-    }
+  const { data: balance, isLoading, error: queryError, refetch: rawRefetch } = useQuery({
+    queryKey: ["balance", apiToken, currency],
+    queryFn: () => fetchBalanceData(currency),
+    enabled: !!apiToken,
+    staleTime: 30_000,
+  });
 
-    setIsLoading(true);
-    setError(null);
+  const error = queryError ? getUserFriendlyMessage(classifyError(queryError)) : null;
 
-    try {
-      const response = await getBalance(true, false);
-      // Normalize for case-insensitive comparison (API returns lowercase)
-      const target = currency.toLowerCase();
-      // Find the balance matching the user's preferred currency
-      const match = response.balances.find((b) => b.currency.toLowerCase() === target);
-      if (match) {
-        setBalance({
-          currency: match.currency,
-          amount: parseFloat(match.available) || 0,
-        });
-      } else {
-        // Fallback: pick the currency with the highest balance
-        const sorted = [...response.balances].sort(
-          (a, b) => (parseFloat(b.available) || 0) - (parseFloat(a.available) || 0),
-        );
-        const best = sorted[0];
-        if (best && (parseFloat(best.available) || 0) > 0) {
-          setBalance({
-            currency: best.currency,
-            amount: parseFloat(best.available) || 0,
-          });
-        } else {
-          setBalance(null);
-        }
-      }
-    } catch (err) {
-      const errType = classifyError(err);
+  // Error toasts via useEffect (React Query v5 pattern — no onError in useQuery)
+  useEffect(() => {
+    if (queryError) {
+      const errType = classifyError(queryError);
       const message = getUserFriendlyMessage(errType);
-      setError(message);
-      setBalance(null);
       const isTransient = errType === "networkError" || errType === "rateLimited";
       addToast({
         type: "error",
         title: "Balance",
         description: message,
         duration: 5000,
-        ...(isTransient ? { action: { label: "Retry", onClick: () => fetchBalance() } } : {}),
+        ...(isTransient ? { action: { label: "Retry", onClick: () => rawRefetch() } } : {}),
       });
-    } finally {
-      setIsLoading(false);
     }
-  }, [apiToken, currency, addToast]);
+  }, [queryError, addToast, rawRefetch]);
 
-  // Auto-fetch when token or currency changes
-  useEffect(() => {
-    fetchBalance();
-  }, [fetchBalance]);
+  // Wrap refetch to return void (matches original interface)
+  const refetch = () => { rawRefetch(); };
+
+  // When no token, return explicit error state (matches original behavior)
+  if (!apiToken) {
+    return {
+      balance: null,
+      isLoading: false,
+      error: "No API token configured",
+      refetch,
+    };
+  }
 
   return {
-    balance,
+    balance: balance ?? null,
     isLoading,
     error,
-    refetch: fetchBalance,
+    refetch,
   };
 }

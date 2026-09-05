@@ -5,7 +5,8 @@
  * @module hooks/useSettings
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { SettingsState } from "@/lib/contracts/state.contract";
 import { getSetting, setSetting } from "@/lib/db/repositories/settings.repository";
@@ -28,50 +29,56 @@ function parseSettingValue<T>(value: string | null, fallback: T): T {
   }
 }
 
+// Module-level guard: ensure DB→Zustand hydration happens exactly once,
+// even if the hook mounts/remounts multiple times.
+let storeHydrated = false;
+
+async function hydrateStoreFromDB() {
+  if (storeHydrated) return true;
+
+  const store = useSettingsStore.getState();
+  const raw: Record<string, unknown> = {};
+
+  for (const key of SETTINGS_KEYS) {
+    const value = await getSetting(key);
+    if (value !== null && value !== "null" && value !== "") {
+      raw[key] = parseSettingValue(value, store[key as keyof typeof store]);
+    }
+  }
+
+  // Apply loaded values to Zustand store.
+  // For apiToken: only overwrite if the DB has a valid value AND
+  // the store doesn't already have one from localStorage persist.
+  // This prevents the DB (which may be empty on fresh install)
+  // from clobbering the locally-persisted token.
+  if (raw.apiToken !== undefined && raw.apiToken && !store.apiToken) {
+    store.setApiToken(raw.apiToken as string);
+  }
+  if (raw.currency !== undefined) store.setCurrency(raw.currency as string);
+  if (raw.oddsFormat !== undefined)
+    store.setOddsFormat(raw.oddsFormat as SettingsState["oddsFormat"]);
+  if (raw.defaultPresetId !== undefined)
+    store.setDefaultPresetId(raw.defaultPresetId as number | null);
+  if (raw.notifications !== undefined)
+    store.setNotifications(raw.notifications as Partial<typeof store.notifications>);
+  if (raw.theme !== undefined) store.setTheme(raw.theme as SettingsState["theme"]);
+
+  storeHydrated = true;
+  return true;
+}
+
 export function useSettings() {
   const store = useSettingsStore();
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Hydrate Zustand store from DB on mount
-  const loadSettings = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const raw: Record<string, unknown> = {};
-
-      for (const key of SETTINGS_KEYS) {
-        const value = await getSetting(key);
-        if (value !== null && value !== "null" && value !== "") {
-          raw[key] = parseSettingValue(value, store[key as keyof typeof store]);
-        }
-      }
-
-      // Apply loaded values to Zustand store.
-      // For apiToken: only overwrite if the DB has a valid value AND
-      // the store doesn't already have one from localStorage persist.
-      // This prevents the DB (which may be empty on fresh install)
-      // from clobbering the locally-persisted token.
-      if (raw.apiToken !== undefined && raw.apiToken && !store.apiToken) {
-        store.setApiToken(raw.apiToken as string);
-      }
-      if (raw.currency !== undefined) store.setCurrency(raw.currency as string);
-      if (raw.oddsFormat !== undefined)
-        store.setOddsFormat(raw.oddsFormat as SettingsState["oddsFormat"]);
-      if (raw.defaultPresetId !== undefined)
-        store.setDefaultPresetId(raw.defaultPresetId as number | null);
-      if (raw.notifications !== undefined)
-        store.setNotifications(raw.notifications as Partial<typeof store.notifications>);
-      if (raw.theme !== undefined) store.setTheme(raw.theme as SettingsState["theme"]);
-    } catch {
-      // On error, keep Zustand defaults (from localStorage persist)
-    } finally {
-      setIsLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    loadSettings();
-  }, [loadSettings]);
+  // One-time hydration: staleTime: Infinity means React Query caches forever
+  // and never refetches. The module-level flag is a safety net.
+  const { isLoading } = useQuery({
+    queryKey: ["settings"],
+    queryFn: hydrateStoreFromDB,
+    staleTime: Infinity,
+    retry: false,
+    throwOnError: false,
+  });
 
   const updateSettings = useCallback(
     async (partial: Partial<SettingsState>) => {
