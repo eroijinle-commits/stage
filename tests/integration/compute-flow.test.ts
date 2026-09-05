@@ -12,6 +12,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useCompute, computeSlipToBetSelections } from "@/hooks/useCompute";
+import { getUserFriendlyMessage } from "@/lib/stake-api/errors";
 import { useSlipStore } from "@/store/useSlipStore";
 import { generateAllPermutations } from "@/lib/compute/cartesian";
 import type { DiscoveryFixture, BetSelection } from "@/lib/contracts/ui.contract";
@@ -349,7 +350,8 @@ describe("Compute Flow Integration — Edge Cases", () => {
       await result.current.runCompute();
     });
 
-    expect(result.current.error).toBe("Network timeout");
+    // Network errors are classified and mapped to a user-friendly message
+    expect(result.current.error).toBe(getUserFriendlyMessage("networkError"));
     expect(result.current.result).toBeNull();
     expect(result.current.isLoading).toBe(false);
   });

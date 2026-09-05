@@ -356,6 +356,17 @@ export const mockBetHistoryResponse = {
 
 // ─── Helper: Create BetSelection ────────────────────────────────────────────
 
+/**
+ * Deterministic, UUID-shaped outcome IDs.
+ * betPlacement.ts's pre-flight rejects non-UUID outcome IDs, so fixtures must
+ * use real-looking UUIDs. These IDs are stable across runs (no randomness) so
+ * tests can assert against them; the validation only checks the hex shape.
+ */
+function mockOutcomeUuid(n: number): string {
+  const group = (len: number) => n.toString().padStart(len, "0");
+  return `${group(8)}-${group(4)}-4${group(3)}-8${group(3)}-${group(12)}`;
+}
+
 export function createMockSelection(overrides: Partial<BetSelection> = {}): BetSelection {
   return {
     id: `sel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -365,7 +376,7 @@ export function createMockSelection(overrides: Partial<BetSelection> = {}): BetS
     tournamentName: "Premier League",
     marketId: "m1",
     marketName: "Match Winner",
-    outcomeId: "o1",
+    outcomeId: "11111111-1111-4111-8111-111111111111",
     outcomeName: "Arsenal",
     odds: 1.85,
     active: true,
@@ -381,7 +392,7 @@ export function createMockSelections(count: number): BetSelection[] {
   return Array.from({ length: count }, (_, i) =>
     createMockSelection({
       id: `sel-${i + 1}`,
-      outcomeId: `o${i + 1}`,
+      outcomeId: mockOutcomeUuid(i + 1),
       outcomeName: `Selection ${i + 1}`,
       odds: 1.5 + i * 0.5,
     }),

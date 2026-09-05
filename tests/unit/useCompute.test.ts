@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useCompute, computeSlipToBetSelections } from "@/hooks/useCompute";
+import { getUserFriendlyMessage } from "@/lib/stake-api/errors";
 import { useSlipStore } from "@/store/useSlipStore";
 import type { DiscoveryFixture, BetSelection } from "@/lib/contracts/ui.contract";
 import type { ComputeSlip, ComputeSelection } from "@/lib/compute/types";
@@ -336,7 +337,8 @@ describe("useCompute", () => {
         await result.current.runCompute();
       });
 
-      expect(result.current.error).toBe("Network timeout");
+      // Network errors are classified and mapped to a user-friendly message
+      expect(result.current.error).toBe(getUserFriendlyMessage("networkError"));
       expect(result.current.isLoading).toBe(false);
       expect(result.current.result).toBeNull();
     });
@@ -347,13 +349,13 @@ describe("useCompute", () => {
       const fixture = makeFixture();
       const { result } = renderHook(() => useCompute(fixture));
 
-      await waitFor(() => expect(result.current.error).toBe("Failed to load fixture data"));
+      await waitFor(() => expect(result.current.error).toBe(getUserFriendlyMessage("unknown")));
 
       await act(async () => {
         await result.current.runCompute();
       });
 
-      expect(result.current.error).toBe("Failed to fetch fixture details");
+      expect(result.current.error).toBe(getUserFriendlyMessage("unknown"));
     });
 
     it("generates correct permutation count for multi-group data", async () => {

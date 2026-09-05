@@ -27,6 +27,21 @@ import { useUIStore } from "@/store/useUIStore";
 
 const DEFAULT_CONFIG: ComputeConfig = { maxOutcomes: 2, slipCount: 16 };
 
+/**
+ * Build a user-facing error message:
+ * - Known API/network/Stake error types → user-friendly message (classifyError audit).
+ * - Unclassified plain Errors (e.g. domain errors thrown by the compute pipeline
+ *   like "Not enough qualifying markets") → pass through the original message,
+ *   which carries actionable detail that the generic fallback would hide.
+ * - Non-Error thrown values and empty messages → generic fallback.
+ */
+function getErrorMessage(err: unknown): string {
+  const errType = classifyError(err);
+  if (errType !== "unknown") return getUserFriendlyMessage(errType);
+  if (err instanceof Error && err.message.trim() !== "") return err.message;
+  return getUserFriendlyMessage("unknown");
+}
+
 // ─── Conversion: ComputeSlip → BetSelection[] ────────────────────────────────
 
 /**
@@ -148,8 +163,7 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
         setError(null);
       } catch (err) {
         if (cancelled) return;
-        const errType = classifyError(err);
-        const message = getUserFriendlyMessage(errType);
+        const message = getErrorMessage(err);
         setError(message);
         addToast({ type: "error", title: "Fixture Data", description: message, duration: 5000 });
       }
@@ -211,8 +225,7 @@ export function useCompute(fixture: DiscoveryFixture | null): UseComputeReturn {
 
       setResult(computeResult);
     } catch (err) {
-      const errType = classifyError(err);
-      const message = getUserFriendlyMessage(errType);
+      const message = getErrorMessage(err);
       setError(message);
       addToast({ type: "error", title: "Compute", description: message, duration: 5000 });
     } finally {
