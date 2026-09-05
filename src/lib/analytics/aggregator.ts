@@ -30,7 +30,7 @@ export interface OutcomeInfo {
 // ─── Helpers ───
 
 function isSettled(bet: BetRecord): boolean {
-  return bet.status !== "pending" && bet.status !== "cancelled";
+  return bet.status !== "pending";
 }
 
 function betProfit(bet: BetRecord): number {

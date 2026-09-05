@@ -1,8 +1,9 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useBetHistory } from "@/hooks/useBetHistory";
 import { DataTable, Badge, Select } from "@/components/ui";
 import { DataTableColumn, BetHistoryRow } from "@/lib/contracts/ui.contract";
 import { BetStatus } from "@/lib/contracts/db.contract";
+import SlipDetailModal from "@/components/SlipDetailModal";
 
 const STATUS_VARIANT: Record<BetStatus, "success" | "error" | "warning" | "neutral" | "info"> = {
   won: "success",
@@ -11,6 +12,7 @@ const STATUS_VARIANT: Record<BetStatus, "success" | "error" | "warning" | "neutr
   cancelled: "neutral",
   cashout: "info",
   settled: "neutral",
+  voided: "warning",
 };
 
 const STATUS_OPTIONS = [
@@ -19,9 +21,11 @@ const STATUS_OPTIONS = [
   { value: "lost", label: "Lost" },
   { value: "pending", label: "Pending" },
   { value: "cancelled", label: "Cancelled" },
+  { value: "voided", label: "Voided" },
 ];
 
 export default function HistoryPage() {
+  const [selectedBetId, setSelectedBetId] = useState<string | null>(null);
   const {
     bets: history,
     isLoading,
@@ -40,8 +44,8 @@ export default function HistoryPage() {
   const filtered = useMemo(() => {
     let rows = filter.status ? history.filter((r) => r.status === filter.status) : history;
     rows = [...rows].sort((a, b) => {
-      const av = a[sortColumn as keyof BetHistoryRow];
-      const bv = b[sortColumn as keyof BetHistoryRow];
+      const av = a[sortColumn as keyof BetHistoryRow] ?? null;
+      const bv = b[sortColumn as keyof BetHistoryRow] ?? null;
       const cmp = av === null ? -1 : bv === null ? 1 : av < bv ? -1 : av > bv ? 1 : 0;
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -193,9 +197,11 @@ export default function HistoryPage() {
           sortColumn={sortColumn}
           sortDirection={sortDir}
           onSort={handleSort}
+          onRowClick={(row) => setSelectedBetId(row.id)}
           pagination={{ page, pageSize, total: totalCount, onPageChange: setPage }}
         />
       </div>
+      <SlipDetailModal betId={selectedBetId} onClose={() => setSelectedBetId(null)} />
     </div>
   );
 }

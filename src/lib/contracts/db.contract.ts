@@ -1,4 +1,4 @@
-export type BetStatus = "pending" | "won" | "lost" | "cancelled" | "cashout" | "settled";
+export type BetStatus = "pending" | "won" | "lost" | "cancelled" | "cashout" | "settled" | "voided";
 export type BetType = "single" | "parlay";
 export type SlipMode = "singles" | "parlay";
 export type OddsFormat = "decimal" | "fractional" | "american";

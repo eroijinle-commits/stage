@@ -3,6 +3,7 @@ import { useSlipStore } from "@/store/useSlipStore";
 import TopBar from "@/components/layout/TopBar";
 import SideNav from "@/components/layout/SideNav";
 import BetSlipDrawer from "@/components/layout/BetSlipDrawer";
+import { useSettlementSync } from "@/hooks/useSettlementSync";
 
 // ─── Lazy-loaded page chunks ───
 const DiscoveryPage = lazy(() => import("@/pages/DiscoveryPage"));
@@ -48,6 +49,7 @@ function PageSkeleton() {
 }
 
 export default function App() {
+  useSettlementSync();
   const [activePage, setActivePage] = useState<Page>("discovery");
   const [activeSport, setActiveSport] = useState("soccer");
   const [selectedTournamentSlugs, setSelectedTournamentSlugs] = useState<

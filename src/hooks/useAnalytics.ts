@@ -82,6 +82,7 @@ export function useAnalytics() {
     queryKey: ["analytics", dateKey],
     queryFn: () => fetchAnalytics(dateRange.from, dateRange.to),
     staleTime: 60_000,
+    refetchInterval: 120_000, // Re-check every 2 min for settled bets
     // Analytics are non-critical — silently handle errors
     throwOnError: false,
   });

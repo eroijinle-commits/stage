@@ -9,7 +9,14 @@ import { useUIStore } from "@/store/useUIStore";
 
 function betToHistoryRow(
   bet: BetRecord,
-  outcomes: Array<{ marketName: string; fixtureName: string }>,
+  outcomes: Array<{
+    marketName: string;
+    fixtureName: string;
+    name: string;
+    odds: number;
+    status: string;
+    result: string | null;
+  }>,
 ): BetHistoryRow {
   const matches =
     outcomes.length > 0 ? [...new Set(outcomes.map((o) => o.fixtureName))] : ["Unknown fixture"];
@@ -34,6 +41,14 @@ function betToHistoryRow(
     return: returnAmount,
     profit,
     currency: bet.currency,
+    outcomes: outcomes.map((o) => ({
+      name: o.name,
+      marketName: o.marketName,
+      fixtureName: o.fixtureName,
+      odds: o.odds,
+      status: o.status as BetStatus,
+      result: o.result,
+    })),
   };
 }
 

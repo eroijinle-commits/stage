@@ -214,6 +214,14 @@ export interface BetHistoryRow {
   return: number | null;
   profit: number | null;
   currency: string;
+  outcomes?: Array<{
+    name: string;
+    marketName: string;
+    fixtureName: string;
+    odds: number;
+    status: BetStatus;
+    result: string | null;
+  }>;
 }
 
 export interface StatCardProps {
